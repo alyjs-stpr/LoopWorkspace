@@ -1,0 +1,87 @@
+diff --git a/Loop/Extensions/ChartColorPalette+Loop.swift b/Loop/Extensions/ChartColorPalette+Loop.swift
+--- a/Loop/Extensions/ChartColorPalette+Loop.swift
++++ b/Loop/Extensions/ChartColorPalette+Loop.swift
+@@ -1,17 +1,38 @@
+-//
+-//  ChartColorPalette+Loop.swift
+-//  Loop
+-//
+-//  Created by Bharat Mediratta on 4/1/17.
+-//  Copyright © 2017 LoopKit Authors. All rights reserved.
+-//
+-
+-import LoopUI
+-import LoopKitUI
+-
+-
+-extension ChartColorPalette {
+-    static var primary: ChartColorPalette {
+-        return ChartColorPalette(axisLine: .axisLineColor, axisLabel: .axisLabelColor, grid: .gridColor, glucoseTint: .glucoseTintColor, insulinTint: .insulinTintColor, carbTint: .carbTintColor)
+-    }
+-}
++//
++//  ChartColorPalette+Loop.swift
++//  Loop
++//
++//  Created by Bharat Mediratta on 4/1/17.
++//  Copyright © 2017 LoopKit Authors. All rights reserved.
++//
++
++import LoopUI
++import LoopKitUI
++import UIKit
++
++// LoKey T1D chart-only palette. These colors do not change Loop's dosing
++// logic, warnings, safety indicators, or non-chart interface elements.
++extension ChartColorPalette {
++    static var primary: ChartColorPalette {
++        return ChartColorPalette(
++            axisLine: .axisLineColor,
++            axisLabel: .axisLabelColor,
++            grid: .gridColor,
++            glucoseTint: UIColor { traits in
++                traits.userInterfaceStyle == .dark
++                    ? UIColor(red: 0.2902, green: 0.8706, blue: 0.5020, alpha: 1)
++                    : UIColor(red: 0.0863, green: 0.5373, blue: 0.2902, alpha: 1)
++            },
++            insulinTint: UIColor { traits in
++                traits.userInterfaceStyle == .dark
++                    ? UIColor(red: 0.7686, green: 0.7098, blue: 0.9922, alpha: 1)
++                    : UIColor(red: 0.5451, green: 0.3608, blue: 0.9647, alpha: 1)
++            },
++            carbTint: UIColor { traits in
++                traits.userInterfaceStyle == .dark
++                    ? UIColor(red: 0.9922, green: 0.7294, blue: 0.4549, alpha: 1)
++                    : UIColor(red: 0.8510, green: 0.4667, blue: 0.0235, alpha: 1)
++            }
++        )
++    }
++}
+diff --git a/Loop Status Extension/StatusViewController.swift b/Loop Status Extension/StatusViewController.swift
+--- a/Loop Status Extension/StatusViewController.swift
++++ b/Loop Status Extension/StatusViewController.swift
+@@ -42,9 +42,21 @@
+                 axisLine: .axisLineColor,
+                 axisLabel: .axisLabelColor,
+                 grid: .gridColor,
+-                glucoseTint: .glucoseTintColor,
+-                insulinTint: .insulinTintColor,
+-                carbTint: .carbTintColor
++                glucoseTint: UIColor { traits in
++                    traits.userInterfaceStyle == .dark
++                        ? UIColor(red: 0.2902, green: 0.8706, blue: 0.5020, alpha: 1)
++                        : UIColor(red: 0.0863, green: 0.5373, blue: 0.2902, alpha: 1)
++                },
++                insulinTint: UIColor { traits in
++                    traits.userInterfaceStyle == .dark
++                        ? UIColor(red: 0.7686, green: 0.7098, blue: 0.9922, alpha: 1)
++                        : UIColor(red: 0.5451, green: 0.3608, blue: 0.9647, alpha: 1)
++                },
++                carbTint: UIColor { traits in
++                    traits.userInterfaceStyle == .dark
++                        ? UIColor(red: 0.9922, green: 0.7294, blue: 0.4549, alpha: 1)
++                        : UIColor(red: 0.8510, green: 0.4667, blue: 0.0235, alpha: 1)
++                }
+             ),
+             settings: {
+                 var settings = ChartSettings()
