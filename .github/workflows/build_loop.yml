@@ -194,7 +194,7 @@ jobs:
           # Check before applying so upstream changes cannot silently skip the palette.
           git -C Loop apply --check ../customizations/LoKeyChartColors.patch
           git -C Loop apply ../customizations/LoKeyChartColors.patch
-          echo "LoKey T1D chart palette applied (insulin lavender, carbs orange, glucose green)."
+          echo "LoKey T1D chart palette applied (glucose purple with lavender target band, insulin vivid green, carbs orange)."
 
           # LoKey T1D extra food emojis: presentation-only modification in LoopKitUI.
           # Keep the Fast, Medium, and Slow absorption shortcuts unchanged.
