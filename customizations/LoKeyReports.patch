@@ -273,8 +273,8 @@ diff --git a/Loop/View Models/SettingsViewModel.swift b/Loop/View Models/Setting
 +
 +    // Read-only data sources for LoKey T1D reporting.
 +    // No insulin/pump control API is exposed to the reporting screen.
-+    var loKeyLoadGlucose: ((Date, Date, @escaping (Result<[StoredGlucoseSample], Error>) -> Void) -> Void)?
-+    var loKeyLoadSettingsHistory: ((Date, Date, @escaping (Result<[StoredSettings], Error>) -> Void) -> Void)?
++    var loKeyLoadGlucose: ((Date, Date, @escaping (Swift.Result<[StoredGlucoseSample], Error>) -> Void) -> Void)?
++    var loKeyLoadSettingsHistory: ((Date, Date, @escaping (Swift.Result<[StoredSettings], Error>) -> Void) -> Void)?
 +    let sensitivityOverridesEnabled: Bool
 +    let isOnboardingComplete: Bool
 +    let therapySettingsViewModelDelegate: TherapySettingsViewModelDelegate?
