@@ -2,7 +2,7 @@ diff --git a/NightscoutServiceKit/NightscoutService.swift b/NightscoutServiceKit
 index 4626630..c91077f 100644
 --- a/NightscoutServiceKit/NightscoutService.swift
 +++ b/NightscoutServiceKit/NightscoutService.swift
-@@ -109,7 +109,26 @@ public final class NightscoutService: Service {
+@@ -109,7 +109,18 @@ public final class NightscoutService: Service {
          }
  
          let uploader = NightscoutClient(siteURL: siteURL, apiSecret: apiSecret)
@@ -22,7 +22,7 @@ index 4626630..c91077f 100644
      }
  
      public func completeCreate() {
-@@ -543,3 +562,15 @@ extension KeychainManager {
+@@ -543,3 +554,15 @@ extension KeychainManager {
  }
  
  fileprivate let NightscoutAPIAccount = "NightscoutAPI"
