@@ -235,6 +235,17 @@ jobs:
           # Several patches may be added per submodule.
           # Adding comments (#) may be useful to easily tell the individual patches apart.
 
+      - name: Apply LoKey T1D custom icons
+        run: |
+          if [ -f "LoKey_T1D_Updated_Icon_Assets.zip" ]; then
+            unzip -o -q "LoKey_T1D_Updated_Icon_Assets.zip" \
+              "OverrideAssetsLoop.xcassets/AppIcon.appiconset/*" \
+              "OverrideAssetsWatchApp.xcassets/AppIcon.appiconset/*"
+            echo "LoKey T1D icon assets applied."
+          else
+            echo "::notice::LoKey T1D icon pack not uploaded yet; keeping existing icons."
+          fi
+
       # Patch Fastlane Match to not print tables
       - name: Patch Match Tables
         run: |
