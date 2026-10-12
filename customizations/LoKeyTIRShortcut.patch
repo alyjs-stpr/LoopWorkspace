@@ -8,7 +8,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 -    private lazy var settingsItem = makeToolbarItem(title: NSLocalizedString("Settings", comment: "The label of the settings button"), image: UIImage(named: "settings"), tintColor: .secondaryLabel, action: #selector(onSettingsTapped))
 +    private lazy var settingsItem = makeToolbarItem(title: NSLocalizedString("Settings", comment: "The label of the settings button"), image: UIImage(named: "settings"), tintColor: .secondaryLabel, action: #selector(onSettingsTapped))
 +    // LoKey T1D: read-only report shortcut, no therapy actions.
-+    private lazy var reportsItem = makeToolbarItem(title: NSLocalizedString("TIR Report", comment: "Shortcut to the Time in Loop Target report"), image: UIImage(systemName: "chart.pie.fill"), tintColor: UIColor(red: 0.5020, green: 0.1725, blue: 0.9255, alpha: 1), action: #selector(onReportsTapped))
++    private lazy var reportsItem = makeToolbarItem(title: NSLocalizedString("TIR Report", comment: "Shortcut to the Time in Loop Target report"), image: UIImage(systemName: "chart.pie"), tintColor: UIColor(red: 0.5020, green: 0.1725, blue: 0.9255, alpha: 1), action: #selector(onReportsTapped))
      private lazy var preMealItem = makeToolbarItem(title: NSLocalizedString("Pre-Meal Targets", comment: "The label of the pre-meal mode toggle button"), image: UIImage.preMealImage(selected: false), tintColor: .carbTintColor, action: #selector(premealButtonTapped(_:)))
      private lazy var workoutItem = makeToolbarItem(title: NSLocalizedString("Workout Targets", comment: "The label of the workout mode toggle button"), image: UIImage.workoutImage(selected: false), tintColor: .glucoseTintColor, action: #selector(toggleWorkoutMode(_:)))
  
