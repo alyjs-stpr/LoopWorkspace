@@ -224,6 +224,12 @@ jobs:
           git -C Loop apply ../customizations/LoKeyChartColors.patch
           echo "LoKey T1D chart palette applied (insulin lavender, carbs orange, glucose green)."
 
+          # LoKey T1D extra food emojis: presentation-only modification in LoopKitUI.
+          # Keep the Fast, Medium, and Slow absorption shortcuts unchanged.
+          git -C LoopKit apply --check ../customizations/LoKeyFoodEmojis.patch
+          git -C LoopKit apply ../customizations/LoKeyFoodEmojis.patch
+          echo "LoKey T1D More Foods picker applied (18 new icons)."
+
           # Submodule Loop patches:
           # Template for customizing submodule Loop (changes Loop app name to "CustomLoop")
           # Remove the "#" sign from the beginning of the line below to activate:
