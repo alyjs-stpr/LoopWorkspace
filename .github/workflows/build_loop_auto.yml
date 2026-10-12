@@ -235,6 +235,12 @@ jobs:
           git -C Loop apply ../customizations/LoKeyReports.patch
           echo "LoKey T1D Reports & Time in Loop Target applied."
 
+          # LoKey T1D quick access to read-only TIR report from the bottom toolbar.
+          # Apply AFTER LoKeyReports.patch because this modifies the report screen's host.
+          git -C Loop apply --check ../customizations/LoKeyTIRShortcut.patch
+          git -C Loop apply ../customizations/LoKeyTIRShortcut.patch
+          echo "LoKey T1D bottom toolbar TIR shortcut applied."
+
           # Submodule Loop patches:
           # Template for customizing submodule Loop (changes Loop app name to "CustomLoop")
           # Remove the "#" sign from the beginning of the line below to activate:
