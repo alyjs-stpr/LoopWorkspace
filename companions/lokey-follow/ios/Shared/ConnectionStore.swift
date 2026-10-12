@@ -13,7 +13,7 @@ enum ConnectionStore {
     static func read() -> Connection? {
         var q=query; q[kSecReturnData as String]=true; q[kSecMatchLimit as String]=kSecMatchLimitOne
         var result: CFTypeRef?
-        guard SecItemCopyMatching(q,&result)==errSecSuccess, let data=result as? Data else { return nil }
+        guard SecItemCopyMatching(q as CFDictionary,&result)==errSecSuccess, let data=result as? Data else { return nil }
         return try? JSONDecoder().decode(Connection.self,from:data)
     }
     static func save(_ c: Connection) throws {
@@ -43,7 +43,7 @@ enum NightscoutClient {
         let now=Date()
         let session=URLSession(configuration:.ephemeral,delegate:NoRedirectDelegate(),delegateQueue:nil)
         defer { session.finishTasksAndInvalidate() }
-        func get(_ path: String, _ items: [URLQueryItem]) async throws -> Data {
+        @Sendable func get(_ path: String, _ items: [URLQueryItem]) async throws -> Data {
             var components=URLComponents(url:c.url,resolvingAgainstBaseURL:false)!
             components.path += path; components.queryItems=items
             var request=URLRequest(url:components.url!,timeoutInterval:15)
