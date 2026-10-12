@@ -41,13 +41,13 @@ diff --git a/Loop/Extensions/ChartColorPalette+Loop.swift b/Loop/Extensions/Char
 +            grid: .gridColor,
 +            glucoseTint: UIColor { traits in
 +                traits.userInterfaceStyle == .dark
-+                    ? UIColor(red: 0.2902, green: 0.8706, blue: 0.5020, alpha: 1)
-+                    : UIColor(red: 0.0863, green: 0.5373, blue: 0.2902, alpha: 1)
++                    ? UIColor(red: 0.7490, green: 0.5961, blue: 1.0000, alpha: 1)
++                    : UIColor(red: 0.5020, green: 0.1725, blue: 0.9255, alpha: 1)
 +            },
 +            insulinTint: UIColor { traits in
 +                traits.userInterfaceStyle == .dark
-+                    ? UIColor(red: 0.7686, green: 0.7098, blue: 0.9922, alpha: 1)
-+                    : UIColor(red: 0.5451, green: 0.3608, blue: 0.9647, alpha: 1)
++                    ? UIColor(red: 0.3451, green: 1.0000, blue: 0.2471, alpha: 1)
++                    : UIColor(red: 0.0863, green: 0.8431, blue: 0.0000, alpha: 1)
 +            },
 +            carbTint: UIColor { traits in
 +                traits.userInterfaceStyle == .dark
@@ -69,13 +69,13 @@ diff --git a/Loop Status Extension/StatusViewController.swift b/Loop Status Exte
 -                carbTint: .carbTintColor
 +                glucoseTint: UIColor { traits in
 +                    traits.userInterfaceStyle == .dark
-+                        ? UIColor(red: 0.2902, green: 0.8706, blue: 0.5020, alpha: 1)
-+                        : UIColor(red: 0.0863, green: 0.5373, blue: 0.2902, alpha: 1)
++                        ? UIColor(red: 0.7490, green: 0.5961, blue: 1.0000, alpha: 1)
++                        : UIColor(red: 0.5020, green: 0.1725, blue: 0.9255, alpha: 1)
 +                },
 +                insulinTint: UIColor { traits in
 +                    traits.userInterfaceStyle == .dark
-+                        ? UIColor(red: 0.7686, green: 0.7098, blue: 0.9922, alpha: 1)
-+                        : UIColor(red: 0.5451, green: 0.3608, blue: 0.9647, alpha: 1)
++                        ? UIColor(red: 0.3451, green: 1.0000, blue: 0.2471, alpha: 1)
++                        : UIColor(red: 0.0863, green: 0.8431, blue: 0.0000, alpha: 1)
 +                },
 +                carbTint: UIColor { traits in
 +                    traits.userInterfaceStyle == .dark
