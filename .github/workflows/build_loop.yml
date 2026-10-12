@@ -213,6 +213,12 @@ jobs:
           git -C Loop apply ../customizations/LoKeyTIRShortcut.patch
           echo "LoKey T1D bottom toolbar TIR shortcut applied."
 
+          # T1Pal returns a server error for Nightscout's legacy auth-test endpoint.
+          # Apply a bounded authenticated-read fallback only for t1pal.com sites.
+          git -C NightscoutService apply --check ../customizations/LoKeyT1PalNightscout.patch
+          git -C NightscoutService apply ../customizations/LoKeyT1PalNightscout.patch
+          echo "LoKey T1D T1Pal Nightscout login compatibility applied."
+
           # Submodule Loop patches:
           # Template for customizing submodule Loop (changes Loop app name to "CustomLoop")
           # Remove the "#" sign from the beginning of the line below to activate:
