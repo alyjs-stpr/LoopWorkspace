@@ -202,6 +202,11 @@ jobs:
           git -C LoopKit apply ../customizations/LoKeyFoodEmojis.patch
           echo "LoKey T1D More Foods picker applied (18 new icons)."
 
+          # LoKey T1D reporting: read-only settings PDF and historical Loop-target TIR.
+          git -C Loop apply --check ../customizations/LoKeyReports.patch
+          git -C Loop apply ../customizations/LoKeyReports.patch
+          echo "LoKey T1D Reports & Time in Loop Target applied."
+
           # Submodule Loop patches:
           # Template for customizing submodule Loop (changes Loop app name to "CustomLoop")
           # Remove the "#" sign from the beginning of the line below to activate:
