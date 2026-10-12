@@ -1,0 +1,32 @@
+services:
+  mongo:
+    image: mongo:6.0.27
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: nightscout
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:?Set a unique database password}
+    volumes:
+      - nightscout-data:/data/db
+  nightscout:
+    image: nightscout/cgm-remote-monitor:15.0.8
+    restart: unless-stopped
+    depends_on:
+      - mongo
+    ports:
+      - "127.0.0.1:1337:1337"
+    environment:
+      MONGO_CONNECTION: mongodb://nightscout:${MONGO_PASSWORD:?Set a unique database password}@mongo:27017/nightscout?authSource=admin
+      API_SECRET: ${API_SECRET:?Set a strong unique API secret}
+      NODE_ENV: production
+      NIGHTSCOUT_HOSTNAME: 0.0.0.0
+      PORT: "1337"
+      ENABLE: loop iob cob basal pump sage cage bage dbsize
+      DEVICESTATUS_ADVANCED: "true"
+      SHOW_FORECAST: loop
+      SHOW_PLUGINS: loop iob cob basal pump
+      AUTH_DEFAULT_ROLES: denied
+      ALLOW_UNRESTRICTED_FRAME_EMBEDDING: "false"
+      DISPLAY_UNITS: mg/dl
+      TIMEZONE: America/New_York
+volumes:
+  nightscout-data:

@@ -1,0 +1,38 @@
+name: LoKey Follow checks
+on:
+  pull_request:
+    paths: ['companions/lokey-follow/**', '.github/workflows/check_lokey_follow.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - run: gradle :core:test :app:assembleDebug
+        working-directory: companions/lokey-follow/android
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LoKey-Follow-Android-debug
+          path: companions/lokey-follow/android/app/build/outputs/apk/debug/*.apk
+  ios:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift test
+        working-directory: companions/lokey-follow/ios/Core
+      - run: brew install xcodegen
+      - run: xcodegen generate
+        working-directory: companions/lokey-follow/ios
+      - run: xcodebuild -project LoKeyFollow.xcodeproj -scheme LoKeyFollow -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build
+        working-directory: companions/lokey-follow/ios

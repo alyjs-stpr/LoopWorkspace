@@ -1,0 +1,9 @@
+.env
+local.properties
+.gradle/
+build/
+*.jks
+*.keystore
+*.xcodeproj/
+.build/
+secrets/
