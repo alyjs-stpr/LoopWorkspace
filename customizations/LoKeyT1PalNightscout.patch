@@ -13,19 +13,11 @@ index 4626630..c91077f 100644
 +                return
 +            }
 +
-+            // T1Pal can reject Nightscout's legacy /api/v1/experiments/test
-+            // endpoint with a server error even when the credentials are valid.
-+            // Confirm authenticated API access with a harmless, bounded read.
-+            let now = Date()
-+            let interval = DateInterval(start: now.addingTimeInterval(-60), end: now)
-+            uploader.fetchTreatments(dateInterval: interval, maxCount: 1) { result in
-+                switch result {
-+                case .success:
-+                    completion(nil)
-+                case .failure(let fallbackError):
-+                    completion(fallbackError)
-+                }
-+            }
++            // T1Pal returns an HTML 500 response from both Nightscout's legacy
++            // auth-test route and authenticated read probes on otherwise healthy
++            // provisioned sites. Save the credentials and let the real uploader
++            // requests report any operational error without blocking onboarding.
++            completion(nil)
 +        }
      }
  
@@ -65,7 +57,7 @@ index b2a09cb..09edb07 100644
 +
 +final class T1PalAuthenticationFallbackTestCase: XCTestCase {
 +
-+    func testT1PalServerErrorUsesFallback() {
++    func testT1PalServerErrorAllowsOnboarding() {
 +        let siteURL = URL(string: "https://my.own.t1pal.com")!
 +        let error = NightscoutError.httpError(status: 500, body: "Internal Server Error")
 +
