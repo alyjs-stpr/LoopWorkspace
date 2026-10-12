@@ -1,0 +1,8 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/widget_root" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="@drawable/widget_background">
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="LoKey Follow" android:textColor="#B989FF" android:textSize="13sp"/>
+    <TextView android:id="@+id/glucose" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="—" android:textSize="48sp" android:textStyle="bold" android:textColor="#B989FF"/>
+    <TextView android:id="@+id/status" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="No data" android:textColor="#FFFFFF" android:textSize="12sp"/>
+    <TextView android:id="@+id/delta" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Delta —" android:textColor="#D6D0DE" android:textSize="15sp"/>
+    <TextView android:id="@+id/iob" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="IOB —" android:textColor="#74EF22" android:textSize="20sp"/>
+    <TextView android:id="@+id/reading_time" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Open app to connect" android:textColor="#D6D0DE" android:textSize="11sp"/>
+</LinearLayout>

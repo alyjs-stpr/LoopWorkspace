@@ -1,0 +1,87 @@
+diff --git a/NightscoutServiceKit/NightscoutService.swift b/NightscoutServiceKit/NightscoutService.swift
+index 4626630..c91077f 100644
+--- a/NightscoutServiceKit/NightscoutService.swift
++++ b/NightscoutServiceKit/NightscoutService.swift
+@@ -109,7 +109,26 @@ public final class NightscoutService: Service {
+         }
+ 
+         let uploader = NightscoutClient(siteURL: siteURL, apiSecret: apiSecret)
+-        uploader.checkAuth(completion)
++        uploader.checkAuth { error in
++            guard shouldUseT1PalAuthenticationFallback(siteURL: siteURL, error: error) else {
++                completion(error)
++                return
++            }
++
++            // T1Pal can reject Nightscout's legacy /api/v1/experiments/test
++            // endpoint with a server error even when the credentials are valid.
++            // Confirm authenticated API access with a harmless, bounded read.
++            let now = Date()
++            let interval = DateInterval(start: now.addingTimeInterval(-60), end: now)
++            uploader.fetchTreatments(dateInterval: interval, maxCount: 1) { result in
++                switch result {
++                case .success:
++                    completion(nil)
++                case .failure(let fallbackError):
++                    completion(fallbackError)
++                }
++            }
++        }
+     }
+ 
+     public func completeCreate() {
+@@ -543,3 +562,15 @@ extension KeychainManager {
+ }
+ 
+ fileprivate let NightscoutAPIAccount = "NightscoutAPI"
++
++func shouldUseT1PalAuthenticationFallback(siteURL: URL, error: NightscoutError?) -> Bool {
++    guard let host = siteURL.host?.lowercased(),
++          host == "t1pal.com" || host.hasSuffix(".t1pal.com"),
++          let error = error,
++          case .httpError(let status, _) = error
++    else {
++        return false
++    }
++
++    return (500...599).contains(status)
++}
+diff --git a/NightscoutServiceKitTests/OTPManagerTestCase.swift b/NightscoutServiceKitTests/OTPManagerTestCase.swift
+index b2a09cb..09edb07 100644
+--- a/NightscoutServiceKitTests/OTPManagerTestCase.swift
++++ b/NightscoutServiceKitTests/OTPManagerTestCase.swift
+@@ -9,6 +9,7 @@
+ import XCTest
+ @testable import NightscoutServiceKit
+ @testable import OneTimePassword
++import NightscoutKit
+ 
+ class OTPManagerTestCase: XCTestCase {
+ 
+@@ -269,3 +270,26 @@ extension Date {
+         return Date(timeIntervalSinceReferenceDate: seconds)
+     }
+ }
++
++final class T1PalAuthenticationFallbackTestCase: XCTestCase {
++
++    func testT1PalServerErrorUsesFallback() {
++        let siteURL = URL(string: "https://my.own.t1pal.com")!
++        let error = NightscoutError.httpError(status: 500, body: "Internal Server Error")
++
++        XCTAssertTrue(shouldUseT1PalAuthenticationFallback(siteURL: siteURL, error: error))
++    }
++
++    func testNonT1PalServerErrorDoesNotUseFallback() {
++        let siteURL = URL(string: "https://nightscout.example.com")!
++        let error = NightscoutError.httpError(status: 500, body: "Internal Server Error")
++
++        XCTAssertFalse(shouldUseT1PalAuthenticationFallback(siteURL: siteURL, error: error))
++    }
++
++    func testT1PalUnauthorizedDoesNotUseFallback() {
++        let siteURL = URL(string: "https://my.own.t1pal.com")!
++
++        XCTAssertFalse(shouldUseT1PalAuthenticationFallback(siteURL: siteURL, error: .unauthorized))
++    }
++}
