@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.*
 import android.view.View
 import net.lokey.follow.core.*
+import net.lokey.follow.core.Point
 import java.text.SimpleDateFormat
 import java.util.*
 

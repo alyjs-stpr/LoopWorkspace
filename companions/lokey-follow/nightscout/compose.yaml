@@ -19,6 +19,8 @@ services:
       API_SECRET: ${API_SECRET:?Set a strong unique API secret}
       NODE_ENV: production
       NIGHTSCOUT_HOSTNAME: 0.0.0.0
+      # HTTP is used only on the loopback-bound backend behind an HTTPS reverse proxy.
+      INSECURE_USE_HTTP: "true"
       PORT: "1337"
       ENABLE: loop iob cob basal pump sage cage bage dbsize
       DEVICESTATUS_ADVANCED: "true"
