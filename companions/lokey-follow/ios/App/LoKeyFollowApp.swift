@@ -131,7 +131,7 @@ struct ConnectionView: View {
                 if !error.isEmpty { Text(error).foregroundStyle(.orange) }
                 Button("Save connection") {
                     do { try ConnectionStore.save(Connection(url:NightscoutParser.validateURL(url),token:token.trimmingCharacters(in:.whitespacesAndNewlines))); changed(); dismiss() }
-                    catch { error="Enter a valid HTTPS URL and readable token; check Keychain/App Group signing if saving fails." }
+                    catch { self.error="Enter a valid HTTPS URL and readable token; check Keychain/App Group signing if saving fails." }
                 }
                 Button("Disconnect",role:.destructive) { ConnectionStore.disconnect(); changed(); dismiss() }
             }.navigationTitle("Nightscout").toolbar { Button("Cancel") { dismiss() } }
