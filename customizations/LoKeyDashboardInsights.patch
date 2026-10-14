@@ -60,10 +60,10 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +            backgroundColor = .clear
 +
 +            func pair(_ left: UIView, _ right: UIView) -> UIStackView {
-+                let separator = UIView()
-+                separator.backgroundColor = .separator
-+                separator.widthAnchor.constraint(equalToConstant: 1 / UIScreen.main.scale).isActive = true
-+                let row = UIStackView(arrangedSubviews: [left, separator, right])
++                let row = UIStackView(arrangedSubviews: [left, right])
++                row.backgroundColor = .separator
++                row.spacing = 1
++                left.backgroundColor = .secondarySystemGroupedBackground; right.backgroundColor = .secondarySystemGroupedBackground
 +                row.axis = .horizontal
 +                row.distribution = .fillEqually
 +                return row
