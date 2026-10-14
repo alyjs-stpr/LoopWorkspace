@@ -1,7 +1,7 @@
 diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View Controllers/StatusTableViewController.swift
 --- a/Loop/View Controllers/StatusTableViewController.swift
 +++ b/Loop/View Controllers/StatusTableViewController.swift
-@@ -43,7 +43,198 @@
+@@ -43,7 +43,210 @@
  
      var supportManager: SupportManager!
  
@@ -14,6 +14,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +        var cob = "—"
 +        var basal = "—"
 +        var lastBolus = "—"
++        var bolusPlanned = false
 +        var glucoseAge = "—"
 +        var glucoseDelta = "—"
 +        var forecast30 = "—"
@@ -22,29 +23,39 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +
 +    private final class LoKeyMetricTile: UIStackView {
 +        private let valueLabel = UILabel()
++        private let headingLabel = UILabel()
 +
 +        init(title: String) {
 +            super.init(frame: .zero)
 +            axis = .vertical
 +            alignment = .leading
-+            spacing = 4
++            spacing = 3
 +            isLayoutMarginsRelativeArrangement = true
-+            directionalLayoutMargins = NSDirectionalEdgeInsets(top: 12, leading: 14, bottom: 10, trailing: 10)
++            directionalLayoutMargins = NSDirectionalEdgeInsets(top: 8, leading: 11, bottom: 8, trailing: 9)
 +
-+            let heading = UILabel()
-+            heading.text = title
-+            heading.font = .preferredFont(forTextStyle: .subheadline)
-+            heading.adjustsFontForContentSizeCategory = true
-+            heading.textColor = .secondaryLabel
-+            valueLabel.font = .preferredFont(forTextStyle: .title3)
++            headingLabel.text = title
++            headingLabel.font = .preferredFont(forTextStyle: .caption1)
++            headingLabel.adjustsFontForContentSizeCategory = true
++            headingLabel.textColor = .secondaryLabel
++            headingLabel.numberOfLines = 1
++            headingLabel.adjustsFontSizeToFitWidth = true
++            headingLabel.minimumScaleFactor = 0.8
++            valueLabel.font = .preferredFont(forTextStyle: .headline)
 +            valueLabel.adjustsFontForContentSizeCategory = true
 +            valueLabel.textColor = .label
-+            valueLabel.numberOfLines = 2
-+            addArrangedSubview(heading)
++            valueLabel.numberOfLines = 1
++            valueLabel.adjustsFontSizeToFitWidth = true
++            valueLabel.minimumScaleFactor = 0.72
++            valueLabel.lineBreakMode = .byTruncatingTail
++            addArrangedSubview(headingLabel)
 +            addArrangedSubview(valueLabel)
 +        }
 +        required init(coder: NSCoder) { fatalError("init(coder:) unavailable") }
-+        func setValue(_ value: String) { valueLabel.text = value }
++        func setHeading(_ heading: String) { headingLabel.text = heading }
++        func setValue(_ value: String) {
++            valueLabel.text = value
++            accessibilityLabel = (headingLabel.text ?? "") + ": " + value
++        }
 +    }
 +
 +    private final class LoKeyMetricsCell: UITableViewCell {
@@ -87,8 +98,8 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +                stack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -5),
 +                stack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 10),
 +                stack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -10),
-+                first.heightAnchor.constraint(greaterThanOrEqualToConstant: 72),
-+                second.heightAnchor.constraint(greaterThanOrEqualToConstant: 72)
++                first.heightAnchor.constraint(greaterThanOrEqualToConstant: 62),
++                second.heightAnchor.constraint(greaterThanOrEqualToConstant: 62)
 +            ])
 +        }
 +
@@ -98,6 +109,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +            iobTile.setValue(snapshot.iob)
 +            cobTile.setValue(snapshot.cob)
 +            basalTile.setValue(snapshot.basal)
++            bolusTile.setHeading(snapshot.bolusPlanned ? "Bolus · planned" : "Last bolus")
 +            bolusTile.setValue(snapshot.lastBolus)
 +        }
 +    }
@@ -155,7 +167,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +        if !isGlucose { return }
 +
 +        let caption = UILabel()
-+        caption.text = "Predicted · " + (statusCharts.glucose.glucoseUnit == .milligramsPerDeciliter ? "mg/dL" : "mmol/L")
++        caption.text = "Forecast · " + (statusCharts.glucose.glucoseUnit == .milligramsPerDeciliter ? "mg/dL" : "mmol/L")
 +        caption.font = .preferredFont(forTextStyle: .caption1)
 +        caption.textColor = .secondaryLabel
 +
@@ -201,7 +213,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
  
      override func viewDidLoad() {
  
-@@ -53,7 +244,9 @@
+@@ -53,7 +256,9 @@
          
          tableView.register(BolusProgressTableViewCell.nib(), forCellReuseIdentifier: BolusProgressTableViewCell.className)
          tableView.register(AlertPermissionsDisabledWarningCell.self, forCellReuseIdentifier: AlertPermissionsDisabledWarningCell.className)
@@ -212,7 +224,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
  
          if FeatureFlags.predictedGlucoseChartClampEnabled {
              statusCharts.glucose.glucoseDisplayRange = LoopConstants.glucoseChartDefaultDisplayBoundClamped
-@@ -144,7 +337,7 @@
+@@ -144,7 +349,7 @@
  
          addScenarioStepGestureRecognizers()
  
@@ -221,7 +233,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
      
      }
  
-@@ -394,9 +587,11 @@
+@@ -394,9 +599,11 @@
          // How far back should we show data? Use the screen size as a guide.
          let availableWidth = (refreshContext.newSize ?? tableView.bounds.size).width - charts.fixedHorizontalMargin
  
@@ -236,7 +248,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
  
          let date = Date(timeIntervalSinceNow: -TimeInterval(hours: historyHours))
          let chartStartDate = Calendar.current.nextDate(after: date, matching: DateComponents(minute: 0), matchingPolicy: .strict, direction: .backward) ?? date
-@@ -457,7 +652,8 @@
+@@ -457,7 +664,8 @@
          var carbsOnBoard: HKQuantity?
          let startDate = charts.startDate
          let basalDeliveryState = self.basalDeliveryState
@@ -246,7 +258,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
  
          // TODO: Don't always assume currentContext.contains(.status)
          reloadGroup.enter()
-@@ -479,7 +675,17 @@
+@@ -479,7 +687,17 @@
              } else {
                  netBasal = nil
              }
@@ -265,7 +277,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
  
              DispatchQueue.main.async {
                  self.lastLoopError = lastLoopError
-@@ -643,8 +849,62 @@
+@@ -643,8 +861,65 @@
                  self.currentCOBDescription = nil
              }
  
@@ -284,11 +296,14 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +                let time = DateFormatter.localizedString(from: latest.startDate, dateStyle: .none, timeStyle: .short)
 +                if let delivered = latest.deliveredUnits {
 +                    self.lokeySnapshot.lastBolus = String(format: "%.2f U · %@", delivered, time)
++                    self.lokeySnapshot.bolusPlanned = false
 +                } else {
-+                    self.lokeySnapshot.lastBolus = String(format: "%.2f U planned · %@", latest.programmedUnits, time)
++                    self.lokeySnapshot.lastBolus = String(format: "%.2f U · %@", latest.programmedUnits, time)
++                    self.lokeySnapshot.bolusPlanned = true
 +                }
 +            } else if doseEntries != nil {
 +                self.lokeySnapshot.lastBolus = "—"
++                self.lokeySnapshot.bolusPlanned = false
 +            }
 +            if let glucose = self.deviceManager.glucoseStore.latestGlucose {
 +                let ageMinutes = max(0, Int(Date().timeIntervalSince(glucose.startDate) / 60))
@@ -330,7 +345,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
                  // CGM Status
                  if let glucose = self.deviceManager.glucoseStore.latestGlucose {
                      let unit = self.statusCharts.glucose.glucoseUnit
-@@ -656,7 +916,14 @@
+@@ -656,7 +931,14 @@
                                                              wasUserEntered: glucose.wasUserEntered,
                                                              isDisplayOnly: glucose.isDisplayOnly)
                  }
@@ -338,15 +353,15 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +                hudView.setLoKeyCaptions(
 +                    glucose: self.lokeySnapshot.glucoseDelta + " · " + self.lokeySnapshot.glucoseAge,
 +                    loop: self.deviceManager.loopManager.lastLoopCompleted.map {
-+                        "\(max(0, Int(Date().timeIntervalSince($0) / 60))) min ago"
++                        "\(max(0, Int(Date().timeIntervalSince($0) / 60)))m ago"
 +                    } ?? "Waiting",
-+                    pump: self.deviceManager.pumpStatusHighlight == nil ? "Pump" : "Pump status"
++                    pump: self.deviceManager.pumpStatusHighlight == nil ? "" : "Pump alert"
 +                )
 +                hudView.cgmStatusHUD.presentStatusHighlight(self.deviceManager.cgmStatusHighlight)
                  hudView.cgmStatusHUD.presentStatusBadge(self.deviceManager.cgmStatusBadge)
                  hudView.cgmStatusHUD.lifecycleProgress = self.deviceManager.cgmLifecycleProgress
  
-@@ -689,9 +956,10 @@
+@@ -689,9 +971,10 @@
  
      private enum Section: Int, CaseIterable {
          case alertWarning
@@ -360,7 +375,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
      }
  
      // MARK: - Chart Section Data
-@@ -815,14 +1083,16 @@
+@@ -815,14 +1098,16 @@
          
          updateBannerRow(animated: animated)
  
@@ -385,7 +400,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
  
          let statusIndexPath = IndexPath(row: StatusRow.status.rawValue, section: Section.status.rawValue)
  
-@@ -913,9 +1183,9 @@
+@@ -913,9 +1198,9 @@
          switch Section(rawValue: section)! {
          case .alertWarning:
              return shouldShowBannerWarning ? 1 : 0
@@ -398,7 +413,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
              return ChartRow.allCases.count
          case .status:
              return shouldShowStatus ? StatusRow.allCases.count : 0
-@@ -1020,8 +1290,14 @@
+@@ -1020,8 +1305,14 @@
              hudView = cell.hudView
  
              return cell
@@ -415,7 +430,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
  
              switch ChartRow(rawValue: indexPath.row)! {
              case .glucose:
-@@ -1192,11 +1468,12 @@
+@@ -1192,11 +1483,12 @@
                  }
              case .dose:
                  let integerFormatter = NumberFormatter()
@@ -430,7 +445,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
                  } else {
                      cell.setSubtitleLabel(label: nil)
                  }
-@@ -1207,8 +1484,8 @@
+@@ -1207,8 +1499,8 @@
                      cell.setSubtitleLabel(label: nil)
                  }
              }
@@ -441,7 +456,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
          }
      }
  
-@@ -1223,13 +1500,13 @@
+@@ -1223,13 +1515,13 @@
              availableSize -= (tableView.safeAreaInsets.top + tableView.safeAreaInsets.bottom + hudHeight)
  
              switch ChartRow(rawValue: indexPath.row)! {
@@ -459,7 +474,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
          }
      }
  
-@@ -1243,10 +1520,10 @@
+@@ -1243,10 +1535,10 @@
                  tableView.deselectRow(at: indexPath, animated: true)
                  presentUnmuteAlertConfirmation()
              }
@@ -507,14 +522,14 @@ diff --git a/LoopUI/Views/StatusBarHUDView.swift b/LoopUI/Views/StatusBarHUDView
 +        caption.lineBreakMode = .byTruncatingTail
 +
 +        // Retain the original native HUD and its tap gestures inside each tile.
-+        view.heightAnchor.constraint(greaterThanOrEqualToConstant: 74).isActive = true
++        view.heightAnchor.constraint(greaterThanOrEqualToConstant: 64).isActive = true
 +        let tile = UIStackView(arrangedSubviews: [view, caption])
 +        tile.axis = .vertical
 +        tile.alignment = .fill
 +        tile.spacing = 0
 +        tile.isLayoutMarginsRelativeArrangement = true
 +        tile.directionalLayoutMargins = NSDirectionalEdgeInsets(
-+            top: 0, leading: 3, bottom: 8, trailing: 3
++            top: 0, leading: 3, bottom: 3, trailing: 3
 +        )
 +        tile.backgroundColor = .secondarySystemGroupedBackground
 +        tile.layer.cornerRadius = 18
@@ -550,7 +565,7 @@ diff --git a/LoopUI/Views/StatusBarHUDView.swift b/LoopUI/Views/StatusBarHUDView
 +            containerView.removeArrangedSubview(hud)
 +            hud.removeFromSuperview()
 +        }
-+        containerView.spacing = 6
++        containerView.spacing = 4
 +        containerView.addArrangedSubview(lokeyTile(for: cgmStatusHUD, caption: lokeyGlucoseAgeLabel))
 +        containerView.addArrangedSubview(lokeyTile(for: loopCompletionHUD, caption: lokeyLoopAgeLabel))
 +        containerView.addArrangedSubview(lokeyTile(for: pumpStatusHUD, caption: lokeyPumpLabel))
