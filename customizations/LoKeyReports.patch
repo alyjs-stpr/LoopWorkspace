@@ -4962,7 +4962,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 diff --git a/Loop/Views/SettingsView.swift b/Loop/Views/SettingsView.swift
 --- a/Loop/Views/SettingsView.swift
 +++ b/Loop/Views/SettingsView.swift
-@@ -1,710 +1,1007 @@
+@@ -1,710 +1,1159 @@
 -//
 -//  SettingsView.swift
 -//  LoopUI
@@ -6399,63 +6399,124 @@ diff --git a/Loop/Views/SettingsView.swift b/Loop/Views/SettingsView.swift
 +private struct LoKeyReportsView: View {
 +    @ObservedObject var viewModel: SettingsViewModel
 +
-+    @State private var selectedDays = 7
++    @State private var selectedDays = 3
++    @State private var selectedReport = 0
++    @AppStorage("lokeyTIRLowerMGDL") private var lowerTarget = 65
++    @AppStorage("lokeyTIRUpperMGDL") private var upperTarget = 180
++    @State private var reportEnd = Date()
 +    @State private var glucose: [StoredGlucoseSample]?
 +    @State private var settingsHistory: [StoredSettings]?
 +    @State private var loadError: String?
++    @State private var settingsLoadError: String?
 +    @State private var exportURL: URL?
 +    @State private var showExporter = false
 +    @State private var exportError: String?
 +
-+    private let days = [1, 7, 14, 30]
++    private let days = [3, 7, 14, 30, 90]
 +    private let unit = HKUnit.milligramsPerDeciliter
 +
 +    var body: some View {
 +        List {
-+            Section(header: Text("Time in Loop Target")) {
++            Section(header: Text(selectedReport == 0 ? "Time in Range (CGM)" : "Time in Loop Target")) {
++                Picker("Report type", selection: $selectedReport) {
++                    Text("CGM TIR").tag(0)
++                    Text("Loop Target").tag(1)
++                }
++                .pickerStyle(.segmented)
++
 +                Picker("Period", selection: $selectedDays) {
-+                    Text("24h").tag(1)
-+                    Text("7d").tag(7)
-+                    Text("14d").tag(14)
-+                    Text("30d").tag(30)
++                    ForEach(days, id: \.self) { day in
++                        Text("\(day)d").tag(day)
++                    }
 +                }
 +                .pickerStyle(.segmented)
 +                .onChange(of: selectedDays) { _ in refresh() }
 +
-+                if let loadError = loadError {
-+                    Text(loadError).foregroundColor(.secondary)
-+                } else if glucose == nil || settingsHistory == nil {
-+                    ProgressView("Reading CGM and Loop settings…")
-+                } else if let results = statistics {
-+                    VStack(spacing: 16) {
-+                        LoKeyTargetRing(low: results.below,
-+                                        target: results.within,
-+                                        high: results.above)
-+                            .padding(.vertical, 12)
-+                        HStack {
-+                            legend("Below target", fraction: results.below, color: .red)
-+                            Spacer()
-+                            legend("In target", fraction: results.within, color: .green)
-+                            Spacer()
-+                            legend("Above target", fraction: results.above, color: .orange)
-+                        }
-+                        Text(String(format: "CGM coverage: %.0f%%", results.coverage * 100))
-+                            .font(.caption).foregroundColor(.secondary)
-+                        if results.missingTargetSeconds > 0 {
-+                            Text("Some readings were excluded because Loop target history was unavailable.")
++                if selectedReport == 0 {
++                    VStack(alignment: .leading, spacing: 9) {
++                        Text("Time in range (custom)").font(.headline)
++                        Text("Target \(lowerTarget)–\(upperTarget) mg/dL")
++                            .font(.subheadline).foregroundColor(.secondary)
++                        DisclosureGroup("Match my CGM target limits") {
++                            Stepper("Low: \(lowerTarget) mg/dL", value: $lowerTarget, in: 55...100, step: 5)
++                            Stepper("High: \(upperTarget) mg/dL", value: $upperTarget, in: 140...245, step: 5)
++                            Text("These values are for reporting only. They do not change Loop therapy targets or insulin delivery.")
 +                                .font(.caption).foregroundColor(.secondary)
 +                        }
 +                    }
++                    if let loadError = loadError {
++                        Text(loadError).foregroundColor(.secondary)
++                    } else if glucose == nil {
++                        ProgressView("Reading CGM history…")
++                    } else if let results = clinicalStatistics {
++                        HStack(alignment: .center, spacing: 16) {
++                            LoKeyCGMTIRBar(result: results)
++                                .frame(width: 48, height: 185)
++                            VStack(alignment: .leading, spacing: 9) {
++                                cgmLegend("Very high", value: results.veryHigh, color: .yellow)
++                                cgmLegend("High", value: results.high, color: .orange)
++                                Text(String(format: "%.0f%% In range", results.inRange * 100))
++                                    .font(.title2).bold().monospacedDigit()
++                                cgmLegend("Low", value: results.low, color: .red)
++                                cgmLegend("Very low", value: results.veryLow, color: .red)
++                            }
++                            Spacer(minLength: 0)
++                        }
++                        .padding(.vertical, 12)
++                        Text("Five glucose bands use your custom CGM limits, not Loop's correction target.")
++                            .font(.footnote).foregroundColor(.secondary)
++                        Text("Very low is below 54 mg/dL, very high is above 250 mg/dL. Small differences from the CGM app may occur because of missing samples and reporting rules.")
++                            .font(.caption).foregroundColor(.secondary)
++                    } else {
++                        Text("No glucose readings are available for this period.")
++                            .foregroundColor(.secondary)
++                    }
 +                } else {
-+                    Text("No glucose readings with known Loop targets for this period.")
-+                        .foregroundColor(.secondary)
++                    if let loadError = loadError ?? settingsLoadError {
++                        Text(loadError).foregroundColor(.secondary)
++                    } else if glucose == nil || settingsHistory == nil {
++                        ProgressView("Reading CGM and Loop settings…")
++                    } else if let results = statistics {
++                        VStack(spacing: 16) {
++                            LoKeyTargetRing(low: results.below,
++                                            target: results.within,
++                                            high: results.above)
++                                .padding(.vertical, 12)
++                            HStack {
++                                legend("Below target", fraction: results.below, color: .red)
++                                Spacer()
++                                legend("In target", fraction: results.within, color: .green)
++                                Spacer()
++                                legend("Above target", fraction: results.above, color: .orange)
++                            }
++                            Text(String(format: "CGM coverage: %.1f%%", results.coverage * 100))
++                                .font(.caption).foregroundColor(.secondary)
++                            if results.missingTargetSeconds > 0 {
++                                Text("Some readings were excluded because Loop target history was unavailable.")
++                                    .font(.caption).foregroundColor(.secondary)
++                            }
++                        }
++                    } else {
++                        Text("No glucose readings with known Loop targets for this period.")
++                            .foregroundColor(.secondary)
++                    }
++                    Text("Loop Target compares readings to historical correction targets and active overrides. It is not CGM Time in Range.")
++                        .font(.footnote).foregroundColor(.secondary)
 +                }
-+                Text("Each CGM reading is compared with the Loop correction target recorded for that time, including active target overrides when available. This is not the standard 70–180 mg/dL clinical TIR measure.")
-+                    .font(.footnote)
-+                    .foregroundColor(.secondary)
-+                Text("Gaps in CGM readings and missing settings history are excluded. Historical settings may be unavailable beyond Loop's retention period.")
-+                    .font(.footnote)
-+                    .foregroundColor(.secondary)
++                Text("Missing CGM readings are excluded rather than assumed to be in range.")
++                    .font(.footnote).foregroundColor(.secondary)
++            }
++
++            if selectedReport == 0, let results = clinicalStatistics {
++                Section(header: Text("Sensor usage")) {
++                    HStack(alignment: .firstTextBaseline) {
++                        Text(String(format: "%.1f%%", results.coverage * 100))
++                            .font(.largeTitle).bold().monospacedDigit()
++                        Text("Time active").foregroundColor(.secondary)
++                    }
++                    Text("Estimated from recorded CGM measurements, with at most five minutes credited per reading.")
++                        .font(.caption).foregroundColor(.secondary)
++                }
 +            }
 +
 +            Section(header: Text("Complete Settings Report")) {
@@ -6480,6 +6541,16 @@ diff --git a/Loop/Views/SettingsView.swift b/Loop/Views/SettingsView.swift
 +        }
 +    }
 +
++    private func cgmLegend(_ title: String, value: Double, color: Color) -> some View {
++        HStack(spacing: 8) {
++            Text(String(format: "%.0f%%", value * 100))
++                .font(.subheadline).bold().monospacedDigit()
++                .frame(width: 43, alignment: .trailing)
++                .foregroundColor(color)
++            Text(title).font(.subheadline).foregroundColor(.secondary)
++        }
++    }
++
 +    private func legend(_ title: String, fraction: Double, color: Color) -> some View {
 +        VStack(spacing: 3) {
 +            Text(String(format: "%.1f%%", fraction * 100))
@@ -6493,11 +6564,12 @@ diff --git a/Loop/Views/SettingsView.swift b/Loop/Views/SettingsView.swift
 +        glucose = nil
 +        settingsHistory = nil
 +        loadError = nil
-+        let end = Date()
++        settingsLoadError = nil
++        reportEnd = Date()
++        let end = reportEnd
 +        let start = end.addingTimeInterval(-Double(selectedDays) * 24 * 60 * 60)
-+        guard let loadGlucose = viewModel.loKeyLoadGlucose,
-+              let loadSettings = viewModel.loKeyLoadSettingsHistory else {
-+            loadError = "Report data sources are unavailable."
++        guard let loadGlucose = viewModel.loKeyLoadGlucose else {
++            loadError = "CGM history is unavailable."
 +            return
 +        }
 +        loadGlucose(start, end) { result in
@@ -6508,21 +6580,33 @@ diff --git a/Loop/Views/SettingsView.swift b/Loop/Views/SettingsView.swift
 +                }
 +            }
 +        }
-+        loadSettings(start, end) { result in
-+            DispatchQueue.main.async {
-+                switch result {
-+                case .success(let stored): settingsHistory = stored
-+                case .failure(let error): loadError = "Unable to load target history: \(error.localizedDescription)"
++        if let loadSettings = viewModel.loKeyLoadSettingsHistory {
++            loadSettings(start, end) { result in
++                DispatchQueue.main.async {
++                    switch result {
++                    case .success(let stored): settingsHistory = stored
++                    case .failure(let error):
++                        settingsLoadError = "Unable to load Loop target history: \(error.localizedDescription)"
++                    }
 +                }
 +            }
++        } else {
++            settingsLoadError = "Loop target history is unavailable."
 +        }
 +    }
 +
 +    private var statistics: LoKeyTargetStatistics? {
 +        guard let glucose = glucose, let settings = settingsHistory else { return nil }
-+        let end = Date()
-+        let start = end.addingTimeInterval(-Double(selectedDays) * 24 * 60 * 60)
-+        return LoKeyTargetStatistics.calculate(glucose: glucose, settings: settings, start: start, end: end)
++        let start = reportEnd.addingTimeInterval(-Double(selectedDays) * 24 * 60 * 60)
++        return LoKeyTargetStatistics.calculate(glucose: glucose, settings: settings,
++                                                start: start, end: reportEnd)
++    }
++
++    private var clinicalStatistics: LoKeyCGMTIRStatistics? {
++        guard let glucose = glucose else { return nil }
++        let start = reportEnd.addingTimeInterval(-Double(selectedDays) * 24 * 60 * 60)
++        return LoKeyCGMTIRStatistics.calculate(glucose: glucose, start: start, end: reportEnd,
++                                                lower: Double(lowerTarget), upper: Double(upperTarget))
 +    }
 +
 +    private func exportSettingsPDF() {
@@ -6576,6 +6660,74 @@ diff --git a/Loop/Views/SettingsView.swift b/Loop/Views/SettingsView.swift
 +        } catch {
 +            exportError = "Unable to create PDF: \(error.localizedDescription)"
 +        }
++    }
++}
++
++// CGM-style Time in Range, fully independent of Loop dosing settings.
++private struct LoKeyCGMTIRStatistics {
++    let veryLow: Double
++    let low: Double
++    let inRange: Double
++    let high: Double
++    let veryHigh: Double
++    let coverage: Double
++
++    static func calculate(glucose: [StoredGlucoseSample], start: Date, end: Date,
++                          lower: Double, upper: Double) -> LoKeyCGMTIRStatistics? {
++        guard lower > 54, lower < upper, upper < 250 else { return nil }
++        let samples = glucose
++            .filter { $0.startDate >= start && $0.startDate <= end && !$0.isDisplayOnly && !$0.wasUserEntered }
++            .sorted { $0.startDate < $1.startDate }
++        guard !samples.isEmpty else { return nil }
++
++        var bins = Array(repeating: 0.0, count: 5)
++        for i in samples.indices {
++            let item = samples[i]
++            let next = i + 1 < samples.count
++                ? min(samples[i + 1].startDate, end)
++                : min(item.startDate.addingTimeInterval(300), end)
++            // Unobserved time is never filled in as an in-range reading.
++            let duration = min(300, max(0, next.timeIntervalSince(item.startDate)))
++            guard duration > 0 else { continue }
++            let value = item.quantity.doubleValue(for: .milligramsPerDeciliter)
++            guard value.isFinite else { continue }
++            let band: Int
++            if value < 54 { band = 0 }
++            else if value < lower { band = 1 }
++            else if value <= upper { band = 2 }
++            else if value <= 250 { band = 3 }
++            else { band = 4 }
++            bins[band] += duration
++        }
++        let known = bins.reduce(0, +)
++        guard known > 0 else { return nil }
++        return LoKeyCGMTIRStatistics(veryLow: bins[0] / known,
++                                    low: bins[1] / known,
++                                    inRange: bins[2] / known,
++                                    high: bins[3] / known,
++                                    veryHigh: bins[4] / known,
++                                    coverage: min(1, known / max(1, end.timeIntervalSince(start))))
++    }
++}
++
++private struct LoKeyCGMTIRBar: View {
++    let result: LoKeyCGMTIRStatistics
++
++    var body: some View {
++        GeometryReader { geometry in
++            VStack(spacing: 0) {
++                Color.yellow.frame(height: geometry.size.height * result.veryHigh)
++                Color.orange.frame(height: geometry.size.height * result.high)
++                Color.green.frame(height: geometry.size.height * result.inRange)
++                Color.red.frame(height: geometry.size.height * result.low)
++                Color(red: 0.65, green: 0.05, blue: 0.17)
++                    .frame(height: geometry.size.height * result.veryLow)
++            }
++            .clipShape(RoundedRectangle(cornerRadius: 6))
++            .overlay(RoundedRectangle(cornerRadius: 6)
++                .stroke(Color.secondary.opacity(0.25), lineWidth: 0.5))
++        }
++        .accessibilityLabel(String(format: "%.1f percent in range", result.inRange * 100))
 +    }
 +}
 +
