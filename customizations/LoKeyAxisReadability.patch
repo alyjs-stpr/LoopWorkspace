@@ -1,7 +1,7 @@
 diff --git a/LoopKitUI/View Controllers/ChartsManager.swift b/LoopKitUI/View Controllers/ChartsManager.swift
 --- a/LoopKitUI/View Controllers/ChartsManager.swift
 +++ b/LoopKitUI/View Controllers/ChartsManager.swift
-@@ -91,9 +91,13 @@
+@@ -91,9 +91,29 @@
          }
      }
  
@@ -11,12 +11,28 @@ diff --git a/LoopKitUI/View Controllers/ChartsManager.swift b/LoopKitUI/View Con
 +    /// Display-only; does not alter any prediction or therapy calculations.
 +    public var displayedEndDate: Date { endDate }
 +
++    // Only the LoKey status dashboard opts into sparse axis labels.
++    // Other Loop charts keep the original hourly labels.
++    public var useSparseTimeAxisLabels = false {
++        didSet {
++            if useSparseTimeAxisLabels != oldValue {
++                xAxisValues = nil
++            }
++        }
++    }
++
++    // Use the same axis-space reservations as the SwiftCharts graph renderer.
++    public var plotLeadingInset: CGFloat {
++        chartSettings.leading + labelsWidthY + chartSettings.labelsToAxisSpacingY
++    }
++    public var plotTrailingInset: CGFloat { chartSettings.trailing }
++
 +    private var endDate = Date() {
          didSet {
              if endDate != oldValue {
                  xAxisValues = nil
              }
-@@ -180,14 +184,19 @@
+@@ -180,14 +200,21 @@
                  y: ChartAxisValue(scalar: 0)
              )
          ]
@@ -31,7 +47,9 @@ diff --git a/LoopKitUI/View Controllers/ChartsManager.swift b/LoopKitUI/View Con
 +        // display includes several history hours plus the complete forecast.
 +        // Changing only the tick spacing leaves readings and predictions intact.
 +        let visibleHours = max(1, endDate.timeIntervalSince(startDate).hours)
-+        let tickHours: Double = visibleHours > 9 ? 3 : (visibleHours > 6 ? 2 : 1)
++        let tickHours: Double = useSparseTimeAxisLabels
++            ? (visibleHours > 9 ? 3 : (visibleHours > 6 ? 2 : 1))
++            : 1
 +        let segments = ceil(visibleHours / tickHours)
 +
 +        let xAxisValues = ChartAxisValuesStaticGenerator.generateXAxisValuesWithChartPoints(points,
