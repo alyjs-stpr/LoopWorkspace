@@ -51,7 +51,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +        static let reuseID = "LoKeyMetricsCell"
 +        private let iobTile = LoKeyMetricTile(title: "Active insulin")
 +        private let cobTile = LoKeyMetricTile(title: "Active carbs")
-+        private let basalTile = LoKeyMetricTile(title: "Net basal adjustment")
++        private let basalTile = LoKeyMetricTile(title: "Basal")
 +        private let bolusTile = LoKeyMetricTile(title: "Last bolus")
 +
 +        override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
@@ -242,21 +242,30 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
          let basalDeliveryState = self.basalDeliveryState
 -        let automaticDosingEnabled = automaticDosingStatus.automaticDosingEnabled
 +        let automaticDosingEnabled = automaticDosingStatus.automaticDosingEnabled
-+        var dashboardNetBasal: Double?
++        var dashboardBasalRate: Double?
  
          // TODO: Don't always assume currentContext.contains(.status)
          reloadGroup.enter()
-@@ -479,7 +675,8 @@
+@@ -479,7 +675,17 @@
              } else {
                  netBasal = nil
              }
 -            self.log.debug("Update net basal to %{public}@", String(describing: netBasal))
 +            self.log.debug("Update net basal to %{public}@", String(describing: netBasal))
-+            dashboardNetBasal = netBasal?.rate
++            // The net basal adjustment is not the actual insulin delivery rate.
++            if case .tempBasal(let activeDose) = basalDeliveryState {
++                dashboardBasalRate = activeDose.unitsPerHour
++            } else if case .active = basalDeliveryState {
++                dashboardBasalRate = manager.basalRateScheduleApplyingOverrideHistory?.value(at: Date())
++            } else if case .suspended = basalDeliveryState {
++                dashboardBasalRate = 0
++            } else {
++                dashboardBasalRate = nil
++            }
  
              DispatchQueue.main.async {
                  self.lastLoopError = lastLoopError
-@@ -643,8 +840,62 @@
+@@ -643,8 +849,62 @@
                  self.currentCOBDescription = nil
              }
  
@@ -267,8 +276,8 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +            let unitText = unit == .milligramsPerDeciliter ? "mg/dL" : "mmol/L"
 +            self.lokeySnapshot.iob = self.currentIOBDescription ?? "—"
 +            self.lokeySnapshot.cob = self.currentCOBDescription ?? "—"
-+            self.lokeySnapshot.basal = dashboardNetBasal.map {
-+                String(format: "%+.2f U/hr", $0)
++            self.lokeySnapshot.basal = dashboardBasalRate.map {
++                String(format: "%.2f U/hr", $0)
 +            } ?? "—"
 +            if let doses = doseEntries,
 +               let latest = doses.filter({ $0.type == .bolus }).max(by: { $0.startDate < $1.startDate }) {
@@ -321,7 +330,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
                  // CGM Status
                  if let glucose = self.deviceManager.glucoseStore.latestGlucose {
                      let unit = self.statusCharts.glucose.glucoseUnit
-@@ -656,7 +907,14 @@
+@@ -656,7 +916,14 @@
                                                              wasUserEntered: glucose.wasUserEntered,
                                                              isDisplayOnly: glucose.isDisplayOnly)
                  }
@@ -337,7 +346,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
                  hudView.cgmStatusHUD.presentStatusBadge(self.deviceManager.cgmStatusBadge)
                  hudView.cgmStatusHUD.lifecycleProgress = self.deviceManager.cgmLifecycleProgress
  
-@@ -689,9 +947,10 @@
+@@ -689,9 +956,10 @@
  
      private enum Section: Int, CaseIterable {
          case alertWarning
@@ -351,7 +360,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
      }
  
      // MARK: - Chart Section Data
-@@ -815,14 +1074,16 @@
+@@ -815,14 +1083,16 @@
          
          updateBannerRow(animated: animated)
  
@@ -376,7 +385,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
  
          let statusIndexPath = IndexPath(row: StatusRow.status.rawValue, section: Section.status.rawValue)
  
-@@ -913,9 +1174,9 @@
+@@ -913,9 +1183,9 @@
          switch Section(rawValue: section)! {
          case .alertWarning:
              return shouldShowBannerWarning ? 1 : 0
@@ -389,7 +398,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
              return ChartRow.allCases.count
          case .status:
              return shouldShowStatus ? StatusRow.allCases.count : 0
-@@ -1020,8 +1281,14 @@
+@@ -1020,8 +1290,14 @@
              hudView = cell.hudView
  
              return cell
@@ -406,7 +415,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
  
              switch ChartRow(rawValue: indexPath.row)! {
              case .glucose:
-@@ -1192,11 +1459,12 @@
+@@ -1192,11 +1468,12 @@
                  }
              case .dose:
                  let integerFormatter = NumberFormatter()
@@ -421,7 +430,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
                  } else {
                      cell.setSubtitleLabel(label: nil)
                  }
-@@ -1207,8 +1475,8 @@
+@@ -1207,8 +1484,8 @@
                      cell.setSubtitleLabel(label: nil)
                  }
              }
@@ -432,7 +441,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
          }
      }
  
-@@ -1223,13 +1491,13 @@
+@@ -1223,13 +1500,13 @@
              availableSize -= (tableView.safeAreaInsets.top + tableView.safeAreaInsets.bottom + hudHeight)
  
              switch ChartRow(rawValue: indexPath.row)! {
@@ -450,7 +459,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
          }
      }
  
-@@ -1243,10 +1511,10 @@
+@@ -1243,10 +1520,10 @@
                  tableView.deselectRow(at: indexPath, animated: true)
                  presentUnmuteAlertConfirmation()
              }
