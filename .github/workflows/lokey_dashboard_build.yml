@@ -1,0 +1,64 @@
+name: LoKey dashboard iOS build check
+on:
+  push:
+    branches:
+      - feature/lokey-dashboard-insights
+    paths:
+      - '.github/workflows/lokey_dashboard_build.yml'
+      - 'customizations/LoKeyDashboard*.patch'
+      - '.github/workflows/build_loop*.yml'
+  workflow_dispatch:
+
+jobs:
+  compile:
+    name: Unsigned simulator compile only
+    runs-on: xcode-27
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - name: Select Xcode 27
+        run: sudo xcode-select --switch /Applications/Xcode_27.0.app/Contents/Developer
+      - name: Checkout pinned workspace and submodules
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - name: Apply LoKey customizations exactly as release workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -C Loop apply --check ../customizations/LoKeyChartColors.patch
+          git -C Loop apply ../customizations/LoKeyChartColors.patch
+          git -C LoopKit apply --check ../customizations/LoKeyFoodEmojis.patch
+          git -C LoopKit apply ../customizations/LoKeyFoodEmojis.patch
+          git -C Loop apply --check ../customizations/LoKeyReports.patch
+          git -C Loop apply ../customizations/LoKeyReports.patch
+          git -C Loop apply --check ../customizations/LoKeyTIRShortcut.patch
+          git -C Loop apply ../customizations/LoKeyTIRShortcut.patch
+          git -C Loop apply --check ../customizations/LoKeyDashboardInsights.patch
+          git -C Loop apply ../customizations/LoKeyDashboardInsights.patch
+          git -C Loop apply --check ../customizations/LoKeyDashboardPolish.patch
+          git -C Loop apply ../customizations/LoKeyDashboardPolish.patch
+          git -C NightscoutService apply --check ../customizations/LoKeyT1PalNightscout.patch
+          git -C NightscoutService apply ../customizations/LoKeyT1PalNightscout.patch
+      - name: Compile unsigned iOS simulator app
+        shell: bash
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -workspace LoopWorkspace.xcworkspace \
+            -scheme LoopWorkspace \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            -derivedDataPath "$RUNNER_TEMP/lokey-dashboard-compiled" \
+            build 2>&1 | tee "$RUNNER_TEMP/lokey-dashboard-build.log"
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: lokey-dashboard-build-log
+          path: ${{ runner.temp }}/lokey-dashboard-build.log
+          retention-days: 5
