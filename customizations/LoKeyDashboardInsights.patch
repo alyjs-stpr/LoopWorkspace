@@ -465,3 +465,97 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
              case .status:
                  tableView.deselectRow(at: indexPath, animated: true)
  
+
+diff --git a/LoopUI/Views/StatusBarHUDView.swift b/LoopUI/Views/StatusBarHUDView.swift
+--- a/LoopUI/Views/StatusBarHUDView.swift
++++ b/LoopUI/Views/StatusBarHUDView.swift
+@@ -17,7 +17,45 @@
+     
+     @IBOutlet public weak var pumpStatusHUD: PumpStatusHUDView!
+         
+-    public var containerView: UIStackView!
++    public var containerView: UIStackView!
++
++    private let lokeyGlucoseAgeLabel = UILabel()
++    private let lokeyLoopAgeLabel = UILabel()
++    private let lokeyPumpLabel = UILabel()
++
++    // Update informational captions without changing the safety/status HUDs.
++    public func setLoKeyCaptions(glucose: String, loop: String, pump: String) {
++        lokeyGlucoseAgeLabel.text = glucose
++        lokeyLoopAgeLabel.text = loop
++        lokeyPumpLabel.text = pump
++    }
++
++    private func lokeyTile(for view: UIView, caption: UILabel) -> UIView {
++        caption.font = .preferredFont(forTextStyle: .caption2)
++        caption.adjustsFontForContentSizeCategory = true
++        caption.textColor = .secondaryLabel
++        caption.textAlignment = .center
++        caption.numberOfLines = 1
++        caption.adjustsFontSizeToFitWidth = true
++        caption.minimumScaleFactor = 0.6
++        caption.lineBreakMode = .byTruncatingTail
++
++        // Retain the original native HUD and its tap gestures inside each tile.
++        view.heightAnchor.constraint(greaterThanOrEqualToConstant: 74).isActive = true
++        let tile = UIStackView(arrangedSubviews: [view, caption])
++        tile.axis = .vertical
++        tile.alignment = .fill
++        tile.spacing = 0
++        tile.isLayoutMarginsRelativeArrangement = true
++        tile.directionalLayoutMargins = NSDirectionalEdgeInsets(
++            top: 0, leading: 3, bottom: 8, trailing: 3
++        )
++        tile.backgroundColor = .secondarySystemGroupedBackground
++        tile.layer.cornerRadius = 18
++        // Do not clip status badges or pump/CGM warning overlays.
++        tile.clipsToBounds = false
++        return tile
++    }
+     
+     public var adjustViewsForNarrowDisplay: Bool = false {
+         didSet {
+@@ -24,7 +62,7 @@
+             if adjustViewsForNarrowDisplay != oldValue {
+                 cgmStatusHUD.adjustViewsForNarrowDisplay = adjustViewsForNarrowDisplay
+                 pumpStatusHUD.adjustViewsForNarrowDisplay = adjustViewsForNarrowDisplay
+-                containerView.spacing = adjustViewsForNarrowDisplay ? 8.0 : 16.0
++                containerView.spacing = adjustViewsForNarrowDisplay ? 4.0 : 6.0
+             }
+         }
+     }
+@@ -47,8 +85,22 @@
+     }
+     
+     func setup() {
+-        containerView = (StatusBarHUDView.nib().instantiate(withOwner: self, options: nil)[0] as! UIStackView)
+-        containerView.translatesAutoresizingMaskIntoConstraints = false
++        containerView = (StatusBarHUDView.nib().instantiate(withOwner: self, options: nil)[0] as! UIStackView)
++        containerView.translatesAutoresizingMaskIntoConstraints = false
++
++        // Convert the existing three status HUDs into separate display tiles.
++        // Reparenting retains the original status, action, and warning views.
++        let huds: [UIView] = [cgmStatusHUD, loopCompletionHUD, pumpStatusHUD]
++        for hud in huds {
++            containerView.removeArrangedSubview(hud)
++            hud.removeFromSuperview()
++        }
++        containerView.spacing = 6
++        containerView.addArrangedSubview(lokeyTile(for: cgmStatusHUD, caption: lokeyGlucoseAgeLabel))
++        containerView.addArrangedSubview(lokeyTile(for: loopCompletionHUD, caption: lokeyLoopAgeLabel))
++        containerView.addArrangedSubview(lokeyTile(for: pumpStatusHUD, caption: lokeyPumpLabel))
++        setLoKeyCaptions(glucose: "CGM: —", loop: "Loop: —", pump: "Pump")
++
+         self.addSubview(containerView)
+ 
+         // Use AutoLayout to have the stack view fill its entire container.
+@@ -59,7 +111,7 @@
+             containerView.heightAnchor.constraint(equalTo: heightAnchor),
+         ])
+         
+-        self.backgroundColor = UIColor.secondarySystemBackground
++        self.backgroundColor = .systemGroupedBackground
+     }
+         
+     public func removePumpManagerProvidedView() {
