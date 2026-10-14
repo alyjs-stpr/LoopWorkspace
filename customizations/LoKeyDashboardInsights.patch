@@ -1,0 +1,270 @@
+diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View Controllers/StatusTableViewController.swift
+--- a/Loop/View Controllers/StatusTableViewController.swift
++++ b/Loop/View Controllers/StatusTableViewController.swift
+@@ -43,7 +43,67 @@
+ 
+     var supportManager: SupportManager!
+ 
+-    lazy private var cancellables = Set<AnyCancellable>()
++    lazy private var cancellables = Set<AnyCancellable>()
++
++    // LoKey T1D: read-only values shown above the existing four charts.
++    private var lokeyFreshness = "CGM: —"
++    private var lokeyForecast = "Forecast 30 min: —  ·  60 min: —"
++    private var lokeyBasal: Double?
++    private var lokeyRecentBolus: DoseEntry?
++
++    private func lokeyPredictedValue(_ minutes: Int, values: [GlucoseValue], unit: HKUnit) -> String {
++        let target = Date().addingTimeInterval(TimeInterval(minutes * 60))
++        // Never extrapolate, and never label a far-away sample as an exact forecast.
++        guard let point = values.min(by: {
++            abs($0.startDate.timeIntervalSince(target)) < abs($1.startDate.timeIntervalSince(target))
++        }), abs(point.startDate.timeIntervalSince(target)) <= 180 else {
++            return "—"
++        }
++        return String(format: unit == .milligramsPerDeciliter ? "%.0f" : "%.1f",
++                      point.quantity.doubleValue(for: unit))
++    }
++
++    private func configureLoKeyInsightCell(_ cell: UITableViewCell) {
++        var config = cell.defaultContentConfiguration()
++        config.text = NSLocalizedString("AT A GLANCE", comment: "LoKey dashboard summary")
++        config.textProperties.font = .preferredFont(forTextStyle: .headline)
++        config.textProperties.color = UIColor { traits in
++            traits.userInterfaceStyle == .dark
++                ? UIColor(red: 0.7490, green: 0.5961, blue: 1, alpha: 1)
++                : UIColor(red: 0.5020, green: 0.1725, blue: 0.9255, alpha: 1)
++        }
++        let basalText = lokeyBasal.map { String(format: "%+.2f U/hr", $0) } ?? "—"
++        let bolusText: String
++        if let dose = lokeyRecentBolus {
++            let time = DateFormatter.localizedString(from: dose.startDate, dateStyle: .none, timeStyle: .short)
++            if let delivered = dose.deliveredUnits {
++                bolusText = String(format: "%.2f U delivered at %@", delivered, time)
++            } else {
++                bolusText = String(format: "%.2f U programmed at %@", dose.programmedUnits, time)
++            }
++        } else {
++            bolusText = "—"
++        }
++        config.secondaryText = [
++            lokeyFreshness,
++            lokeyForecast,
++            "Net basal: \(basalText)",
++            "Recent bolus: \(bolusText)",
++            NSLocalizedString("Forecasts are estimates, not sensor readings.", comment: "LoKey forecast disclaimer")
++        ].joined(separator: "\n")
++        config.secondaryTextProperties.numberOfLines = 0
++        config.secondaryTextProperties.font = .preferredFont(forTextStyle: .subheadline)
++        config.secondaryTextProperties.color = .label
++        cell.contentConfiguration = config
++        var background = UIBackgroundConfiguration.listGroupedCell()
++        background.backgroundColor = .tertiarySystemBackground
++        background.cornerRadius = 12
++        background.backgroundInsets = NSDirectionalEdgeInsets(top: 5, leading: 12, bottom: 5, trailing: 12)
++        cell.backgroundConfiguration = background
++        cell.selectionStyle = .none
++        cell.isAccessibilityElement = true
++        cell.accessibilityLabel = config.secondaryText
++    }
+ 
+     override func viewDidLoad() {
+ 
+@@ -53,7 +113,8 @@
+         
+         tableView.register(BolusProgressTableViewCell.nib(), forCellReuseIdentifier: BolusProgressTableViewCell.className)
+         tableView.register(AlertPermissionsDisabledWarningCell.self, forCellReuseIdentifier: AlertPermissionsDisabledWarningCell.className)
+-        tableView.register(MuteAlertsWarningCell.self, forCellReuseIdentifier: MuteAlertsWarningCell.className)
++        tableView.register(MuteAlertsWarningCell.self, forCellReuseIdentifier: MuteAlertsWarningCell.className)
++        tableView.register(UITableViewCell.self, forCellReuseIdentifier: "LoKeyInsight")
+ 
+         if FeatureFlags.predictedGlucoseChartClampEnabled {
+             statusCharts.glucose.glucoseDisplayRange = LoopConstants.glucoseChartDefaultDisplayBoundClamped
+@@ -457,7 +518,8 @@
+         var carbsOnBoard: HKQuantity?
+         let startDate = charts.startDate
+         let basalDeliveryState = self.basalDeliveryState
+-        let automaticDosingEnabled = automaticDosingStatus.automaticDosingEnabled
++        let automaticDosingEnabled = automaticDosingStatus.automaticDosingEnabled
++        var updatedNetBasal: Double?
+ 
+         // TODO: Don't always assume currentContext.contains(.status)
+         reloadGroup.enter()
+@@ -479,7 +541,8 @@
+             } else {
+                 netBasal = nil
+             }
+-            self.log.debug("Update net basal to %{public}@", String(describing: netBasal))
++            self.log.debug("Update net basal to %{public}@", String(describing: netBasal))
++            updatedNetBasal = netBasal?.rate
+ 
+             DispatchQueue.main.async {
+                 self.lastLoopError = lastLoopError
+@@ -643,8 +706,46 @@
+                 self.currentCOBDescription = nil
+             }
+ 
+-            self.tableView.beginUpdates()
+-            if let hudView = self.hudView {
++            // All dashboard content is derived from Loop's existing data sources.
++            let unit = self.statusCharts.glucose.glucoseUnit
++            let unitText = unit == .milligramsPerDeciliter ? "mg/dL" : "mmol/L"
++            if let glucose = self.deviceManager.glucoseStore.latestGlucose {
++                let minutes = max(0, Int(Date().timeIntervalSince(glucose.startDate) / 60))
++                self.lokeyFreshness = "CGM: \(minutes == 0 ? "just now" : "\(minutes) min ago")"
++                if self.deviceManager.isGlucoseValueStale {
++                    self.lokeyFreshness += " · STALE"
++                } else if let samples = glucoseSamples, samples.count >= 2 {
++                    let ordered = samples.sorted { $0.startDate < $1.startDate }
++                    if let latest = ordered.last, let previous = ordered.dropLast().last,
++                       latest.startDate.timeIntervalSince(previous.startDate) <= 15 * 60,
++                       latest.startDate.timeIntervalSinceNow >= -10 * 60 {
++                        let change = latest.quantity.doubleValue(for: unit)
++                            - previous.quantity.doubleValue(for: unit)
++                        self.lokeyFreshness += " · change \(String(format: unit == .milligramsPerDeciliter ? "%+.0f" : "%+.1f", change)) \(unitText)"
++                    }
++                }
++            } else {
++                self.lokeyFreshness = "CGM: no reading"
++            }
++            let mayShowPrediction = !self.deviceManager.isGlucoseValueStale
++                && (automaticDosingEnabled || !FeatureFlags.simpleBolusCalculatorEnabled)
++                && predictedGlucoseValues != nil
++            let forecast = mayShowPrediction ? (predictedGlucoseValues ?? []) : []
++            let at30 = self.lokeyPredictedValue(30, values: forecast, unit: unit)
++            let at60 = self.lokeyPredictedValue(60, values: forecast, unit: unit)
++            self.lokeyForecast = "Forecast 30 min: \(at30)  ·  60 min: \(at60) \(unitText)"
++            self.lokeyBasal = updatedNetBasal
++            if let entries = doseEntries {
++                self.lokeyRecentBolus = entries.filter { $0.type == .bolus }
++                    .max { $0.startDate < $1.startDate }
++            }
++            if self.shouldShowHUD,
++               let cell = self.tableView.cellForRow(at: IndexPath(row: 0, section: Section.insights.rawValue)) {
++                self.configureLoKeyInsightCell(cell)
++            }
++
++            self.tableView.beginUpdates()
++            if let hudView = self.hudView {
+                 // CGM Status
+                 if let glucose = self.deviceManager.glucoseStore.latestGlucose {
+                     let unit = self.statusCharts.glucose.glucoseUnit
+@@ -689,9 +790,10 @@
+ 
+     private enum Section: Int, CaseIterable {
+         case alertWarning
+-        case hud
+-        case status
+-        case charts
++        case hud
++        case status
++        case insights
++        case charts
+     }
+ 
+     // MARK: - Chart Section Data
+@@ -815,14 +917,16 @@
+         
+         updateBannerRow(animated: animated)
+ 
+-        switch (hudWasVisible, hudIsVisible) {
+-        case (false, true):
+-            tableView.insertRows(at: [IndexPath(row: 0, section: Section.hud.rawValue)], with: animated ? .top : .none)
+-        case (true, false):
+-            tableView.deleteRows(at: [IndexPath(row: 0, section: Section.hud.rawValue)], with: animated ? .top : .none)
+-        default:
+-            break
+-        }
++        switch (hudWasVisible, hudIsVisible) {
++        case (false, true):
++            tableView.insertRows(at: [IndexPath(row: 0, section: Section.hud.rawValue)], with: animated ? .top : .none)
++            tableView.insertRows(at: [IndexPath(row: 0, section: Section.insights.rawValue)], with: animated ? .top : .none)
++        case (true, false):
++            tableView.deleteRows(at: [IndexPath(row: 0, section: Section.hud.rawValue)], with: animated ? .top : .none)
++            tableView.deleteRows(at: [IndexPath(row: 0, section: Section.insights.rawValue)], with: animated ? .top : .none)
++        default:
++            break
++        }
+ 
+         let statusIndexPath = IndexPath(row: StatusRow.status.rawValue, section: Section.status.rawValue)
+ 
+@@ -913,9 +1017,9 @@
+         switch Section(rawValue: section)! {
+         case .alertWarning:
+             return shouldShowBannerWarning ? 1 : 0
+-        case .hud:
+-            return shouldShowHUD ? 1 : 0
+-        case .charts:
++        case .hud, .insights:
++            return shouldShowHUD ? 1 : 0
++        case .charts:
+             return ChartRow.allCases.count
+         case .status:
+             return shouldShowStatus ? StatusRow.allCases.count : 0
+@@ -1020,8 +1124,12 @@
+             hudView = cell.hudView
+ 
+             return cell
+-        case .charts:
+-            let cell = tableView.dequeueReusableCell(withIdentifier: ChartTableViewCell.className, for: indexPath) as! ChartTableViewCell
++        case .insights:
++            let cell = tableView.dequeueReusableCell(withIdentifier: "LoKeyInsight", for: indexPath)
++            configureLoKeyInsightCell(cell)
++            return cell
++        case .charts:
++            let cell = tableView.dequeueReusableCell(withIdentifier: ChartTableViewCell.className, for: indexPath) as! ChartTableViewCell
+ 
+             switch ChartRow(rawValue: indexPath.row)! {
+             case .glucose:
+@@ -1192,11 +1300,12 @@
+                 }
+             case .dose:
+                 let integerFormatter = NumberFormatter()
+-                integerFormatter.maximumFractionDigits = 0
++                integerFormatter.minimumFractionDigits = 2
++                integerFormatter.maximumFractionDigits = 2
+ 
+                 if  let total = totalDelivery,
+                     let totalString = integerFormatter.string(from: total) {
+-                    cell.setSubtitleLabel(label: String(format: NSLocalizedString("%@ U Total", comment: "The subtitle format describing total insulin. (1: localized insulin total)"), totalString))
++                    cell.setSubtitleLabel(label: String(format: NSLocalizedString("%@ U Today", comment: "Insulin delivered since local midnight. (1: localized insulin total)"), totalString))
+                 } else {
+                     cell.setSubtitleLabel(label: nil)
+                 }
+@@ -1207,8 +1316,8 @@
+                     cell.setSubtitleLabel(label: nil)
+                 }
+             }
+-        case .hud, .status, .alertWarning:
+-            break
++        case .hud, .status, .insights, .alertWarning:
++            break
+         }
+     }
+ 
+@@ -1228,8 +1337,8 @@
+             case .iob, .dose, .cob:
+                 return max(106, 0.21 * availableSize)
+             }
+-        case .hud, .status, .alertWarning:
+-            return UITableView.automaticDimension
++        case .hud, .status, .insights, .alertWarning:
++            return UITableView.automaticDimension
+         }
+     }
+ 
+@@ -1243,10 +1352,10 @@
+                 tableView.deselectRow(at: indexPath, animated: true)
+                 presentUnmuteAlertConfirmation()
+             }
+-        case .hud:
+-            break
+-        case .status:
+-            switch StatusRow(rawValue: indexPath.row)! {
++        case .hud, .insights:
++            break
++        case .status:
++            switch StatusRow(rawValue: indexPath.row)! {
+             case .status:
+                 tableView.deselectRow(at: indexPath, animated: true)
+ 
