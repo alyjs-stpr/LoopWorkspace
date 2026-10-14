@@ -1,7 +1,7 @@
 diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View Controllers/StatusTableViewController.swift
 --- a/Loop/View Controllers/StatusTableViewController.swift
 +++ b/Loop/View Controllers/StatusTableViewController.swift
-@@ -43,7 +43,261 @@
+@@ -43,7 +43,260 @@
  
      var supportManager: SupportManager!
  
@@ -136,7 +136,6 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +
 +    private var lokeySnapshot = LoKeyDashboardSnapshot()
 +    private var lokeyHistoryHours = 3
-+
 +    private weak var lokeyMetricsCell: LoKeyMetricsCell?
 +    private weak var lokeyGlucoseCell: ChartTableViewCell?
 +
@@ -264,7 +263,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
  
      override func viewDidLoad() {
  
-@@ -53,7 +307,12 @@
+@@ -53,7 +306,12 @@
          
          tableView.register(BolusProgressTableViewCell.nib(), forCellReuseIdentifier: BolusProgressTableViewCell.className)
          tableView.register(AlertPermissionsDisabledWarningCell.self, forCellReuseIdentifier: AlertPermissionsDisabledWarningCell.className)
@@ -278,7 +277,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
  
          if FeatureFlags.predictedGlucoseChartClampEnabled {
              statusCharts.glucose.glucoseDisplayRange = LoopConstants.glucoseChartDefaultDisplayBoundClamped
-@@ -144,7 +403,7 @@
+@@ -144,7 +402,7 @@
  
          addScenarioStepGestureRecognizers()
  
@@ -287,7 +286,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
      
      }
  
-@@ -394,9 +653,11 @@
+@@ -394,9 +652,11 @@
          // How far back should we show data? Use the screen size as a guide.
          let availableWidth = (refreshContext.newSize ?? tableView.bounds.size).width - charts.fixedHorizontalMargin
  
@@ -302,7 +301,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
  
          let date = Date(timeIntervalSinceNow: -TimeInterval(hours: historyHours))
          let chartStartDate = Calendar.current.nextDate(after: date, matching: DateComponents(minute: 0), matchingPolicy: .strict, direction: .backward) ?? date
-@@ -457,7 +718,8 @@
+@@ -457,7 +717,8 @@
          var carbsOnBoard: HKQuantity?
          let startDate = charts.startDate
          let basalDeliveryState = self.basalDeliveryState
@@ -312,7 +311,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
  
          // TODO: Don't always assume currentContext.contains(.status)
          reloadGroup.enter()
-@@ -479,7 +741,17 @@
+@@ -479,7 +740,17 @@
              } else {
                  netBasal = nil
              }
@@ -331,7 +330,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
  
              DispatchQueue.main.async {
                  self.lastLoopError = lastLoopError
-@@ -643,8 +915,65 @@
+@@ -643,8 +914,65 @@
                  self.currentCOBDescription = nil
              }
  
@@ -399,7 +398,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
                  // CGM Status
                  if let glucose = self.deviceManager.glucoseStore.latestGlucose {
                      let unit = self.statusCharts.glucose.glucoseUnit
-@@ -656,7 +985,14 @@
+@@ -656,7 +984,14 @@
                                                              wasUserEntered: glucose.wasUserEntered,
                                                              isDisplayOnly: glucose.isDisplayOnly)
                  }
@@ -415,7 +414,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
                  hudView.cgmStatusHUD.presentStatusBadge(self.deviceManager.cgmStatusBadge)
                  hudView.cgmStatusHUD.lifecycleProgress = self.deviceManager.cgmLifecycleProgress
  
-@@ -689,9 +1025,10 @@
+@@ -689,9 +1024,10 @@
  
      private enum Section: Int, CaseIterable {
          case alertWarning
@@ -429,7 +428,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
      }
  
      // MARK: - Chart Section Data
-@@ -815,14 +1152,16 @@
+@@ -815,14 +1151,16 @@
          
          updateBannerRow(animated: animated)
  
@@ -454,7 +453,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
  
          let statusIndexPath = IndexPath(row: StatusRow.status.rawValue, section: Section.status.rawValue)
  
-@@ -913,9 +1252,9 @@
+@@ -913,9 +1251,9 @@
          switch Section(rawValue: section)! {
          case .alertWarning:
              return shouldShowBannerWarning ? 1 : 0
@@ -467,7 +466,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
              return ChartRow.allCases.count
          case .status:
              return shouldShowStatus ? StatusRow.allCases.count : 0
-@@ -1020,8 +1359,14 @@
+@@ -1020,8 +1358,14 @@
              hudView = cell.hudView
  
              return cell
@@ -484,7 +483,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
  
              switch ChartRow(rawValue: indexPath.row)! {
              case .glucose:
-@@ -1192,11 +1537,12 @@
+@@ -1192,11 +1536,12 @@
                  }
              case .dose:
                  let integerFormatter = NumberFormatter()
@@ -499,7 +498,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
                  } else {
                      cell.setSubtitleLabel(label: nil)
                  }
-@@ -1207,8 +1553,8 @@
+@@ -1207,8 +1552,8 @@
                      cell.setSubtitleLabel(label: nil)
                  }
              }
@@ -510,7 +509,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
          }
      }
  
-@@ -1223,13 +1569,13 @@
+@@ -1223,13 +1568,13 @@
              availableSize -= (tableView.safeAreaInsets.top + tableView.safeAreaInsets.bottom + hudHeight)
  
              switch ChartRow(rawValue: indexPath.row)! {
@@ -528,7 +527,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
          }
      }
  
-@@ -1243,10 +1589,10 @@
+@@ -1243,10 +1588,10 @@
                  tableView.deselectRow(at: indexPath, animated: true)
                  presentUnmuteAlertConfirmation()
              }
