@@ -1,0 +1,102 @@
+diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View Controllers/StatusTableViewController.swift
+--- a/Loop/View Controllers/StatusTableViewController.swift
++++ b/Loop/View Controllers/StatusTableViewController.swift
+@@ -139,7 +139,40 @@
+         }
+     }
+ 
+-    private var lokeySnapshot = LoKeyDashboardSnapshot()
++    // Overlay is visual-only. It does not fabricate a glucose or insulin value.
++    private final class LoKeyNowOverlayView: UIView {
++        var nowFraction: CGFloat = 0.5 {
++            didSet { setNeedsDisplay() }
++        }
++        override init(frame: CGRect) {
++            super.init(frame: frame)
++            isOpaque = false
++            backgroundColor = .clear
++            isUserInteractionEnabled = false
++        }
++        required init?(coder: NSCoder) { fatalError("init(coder:) unavailable") }
++
++        override func draw(_ rect: CGRect) {
++            super.draw(rect)
++            let leftAxisInset: CGFloat = 46
++            let plotWidth = max(0, bounds.width - leftAxisInset - 10)
++            let x = leftAxisInset + plotWidth * min(1, max(0, nowFraction))
++            let marker = UIBezierPath()
++            marker.move(to: CGPoint(x: x, y: 6))
++            marker.addLine(to: CGPoint(x: x, y: max(6, bounds.height - 26)))
++            marker.lineWidth = 1
++            marker.setLineDash([4, 4], count: 2, phase: 0)
++            UIColor.secondaryLabel.withAlphaComponent(0.5).setStroke()
++            marker.stroke()
++            let caption = "Now" as NSString
++            caption.draw(at: CGPoint(x: x - 12, y: max(0, bounds.height - 20)), withAttributes: [
++                .font: UIFont.preferredFont(forTextStyle: .caption2),
++                .foregroundColor: UIColor.secondaryLabel
++            ])
++        }
++    }
++
++    private var lokeySnapshot = LoKeyDashboardSnapshot()
+     private var lokeyHistoryHours = 3
+     private weak var lokeyMetricsCell: LoKeyMetricsCell?
+     private weak var lokeyGlucoseCell: ChartTableViewCell?
+@@ -167,10 +200,22 @@
+     }
+ 
+     private func lokeyStyleChartCell(_ cell: ChartTableViewCell, isGlucose: Bool) {
+-        cell.backgroundColor = .clear
+-        cell.contentView.backgroundColor = .secondarySystemGroupedBackground
+-        cell.contentView.layer.cornerRadius = 18
+-        cell.contentView.layer.masksToBounds = true
++        cell.backgroundColor = .clear
++        cell.contentView.backgroundColor = .clear
++        // Use an inset background so every graph is a separate rounded card.
++        let backdrop = UIView()
++        let card = UIView()
++        card.backgroundColor = .secondarySystemGroupedBackground
++        card.layer.cornerRadius = 18
++        card.translatesAutoresizingMaskIntoConstraints = false
++        backdrop.addSubview(card)
++        NSLayoutConstraint.activate([
++            card.leadingAnchor.constraint(equalTo: backdrop.leadingAnchor, constant: 10),
++            card.trailingAnchor.constraint(equalTo: backdrop.trailingAnchor, constant: -10),
++            card.topAnchor.constraint(equalTo: backdrop.topAnchor, constant: 5),
++            card.bottomAnchor.constraint(equalTo: backdrop.bottomAnchor, constant: -5)
++        ])
++        cell.backgroundView = backdrop
+         cell.contentView.directionalLayoutMargins = NSDirectionalEdgeInsets(
+             top: 10, leading: 18, bottom: 8, trailing: 18
+         )
+@@ -185,9 +230,26 @@
+         let topConstraint = cell.contentView.constraints.first {
+             ($0.firstItem as? UIView) === chartView && $0.firstAttribute == .top
+         }
+-        topConstraint?.constant = isGlucose ? 77 : 0
+-
+-        // A chart cell can be reused as a different chart; clean up its controls.
++        topConstraint?.constant = isGlucose ? 77 : 0
++
++        // Keep Now aligned across all four charts' shared time axis.
++        cell.contentView.viewWithTag(87204)?.removeFromSuperview()
++        let marker = LoKeyNowOverlayView()
++        marker.tag = 87204
++        marker.translatesAutoresizingMaskIntoConstraints = false
++        let total = charts.maxEndDate.timeIntervalSince(charts.startDate)
++        if total > 0 {
++            marker.nowFraction = CGFloat(Date().timeIntervalSince(charts.startDate) / total)
++        }
++        cell.contentView.addSubview(marker)
++        NSLayoutConstraint.activate([
++            marker.leadingAnchor.constraint(equalTo: chartView.leadingAnchor),
++            marker.trailingAnchor.constraint(equalTo: chartView.trailingAnchor),
++            marker.topAnchor.constraint(equalTo: chartView.topAnchor),
++            marker.bottomAnchor.constraint(equalTo: chartView.bottomAnchor)
++        ])
++
++        // A chart cell can be reused as a different chart; clean up its controls.
+         cell.contentView.viewWithTag(87203)?.removeFromSuperview()
+         if !isGlucose { return }
+ 
