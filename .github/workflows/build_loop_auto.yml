@@ -255,6 +255,11 @@ jobs:
           # Cosmetic card spacing and shared Now markers, after the dashboard.
           git -C Loop apply --check ../customizations/LoKeyDashboardPolish.patch
           git -C Loop apply ../customizations/LoKeyDashboardPolish.patch
+
+          # Final dashboard-only safe-area, forecast, and alignment refinements.
+          git -C Loop apply --check ../customizations/LoKeyDashboardFinalPass.patch
+          git -C Loop apply ../customizations/LoKeyDashboardFinalPass.patch
+          echo "LoKey final dashboard polish applied."
           echo "LoKey T1D rounded chart cards and shared Now markers applied."
 
           # T1Pal returns a server error for Nightscout's legacy auth-test endpoint.
