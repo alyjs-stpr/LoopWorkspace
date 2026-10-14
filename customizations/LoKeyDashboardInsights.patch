@@ -1,7 +1,7 @@
 diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View Controllers/StatusTableViewController.swift
 --- a/Loop/View Controllers/StatusTableViewController.swift
 +++ b/Loop/View Controllers/StatusTableViewController.swift
-@@ -43,7 +43,222 @@
+@@ -43,7 +43,266 @@
  
      var supportManager: SupportManager!
  
@@ -115,7 +115,33 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +    }
 +
 +    private var lokeySnapshot = LoKeyDashboardSnapshot()
-+    private var lokeyHistoryHours = 3
++    // Keep the user-selected graph range across app launches.
++    // This preference affects the dashboard display only.
++    private var lokeyHistoryHours: Int = {
++        let stored = UserDefaults.standard.integer(forKey: "LoKeyDashboardHistoryHours")
++        return [1, 3, 6].contains(stored) ? stored : 3
++    }()
++
++    // Fixed above the scrolling table so cards cannot pass behind the clock.
++    private let lokeyStatusBarScrim: UIView = {
++        let view = UIView()
++        view.backgroundColor = .systemGroupedBackground
++        view.isUserInteractionEnabled = false
++        view.isAccessibilityElement = false
++        view.translatesAutoresizingMaskIntoConstraints = false
++        return view
++    }()
++
++    private func lokeyInstallStatusBarScrim() {
++        guard let host = navigationController?.view, lokeyStatusBarScrim.superview == nil else { return }
++        host.addSubview(lokeyStatusBarScrim)
++        NSLayoutConstraint.activate([
++            lokeyStatusBarScrim.topAnchor.constraint(equalTo: host.topAnchor),
++            lokeyStatusBarScrim.bottomAnchor.constraint(equalTo: host.safeAreaLayoutGuide.topAnchor),
++            lokeyStatusBarScrim.leadingAnchor.constraint(equalTo: host.leadingAnchor),
++            lokeyStatusBarScrim.trailingAnchor.constraint(equalTo: host.trailingAnchor)
++        ])
++    }
 +    private weak var lokeyMetricsCell: LoKeyMetricsCell?
 +    private weak var lokeyGlucoseCell: ChartTableViewCell?
 +
@@ -136,6 +162,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +        let hours = allowed[sender.selectedSegmentIndex]
 +        guard hours != lokeyHistoryHours else { return }
 +        lokeyHistoryHours = hours
++        UserDefaults.standard.set(hours, forKey: "LoKeyDashboardHistoryHours")
 +        refreshContext.formUnion(RefreshContext.all)
 +        updateChartDateRange()
 +        reloadData(animated: false)
@@ -171,25 +198,42 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +        caption.font = .preferredFont(forTextStyle: .caption1)
 +        caption.textColor = .secondaryLabel
 +
-+        let p30 = UILabel()
-+        let p60 = UILabel()
-+        for label in [p30, p60] {
-+            label.font = .preferredFont(forTextStyle: .subheadline)
++        caption.adjustsFontSizeToFitWidth = true
++        caption.minimumScaleFactor = 0.75
++        caption.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
++
++        func forecastChip(_ title: String, value: String) -> UIView {
++            let label = UILabel()
++            label.text = "\(title)  \(value)"
++            label.font = .preferredFont(forTextStyle: .caption1)
 +            label.adjustsFontForContentSizeCategory = true
-+            label.textAlignment = .right
++            label.adjustsFontSizeToFitWidth = true
++            label.minimumScaleFactor = 0.8
++            label.numberOfLines = 1
 +            label.textColor = UIColor { traits in
 +                traits.userInterfaceStyle == .dark
 +                    ? UIColor(red: 0.75, green: 0.60, blue: 1, alpha: 1)
 +                    : UIColor(red: 0.50, green: 0.17, blue: 0.93, alpha: 1)
 +            }
++            let chip = UIStackView(arrangedSubviews: [label])
++            chip.isLayoutMarginsRelativeArrangement = true
++            chip.directionalLayoutMargins = NSDirectionalEdgeInsets(
++                top: 5, leading: 8, bottom: 5, trailing: 8
++            )
++            chip.backgroundColor = .tertiarySystemGroupedBackground
++            chip.layer.cornerRadius = 10
++            chip.clipsToBounds = true
++            chip.isAccessibilityElement = true
++            chip.accessibilityLabel = title + " forecast: " + value
++            return chip
 +        }
-+        p30.text = "30 min  " + lokeySnapshot.forecast30
-+        p60.text = "60 min  " + lokeySnapshot.forecast60
-+
++        let p30 = forecastChip("30m", value: lokeySnapshot.forecast30)
++        let p60 = forecastChip("60m", value: lokeySnapshot.forecast60)
 +        let predictions = UIStackView(arrangedSubviews: [caption, p30, p60])
 +        predictions.axis = .horizontal
-+        predictions.distribution = .fillProportionally
-+        predictions.spacing = 8
++        predictions.alignment = .center
++        predictions.distribution = .fill
++        predictions.spacing = 6
 +
 +        let selector = UISegmentedControl(items: ["1h", "3h", "6h"])
 +        selector.selectedSegmentIndex = [1, 3, 6].firstIndex(of: lokeyHistoryHours) ?? 1
@@ -225,7 +269,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
  
      override func viewDidLoad() {
  
-@@ -53,7 +268,9 @@
+@@ -53,7 +312,9 @@
          
          tableView.register(BolusProgressTableViewCell.nib(), forCellReuseIdentifier: BolusProgressTableViewCell.className)
          tableView.register(AlertPermissionsDisabledWarningCell.self, forCellReuseIdentifier: AlertPermissionsDisabledWarningCell.className)
@@ -236,7 +280,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
  
          if FeatureFlags.predictedGlucoseChartClampEnabled {
              statusCharts.glucose.glucoseDisplayRange = LoopConstants.glucoseChartDefaultDisplayBoundClamped
-@@ -144,7 +361,7 @@
+@@ -144,7 +405,7 @@
  
          addScenarioStepGestureRecognizers()
  
@@ -245,7 +289,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
      
      }
  
-@@ -394,9 +611,11 @@
+@@ -394,9 +655,11 @@
          // How far back should we show data? Use the screen size as a guide.
          let availableWidth = (refreshContext.newSize ?? tableView.bounds.size).width - charts.fixedHorizontalMargin
  
@@ -260,7 +304,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
  
          let date = Date(timeIntervalSinceNow: -TimeInterval(hours: historyHours))
          let chartStartDate = Calendar.current.nextDate(after: date, matching: DateComponents(minute: 0), matchingPolicy: .strict, direction: .backward) ?? date
-@@ -457,7 +676,8 @@
+@@ -457,7 +720,8 @@
          var carbsOnBoard: HKQuantity?
          let startDate = charts.startDate
          let basalDeliveryState = self.basalDeliveryState
@@ -270,7 +314,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
  
          // TODO: Don't always assume currentContext.contains(.status)
          reloadGroup.enter()
-@@ -479,7 +699,17 @@
+@@ -479,7 +743,17 @@
              } else {
                  netBasal = nil
              }
@@ -289,7 +333,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
  
              DispatchQueue.main.async {
                  self.lastLoopError = lastLoopError
-@@ -643,8 +873,65 @@
+@@ -643,8 +917,65 @@
                  self.currentCOBDescription = nil
              }
  
@@ -357,7 +401,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
                  // CGM Status
                  if let glucose = self.deviceManager.glucoseStore.latestGlucose {
                      let unit = self.statusCharts.glucose.glucoseUnit
-@@ -656,7 +943,14 @@
+@@ -656,7 +987,14 @@
                                                              wasUserEntered: glucose.wasUserEntered,
                                                              isDisplayOnly: glucose.isDisplayOnly)
                  }
@@ -373,7 +417,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
                  hudView.cgmStatusHUD.presentStatusBadge(self.deviceManager.cgmStatusBadge)
                  hudView.cgmStatusHUD.lifecycleProgress = self.deviceManager.cgmLifecycleProgress
  
-@@ -689,9 +983,10 @@
+@@ -689,9 +1027,10 @@
  
      private enum Section: Int, CaseIterable {
          case alertWarning
@@ -387,7 +431,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
      }
  
      // MARK: - Chart Section Data
-@@ -815,14 +1110,16 @@
+@@ -815,14 +1154,16 @@
          
          updateBannerRow(animated: animated)
  
@@ -412,7 +456,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
  
          let statusIndexPath = IndexPath(row: StatusRow.status.rawValue, section: Section.status.rawValue)
  
-@@ -913,9 +1210,9 @@
+@@ -913,9 +1254,9 @@
          switch Section(rawValue: section)! {
          case .alertWarning:
              return shouldShowBannerWarning ? 1 : 0
@@ -425,7 +469,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
              return ChartRow.allCases.count
          case .status:
              return shouldShowStatus ? StatusRow.allCases.count : 0
-@@ -1020,8 +1317,14 @@
+@@ -1020,8 +1361,14 @@
              hudView = cell.hudView
  
              return cell
@@ -442,7 +486,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
  
              switch ChartRow(rawValue: indexPath.row)! {
              case .glucose:
-@@ -1192,11 +1495,12 @@
+@@ -1192,11 +1539,12 @@
                  }
              case .dose:
                  let integerFormatter = NumberFormatter()
@@ -457,7 +501,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
                  } else {
                      cell.setSubtitleLabel(label: nil)
                  }
-@@ -1207,8 +1511,8 @@
+@@ -1207,8 +1555,8 @@
                      cell.setSubtitleLabel(label: nil)
                  }
              }
@@ -468,7 +512,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
          }
      }
  
-@@ -1223,13 +1527,13 @@
+@@ -1223,13 +1571,13 @@
              availableSize -= (tableView.safeAreaInsets.top + tableView.safeAreaInsets.bottom + hudHeight)
  
              switch ChartRow(rawValue: indexPath.row)! {
@@ -486,7 +530,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
          }
      }
  
-@@ -1243,10 +1547,10 @@
+@@ -1243,10 +1591,10 @@
                  tableView.deselectRow(at: indexPath, animated: true)
                  presentUnmuteAlertConfirmation()
              }
