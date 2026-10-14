@@ -1,0 +1,120 @@
+diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View Controllers/StatusTableViewController.swift
+--- a/Loop/View Controllers/StatusTableViewController.swift
++++ b/Loop/View Controllers/StatusTableViewController.swift
+@@ -172,11 +172,17 @@
+     }
+ 
+     // Overlay is visual-only. It does not fabricate a glucose or insulin value.
+     private final class LoKeyNowOverlayView: UIView {
+-        var nowFraction: CGFloat = 0.5 {
+-            didSet { setNeedsDisplay() }
+-        }
++        var nowFraction: CGFloat = 0.5 {
++            didSet { setNeedsDisplay() }
++        }
++        var plotLeadingInset: CGFloat = 0 {
++            didSet { setNeedsDisplay() }
++        }
++        var plotTrailingInset: CGFloat = 0 {
++            didSet { setNeedsDisplay() }
++        }
+         override init(frame: CGRect) {
+             super.init(frame: frame)
+             isOpaque = false
+             backgroundColor = .clear
+@@ -185,11 +191,10 @@
+         required init?(coder: NSCoder) { fatalError("init(coder:) unavailable") }
+ 
+         override func draw(_ rect: CGRect) {
+             super.draw(rect)
+-            let leftAxisInset: CGFloat = 46
+-            let plotWidth = max(0, bounds.width - leftAxisInset - 10)
+-            let x = leftAxisInset + plotWidth * min(1, max(0, nowFraction))
++            let plotWidth = max(0, bounds.width - plotLeadingInset - plotTrailingInset)
++            let x = plotLeadingInset + plotWidth * min(1, max(0, nowFraction))
+             let marker = UIBezierPath()
+             marker.move(to: CGPoint(x: x, y: 6))
+             marker.addLine(to: CGPoint(x: x, y: max(6, bounds.height - 45)))
+             marker.lineWidth = 1
+@@ -267,10 +272,12 @@
+ 
+         // Keep Now aligned across all four charts' shared time axis.
+         cell.contentView.viewWithTag(87204)?.removeFromSuperview()
+         let marker = LoKeyNowOverlayView()
+-        marker.tag = 87204
+-        marker.translatesAutoresizingMaskIntoConstraints = false
++        marker.tag = 87204
++        marker.plotLeadingInset = charts.plotLeadingInset
++        marker.plotTrailingInset = charts.plotTrailingInset
++        marker.translatesAutoresizingMaskIntoConstraints = false
+         let total = charts.displayedEndDate.timeIntervalSince(charts.startDate)
+         if total > 0 {
+             marker.nowFraction = CGFloat(Date().timeIntervalSince(charts.startDate) / total)
+         }
+@@ -502,11 +509,13 @@
+     }
+ 
+     override func viewDidAppear(_ animated: Bool) {
+ 
+-        super.viewDidAppear(animated)
+-
+-        if !appearedOnce {
++        super.viewDidAppear(animated)
++
++        lokeyInstallStatusBarScrim()
++
++        if !appearedOnce {
+             appearedOnce = true
+             DispatchQueue.main.async {
+                 self.log.debug("[reloadData] after HealthKit authorization")
+                 self.reloadData()
+@@ -520,11 +529,12 @@
+         deviceManager.checkDeliveryUncertaintyState()
+     }
+ 
+     override func viewWillDisappear(_ animated: Bool) {
+-        super.viewWillDisappear(animated)
+-
+-        onscreen = false
++        super.viewWillDisappear(animated)
++
++        lokeyStatusBarScrim.removeFromSuperview()
++        onscreen = false
+ 
+         if presentedViewController == nil {
+             navigationController?.setNavigationBarHidden(false, animated: animated)
+         }
+diff --git a/LoopUI/Views/StatusBarHUDView.swift b/LoopUI/Views/StatusBarHUDView.swift
+--- a/LoopUI/Views/StatusBarHUDView.swift
++++ b/LoopUI/Views/StatusBarHUDView.swift
+@@ -94,13 +94,25 @@
+         for hud in huds {
+             containerView.removeArrangedSubview(hud)
+             hud.removeFromSuperview()
+         }
+-        containerView.spacing = 4
+-        containerView.addArrangedSubview(lokeyTile(for: cgmStatusHUD, caption: lokeyGlucoseAgeLabel))
+-        containerView.addArrangedSubview(lokeyTile(for: loopCompletionHUD, caption: lokeyLoopAgeLabel))
+-        containerView.addArrangedSubview(lokeyTile(for: pumpStatusHUD, caption: lokeyPumpLabel))
+-        setLoKeyCaptions(glucose: "CGM: —", loop: "Loop: —", pump: "Pump")
++        containerView.spacing = 4
++        containerView.distribution = .fill
++        let glucoseTile = lokeyTile(for: cgmStatusHUD, caption: lokeyGlucoseAgeLabel)
++        let loopTile = lokeyTile(for: loopCompletionHUD, caption: lokeyLoopAgeLabel)
++        let pumpTile = lokeyTile(for: pumpStatusHUD, caption: lokeyPumpLabel)
++        containerView.addArrangedSubview(glucoseTile)
++        containerView.addArrangedSubview(loopTile)
++        containerView.addArrangedSubview(pumpTile)
++
++        // Width ratios are preferred, never required. Native HUDs retain their
++        // own minimum sizes for compact devices and larger accessibility text.
++        let glucoseRatio = glucoseTile.widthAnchor.constraint(equalTo: loopTile.widthAnchor, multiplier: 1.45)
++        let pumpRatio = pumpTile.widthAnchor.constraint(equalTo: loopTile.widthAnchor, multiplier: 1.25)
++        glucoseRatio.priority = .defaultHigh
++        pumpRatio.priority = .defaultHigh
++        NSLayoutConstraint.activate([glucoseRatio, pumpRatio])
++        setLoKeyCaptions(glucose: "CGM: —", loop: "Loop: —", pump: "")
+ 
+         self.addSubview(containerView)
+ 
+         // Use AutoLayout to have the stack view fill its entire container.
