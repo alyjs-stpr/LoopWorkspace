@@ -137,10 +137,10 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +        cell.contentView.directionalLayoutMargins = NSDirectionalEdgeInsets(
 +            top: 10, leading: 18, bottom: 8, trailing: 18
 +        )
-+        cell.titleLabel?.font = .preferredFont(forTextStyle: .title3)
-+        cell.titleLabel?.adjustsFontForContentSizeCategory = true
-+        cell.subtitleLabel?.font = .preferredFont(forTextStyle: .subheadline)
-+        cell.subtitleLabel?.adjustsFontForContentSizeCategory = true
++        for label in cell.contentView.subviews.compactMap({ $0 as? UILabel }) {
++            label.font = .preferredFont(forTextStyle: label.textAlignment == .right ? .subheadline : .title3)
++            label.adjustsFontForContentSizeCategory = true
++        }
 +
 +        guard let chartView = cell.contentView.subviews.first(where: { $0 is ChartContainerView }) else {
 +            return
@@ -191,7 +191,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +        controls.translatesAutoresizingMaskIntoConstraints = false
 +        cell.contentView.addSubview(controls)
 +        NSLayoutConstraint.activate([
-+            controls.topAnchor.constraint(equalTo: cell.titleLabel!.bottomAnchor, constant: 7),
++            controls.bottomAnchor.constraint(equalTo: chartView.topAnchor, constant: -7),
 +            controls.leadingAnchor.constraint(equalTo: cell.contentView.leadingAnchor, constant: 20),
 +            controls.trailingAnchor.constraint(equalTo: cell.contentView.trailingAnchor, constant: -20),
 +            controls.heightAnchor.constraint(equalToConstant: 65)
