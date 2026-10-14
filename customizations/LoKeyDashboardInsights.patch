@@ -28,7 +28,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +        init(title: String) {
 +            super.init(frame: .zero)
 +            axis = .vertical
-+            alignment = .leading
++            alignment = .fill
 +            spacing = 3
 +            isLayoutMarginsRelativeArrangement = true
 +            directionalLayoutMargins = NSDirectionalEdgeInsets(top: 8, leading: 11, bottom: 8, trailing: 9)
