@@ -247,6 +247,11 @@ jobs:
           git -C Loop apply ../customizations/LoKeyDashboardInsights.patch
           echo "LoKey T1D dashboard insights and precise daily insulin total applied."
 
+          # Cosmetic card spacing and shared Now markers, after the dashboard.
+          git -C Loop apply --check ../customizations/LoKeyDashboardPolish.patch
+          git -C Loop apply ../customizations/LoKeyDashboardPolish.patch
+          echo "LoKey T1D rounded chart cards and shared Now markers applied."
+
           # T1Pal returns a server error for Nightscout's legacy auth-test endpoint.
           # Apply a bounded authenticated-read fallback only for t1pal.com sites.
           git -C NightscoutService apply --check ../customizations/LoKeyT1PalNightscout.patch
