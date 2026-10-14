@@ -81,6 +81,32 @@ jobs:
           grep -q 'useSparseTimeAxisLabels' "$FILE"
           grep -q 'plotLeadingInset' "$FILE"
 
+      - name: Verify approved cleanup controls across both build routes
+        shell: bash
+        run: |
+          set -euo pipefail
+          insights=customizations/LoKeyDashboardInsights.patch
+          final=customizations/LoKeyDashboardFinalPass.patch
+          # History selection must persist and restore, not just look selected.
+          grep -Fq 'UserDefaults.standard.set(hours, forKey: "LoKeyDashboardHistoryHours")' "$insights"
+          grep -Fq 'UserDefaults.standard.integer(forKey: "LoKeyDashboardHistoryHours")' "$insights"
+          grep -Fq 'selector.selectedSegmentTintColor' "$insights"
+          # Predictions, status-bar protection, axis alignment, and flexible HUDs.
+          grep -Fq 'forecastChip("30m"' "$insights"
+          grep -Fq 'forecastChip("60m"' "$insights"
+          grep -Fq 'host.safeAreaLayoutGuide.topAnchor' "$insights"
+          grep -Fq 'marker.plotLeadingInset = charts.plotLeadingInset' "$final"
+          grep -Fq 'marker.plotTrailingInset = charts.plotTrailingInset' "$final"
+          grep -Fq 'glucoseRatio.priority = .defaultHigh' "$final"
+          grep -Fq 'pumpRatio.priority = .defaultHigh' "$final"
+          for workflow in .github/workflows/build_loop.yml .github/workflows/build_loop_auto.yml; do
+            grep -Fq 'LoKeyAxisReadability.patch' "$workflow"
+            grep -Fq 'LoKeyReports.patch' "$workflow"
+            grep -Fq 'LoKeyDashboardInsights.patch' "$workflow"
+            grep -Fq 'LoKeyDashboardPolish.patch' "$workflow"
+            grep -Fq 'LoKeyDashboardFinalPass.patch' "$workflow"
+          done
+
   compile-ios:
     if: github.event_name == 'pull_request'
     name: Unsigned iOS simulator compile (no upload)
