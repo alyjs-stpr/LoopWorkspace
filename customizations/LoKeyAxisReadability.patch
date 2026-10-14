@@ -1,0 +1,44 @@
+diff --git a/LoopKitUI/View Controllers/ChartsManager.swift b/LoopKitUI/View Controllers/ChartsManager.swift
+--- a/LoopKitUI/View Controllers/ChartsManager.swift
++++ b/LoopKitUI/View Controllers/ChartsManager.swift
+@@ -91,9 +91,13 @@
+         }
+     }
+ 
+     /// The latest date on the X-axis
+-    private var endDate = Date() {
++    /// End of the axis currently displayed, which can be earlier than the prediction limit.
++    /// Display-only; does not alter any prediction or therapy calculations.
++    public var displayedEndDate: Date { endDate }
++
++    private var endDate = Date() {
+         didSet {
+             if endDate != oldValue {
+                 xAxisValues = nil
+             }
+@@ -180,14 +184,19 @@
+                 y: ChartAxisValue(scalar: 0)
+             )
+         ]
+ 
+-        let segments = ceil(endDate.timeIntervalSince(startDate).hours)
+-
+-        let xAxisValues = ChartAxisValuesStaticGenerator.generateXAxisValuesWithChartPoints(points,
+-            minSegmentCount: segments - 1,
+-            maxSegmentCount: segments + 1,
+-            multiple: TimeInterval(hours: 1),
++        // LoKey chart readability: on a phone, hourly text overlaps when the
++        // display includes several history hours plus the complete forecast.
++        // Changing only the tick spacing leaves readings and predictions intact.
++        let visibleHours = max(1, endDate.timeIntervalSince(startDate).hours)
++        let tickHours: Double = visibleHours > 9 ? 3 : (visibleHours > 6 ? 2 : 1)
++        let segments = ceil(visibleHours / tickHours)
++
++        let xAxisValues = ChartAxisValuesStaticGenerator.generateXAxisValuesWithChartPoints(points,
++            minSegmentCount: max(1, segments - 1),
++            maxSegmentCount: segments + 1,
++            multiple: TimeInterval(hours: tickHours),
+             axisValueGenerator: {
+                 ChartAxisValueDate(
+                     date: ChartAxisValueDate.dateFromScalar($0),
+                     formatter: timeFormatter,
