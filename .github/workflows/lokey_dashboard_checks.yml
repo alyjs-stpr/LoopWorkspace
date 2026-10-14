@@ -6,12 +6,14 @@ on:
     paths:
       - 'customizations/LoKeyDashboard*.patch'
       - 'customizations/LoKeyReports.patch'
+      - 'customizations/LoKeyAxisReadability.patch'
       - '.github/workflows/lokey_dashboard_checks.yml'
       - '.github/workflows/build_loop*.yml'
   pull_request:
     paths:
       - 'customizations/LoKeyDashboard*.patch'
       - 'customizations/LoKeyReports.patch'
+      - 'customizations/LoKeyAxisReadability.patch'
       - '.github/workflows/lokey_dashboard_checks.yml'
       - '.github/workflows/build_loop*.yml'
   workflow_dispatch:
@@ -34,6 +36,8 @@ jobs:
           set -euo pipefail
           git -C Loop apply --check ../customizations/LoKeyChartColors.patch
           git -C Loop apply ../customizations/LoKeyChartColors.patch
+          git -C LoopKit apply --check ../customizations/LoKeyAxisReadability.patch
+          git -C LoopKit apply ../customizations/LoKeyAxisReadability.patch
           git -C Loop apply --check ../customizations/LoKeyReports.patch
           git -C Loop apply ../customizations/LoKeyReports.patch
           git -C Loop apply --check ../customizations/LoKeyTIRShortcut.patch
@@ -51,7 +55,7 @@ jobs:
         run: |
           set -euo pipefail
           command -v swiftc
-          swiftc -frontend -parse "Loop/Loop/View Controllers/StatusTableViewController.swift" "Loop/LoopUI/Views/StatusBarHUDView.swift" "Loop/Loop/Views/SettingsView.swift"
+          swiftc -frontend -parse "Loop/Loop/View Controllers/StatusTableViewController.swift" "Loop/LoopUI/Views/StatusBarHUDView.swift" "Loop/Loop/Views/SettingsView.swift" "LoopKit/LoopKitUI/View Controllers/ChartsManager.swift"
       - name: Check preservation of key dashboard components
         shell: bash
         run: |
@@ -68,6 +72,8 @@ jobs:
           grep -q 'LoKeyCGMTIRStatistics' "Loop/Loop/Views/SettingsView.swift"
           grep -q 'Time in range (custom)' "Loop/Loop/Views/SettingsView.swift"
           grep -q 'LoKeyTargetStatistics' "Loop/Loop/Views/SettingsView.swift"
+          grep -q 'tickHours' "LoopKit/LoopKitUI/View Controllers/ChartsManager.swift"
+          grep -q 'bolusPlanned' "$FILE"
 
   compile-ios:
     if: github.event_name == 'pull_request'
@@ -92,6 +98,8 @@ jobs:
           git -C Loop apply ../customizations/LoKeyChartColors.patch
           git -C LoopKit apply --check ../customizations/LoKeyFoodEmojis.patch
           git -C LoopKit apply ../customizations/LoKeyFoodEmojis.patch
+          git -C LoopKit apply --check ../customizations/LoKeyAxisReadability.patch
+          git -C LoopKit apply ../customizations/LoKeyAxisReadability.patch
           git -C Loop apply --check ../customizations/LoKeyReports.patch
           git -C Loop apply ../customizations/LoKeyReports.patch
           git -C Loop apply --check ../customizations/LoKeyTIRShortcut.patch
