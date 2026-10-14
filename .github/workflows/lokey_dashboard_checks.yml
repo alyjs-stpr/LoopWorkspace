@@ -50,6 +50,8 @@ jobs:
           git -C Loop apply ../customizations/LoKeyDashboardInsights.patch
           git -C Loop apply --check ../customizations/LoKeyDashboardPolish.patch
           git -C Loop apply ../customizations/LoKeyDashboardPolish.patch
+          git -C Loop apply --check ../customizations/LoKeyDashboardFinalPass.patch
+          git -C Loop apply ../customizations/LoKeyDashboardFinalPass.patch
       - name: Parse modified Swift files
         shell: bash
         run: |
@@ -74,6 +76,10 @@ jobs:
           grep -q 'LoKeyTargetStatistics' "Loop/Loop/Views/SettingsView.swift"
           grep -q 'tickHours' "LoopKit/LoopKitUI/View Controllers/ChartsManager.swift"
           grep -q 'bolusPlanned' "$FILE"
+          grep -q 'lokeyInstallStatusBarScrim' "$FILE"
+          grep -q 'LoKeyDashboardHistoryHours' "$FILE"
+          grep -q 'useSparseTimeAxisLabels' "$FILE"
+          grep -q 'plotLeadingInset' "$FILE"
 
   compile-ios:
     if: github.event_name == 'pull_request'
@@ -108,6 +114,8 @@ jobs:
           git -C Loop apply ../customizations/LoKeyDashboardInsights.patch
           git -C Loop apply --check ../customizations/LoKeyDashboardPolish.patch
           git -C Loop apply ../customizations/LoKeyDashboardPolish.patch
+          git -C Loop apply --check ../customizations/LoKeyDashboardFinalPass.patch
+          git -C Loop apply ../customizations/LoKeyDashboardFinalPass.patch
           git -C NightscoutService apply --check ../customizations/LoKeyT1PalNightscout.patch
           git -C NightscoutService apply ../customizations/LoKeyT1PalNightscout.patch
       # This is a source compilation smoke test, not an installable app package.
