@@ -102,7 +102,11 @@ jobs:
           git -C Loop apply ../customizations/LoKeyDashboardPolish.patch
           git -C NightscoutService apply --check ../customizations/LoKeyT1PalNightscout.patch
           git -C NightscoutService apply ../customizations/LoKeyT1PalNightscout.patch
-      - name: Compile without signing or publishing
+      # This is a source compilation smoke test, not an installable app package.
+      # The unsigned simulator run can fail the final bundle validator because
+      # Loop's .loopplugin bundles are treated as regular .framework folders.
+      # Full validation remains enabled in the real signed TestFlight workflow.
+      - name: Compile without signing, publishing, or validating unsigned bundles
         shell: bash
         run: |
           set -o pipefail
@@ -112,6 +116,7 @@ jobs:
             -configuration Debug \
             -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO \
+            VALIDATE_PRODUCT=NO \
             -derivedDataPath "$RUNNER_TEMP/lokey-dashboard-build" \
             build 2>&1 | tee "$RUNNER_TEMP/lokey-dashboard-build.log"
       - name: Save compilation log if failed
