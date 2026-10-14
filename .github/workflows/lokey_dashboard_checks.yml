@@ -1,0 +1,65 @@
+name: LoKey dashboard patch validation
+on:
+  push:
+    branches:
+      - feature/lokey-dashboard-insights
+    paths:
+      - 'customizations/LoKeyDashboard*.patch'
+      - '.github/workflows/lokey_dashboard_checks.yml'
+      - '.github/workflows/build_loop*.yml'
+  pull_request:
+    paths:
+      - 'customizations/LoKeyDashboard*.patch'
+      - '.github/workflows/lokey_dashboard_checks.yml'
+      - '.github/workflows/build_loop*.yml'
+  workflow_dispatch:
+
+jobs:
+  validate-dashboard:
+    name: Patch compatibility and Swift parsing
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout pinned Loop workspace and submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - name: Apply existing Loop chart and reporting customizations
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -C Loop apply --check ../customizations/LoKeyChartColors.patch
+          git -C Loop apply ../customizations/LoKeyChartColors.patch
+          git -C Loop apply --check ../customizations/LoKeyReports.patch
+          git -C Loop apply ../customizations/LoKeyReports.patch
+          git -C Loop apply --check ../customizations/LoKeyTIRShortcut.patch
+          git -C Loop apply ../customizations/LoKeyTIRShortcut.patch
+      - name: Apply LoKey dashboard and visual polish
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -C Loop apply --check ../customizations/LoKeyDashboardInsights.patch
+          git -C Loop apply ../customizations/LoKeyDashboardInsights.patch
+          git -C Loop apply --check ../customizations/LoKeyDashboardPolish.patch
+          git -C Loop apply ../customizations/LoKeyDashboardPolish.patch
+      - name: Parse modified Swift files
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v swiftc
+          swiftc -frontend -parse "Loop/Loop/View Controllers/StatusTableViewController.swift" "Loop/LoopUI/Views/StatusBarHUDView.swift"
+      - name: Check preservation of key dashboard components
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILE="Loop/Loop/View Controllers/StatusTableViewController.swift"
+          grep -q 'case glucose' "$FILE"
+          grep -q 'case iob' "$FILE"
+          grep -q 'case dose' "$FILE"
+          grep -q 'case cob' "$FILE"
+          grep -q 'case metrics' "$FILE"
+          grep -q 'lokeyHistoryChanged' "$FILE"
+          grep -q 'LoKeyNowOverlayView' "$FILE"
+          grep -q 'reportsItem' "$FILE"
