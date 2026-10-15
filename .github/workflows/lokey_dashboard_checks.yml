@@ -57,12 +57,16 @@ jobs:
           # Applies after the observation-only feature; never changes the bolus engine.
           git -C Loop apply --check ../customizations/LoKeyAdaptiveMealsUnifiedEntry.patch
           git -C Loop apply ../customizations/LoKeyAdaptiveMealsUnifiedEntry.patch
+
+          # Notification-only guard: avoid false missed-meal prompts after logged meals.
+          git -C Loop apply --check ../customizations/LoKeyMissedMealNotificationGuard.patch
+          git -C Loop apply ../customizations/LoKeyMissedMealNotificationGuard.patch
       - name: Parse modified Swift files
         shell: bash
         run: |
           set -euo pipefail
           command -v swiftc
-          swiftc -frontend -parse "Loop/Loop/View Controllers/StatusTableViewController.swift" "Loop/LoopUI/Views/StatusBarHUDView.swift" "Loop/Loop/Views/SettingsView.swift" "Loop/Loop/Views/CarbEntryView.swift" "LoopKit/LoopKitUI/View Controllers/ChartsManager.swift" "LoopKit/LoopKitUI/Charts/DoseChart.swift"
+          swiftc -frontend -parse "Loop/Loop/View Controllers/StatusTableViewController.swift" "Loop/LoopUI/Views/StatusBarHUDView.swift" "Loop/Loop/Views/SettingsView.swift" "Loop/Loop/Views/CarbEntryView.swift" "Loop/Loop/Managers/LoopDataManager.swift" "Loop/Loop/Managers/Missed Meal Detection/MealDetectionManager.swift" "Loop/LoopTests/Managers/MealDetectionManagerTests.swift" "LoopKit/LoopKitUI/View Controllers/ChartsManager.swift" "LoopKit/LoopKitUI/Charts/DoseChart.swift"
       - name: Check preservation of key dashboard components
         shell: bash
         run: |
@@ -109,6 +113,10 @@ jobs:
           grep -Fq 'loopCarbs = HKQuantity(unit: .gram(), doubleValue: grams).doubleValue(for: loopCarbUnit)' "$file"
           grep -Fq 'Button(action: viewModel.continueToBolus)' "$file"
           grep -Fq 'BolusEntryView(viewModel: viewModel)' "$file"
+          grep -Fq 'loggedCarbStartTimes: carbEntries.map' "Loop/Loop/Managers/LoopDataManager.swift"
+          grep -Fq 'mealAlreadyLogged' "Loop/Loop/Managers/Missed Meal Detection/MealDetectionManager.swift"
+          grep -Fq 'testRecentlyLoggedMealDoesNotTriggerDuplicateMissedMealAlert' "Loop/LoopTests/Managers/MealDetectionManagerTests.swift"
+          grep -Fq 'testUnloggedMealStillTriggersMissedMealAlert' "Loop/LoopTests/Managers/MealDetectionManagerTests.swift"
           for workflow in .github/workflows/build_loop.yml .github/workflows/build_loop_auto.yml; do
             grep -Fq 'LoKeyAdaptiveMealsTracking.patch' "$workflow"
             grep -Fq 'LoKeyAdaptiveMealsUnifiedEntry.patch' "$workflow"
@@ -191,6 +199,10 @@ jobs:
           # Applies after the observation-only feature; never changes the bolus engine.
           git -C Loop apply --check ../customizations/LoKeyAdaptiveMealsUnifiedEntry.patch
           git -C Loop apply ../customizations/LoKeyAdaptiveMealsUnifiedEntry.patch
+
+          # Notification-only guard: avoid false missed-meal prompts after logged meals.
+          git -C Loop apply --check ../customizations/LoKeyMissedMealNotificationGuard.patch
+          git -C Loop apply ../customizations/LoKeyMissedMealNotificationGuard.patch
           git -C NightscoutService apply --check ../customizations/LoKeyT1PalNightscout.patch
           git -C NightscoutService apply ../customizations/LoKeyT1PalNightscout.patch
       # This is a source compilation smoke test, not an installable app package.
