@@ -88,7 +88,7 @@ diff --git a/Loop/Managers/Missed Meal Detection/MealDetectionManager.swift b/Lo
 +        let candidateWindow = TimeInterval(minutes: 45)
 +        let mealAlreadyLogged = loggedCarbStartTimes.contains { loggedAt in
 +            let age = now.timeIntervalSince(loggedAt)
-+            return age >= 0 && age <= recentLogWindow
++            return age >= TimeInterval(minutes: 10) && age <= recentLogWindow
 +                && abs(loggedAt.timeIntervalSince(startTime)) <= candidateWindow
 +        }
 +        if mealAlreadyLogged {
@@ -102,7 +102,7 @@ diff --git a/Loop/Managers/Missed Meal Detection/MealDetectionManager.swift b/Lo
 diff --git a/LoopTests/Managers/MealDetectionManagerTests.swift b/LoopTests/Managers/MealDetectionManagerTests.swift
 --- a/LoopTests/Managers/MealDetectionManagerTests.swift
 +++ b/LoopTests/Managers/MealDetectionManagerTests.swift
-@@ -383,6 +383,54 @@
+@@ -383,6 +383,69 @@
      }
      
      // MARK: - Notification Tests
@@ -130,6 +130,21 @@ diff --git a/LoopTests/Managers/MealDetectionManagerTests.swift b/LoopTests/Mana
 +        )
 +        mealDetectionManager.manageMealNotifications(
 +            for: status, loggedCarbStartTimes: [],
++            bolusDurationEstimator: { _ in nil }
++        )
++
++        XCTAssertEqual(mealDetectionManager.lastMissedMealNotification?.carbAmount, 30)
++    }
++
++    func testImmediatePreannouncementDoesNotHideEarlierMissedMeal() {
++        setUp(for: .notificationTest)
++        UserDefaults.standard.missedMealNotificationsEnabled = true
++
++        let suspectedMeal = now.addingTimeInterval(-TimeInterval(minutes: 25))
++        let justLoggedFutureFood = now.addingTimeInterval(-TimeInterval(minutes: 1))
++        let status = MissedMealStatus.hasMissedMeal(startTime: suspectedMeal, carbAmount: 30)
++        mealDetectionManager.manageMealNotifications(
++            for: status, loggedCarbStartTimes: [justLoggedFutureFood],
 +            bolusDurationEstimator: { _ in nil }
 +        )
 +
