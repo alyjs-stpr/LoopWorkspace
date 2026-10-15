@@ -1,0 +1,525 @@
+diff --git a/Loop/Views/CarbEntryView.swift b/Loop/Views/CarbEntryView.swift
+--- a/Loop/Views/CarbEntryView.swift
++++ b/Loop/Views/CarbEntryView.swift
+@@ -20,7 +20,8 @@
+     @State private var expandedRow: Row?
+     
+     @State private var showHowAbsorptionTimeWorks = false
+-    @State private var showAddFavoriteFood = false
++    @State private var showAddFavoriteFood = false
++    @State private var showLoKeyAdaptiveMeals = false
+     
+     private let isNewEntry: Bool
+ 
+@@ -68,10 +69,21 @@
+             ScrollView {
+                 warningsCard
+ 
+-                mainCard
+-                    .padding(.top, 8)
+-                
+-                continueActionButton
++                mainCard
++                    .padding(.top, 8)
++
++                Button {
++                    showLoKeyAdaptiveMeals = true
++                } label: {
++                    Label("LoKey: Protein + Meal Details", systemImage: "fork.knife.circle")
++                        .frame(maxWidth: .infinity, alignment: .leading)
++                        .padding(14)
++                        .background(CardBackground())
++                }
++                .padding(.horizontal)
++                .accessibilityHint("Record actual protein and carbs or announce a meal without changing Loop dosing")
++
++                continueActionButton
+                 
+                 if isNewEntry, FeatureFlags.allowExperimentalFeatures {
+                     favoriteFoodsCard
+@@ -90,9 +102,12 @@
+         .sheet(isPresented: $showAddFavoriteFood, onDismiss: clearExpandedRow) {
+             AddEditFavoriteFoodView(carbsQuantity: $viewModel.carbsQuantity.wrappedValue, foodType: $viewModel.foodType.wrappedValue, absorptionTime: $viewModel.absorptionTime.wrappedValue, onSave: onFavoriteFoodSave(_:))
+         }
+-        .sheet(isPresented: $showHowAbsorptionTimeWorks) {
+-            HowAbsorptionTimeWorksView()
+-        }
++        .sheet(isPresented: $showHowAbsorptionTimeWorks) {
++            HowAbsorptionTimeWorksView()
++        }
++        .sheet(isPresented: $showLoKeyAdaptiveMeals) {
++            LoKeyAdaptiveMealView(loopCarbEquivalents: viewModel.carbsQuantity, mealDate: viewModel.time)
++        }
+     }
+     
+     private var mainCard: some View {
+@@ -312,8 +327,464 @@
+     
+ }
+ 
+-extension CarbEntryView {
+-    enum Row {
+-        case amountConsumed, time, foodType, absorptionTime, favoriteFoodSelection
+-    }
+-}
++extension CarbEntryView {
++    enum Row {
++        case amountConsumed, time, foodType, absorptionTime, favoriteFoodSelection
++    }
++}
++
++// MARK: - LoKey Adaptive Meals (Phase 1: local tracking only)
++//
++// These records never enter CarbStore, BolusEntryViewModel, or insulin dosing.
++// They are kept separately from Loop carb equivalents for future analysis.
++
++private enum LoKeyMealKind: String, Codable, CaseIterable, Identifiable {
++    case breakfast = "Breakfast"
++    case lunch = "Lunch"
++    case dinner = "Dinner"
++    case snack = "Snack"
++
++    var id: String { rawValue }
++
++    static func suggested(for date: Date) -> LoKeyMealKind {
++        switch Calendar.current.component(.hour, from: date) {
++        case 5..<11: return .breakfast
++        case 11..<16: return .lunch
++        case 16..<23: return .dinner
++        default: return .snack
++        }
++    }
++}
++
++private enum LoKeyMealLevel: String, Codable, CaseIterable, Identifiable {
++    case low = "Low"
++    case usual = "Usual"
++    case high = "High"
++
++    var id: String { rawValue }
++    var proteinName: String { self == .usual ? "Moderate" : rawValue }
++
++    static func classify(_ grams: Double, against usual: Double?) -> LoKeyMealLevel? {
++        guard let usual, usual > 0 else { return nil }
++        if grams < usual * 0.75 { return .low }
++        if grams > usual * 1.25 { return .high }
++        return .usual
++    }
++}
++
++private struct LoKeyMealBaseline: Codable {
++    var actualCarbs: Double?
++    var protein: Double?
++
++    var isComplete: Bool {
++        guard let actualCarbs, let protein else { return false }
++        return actualCarbs > 0 && protein > 0
++    }
++}
++
++private struct LoKeyMealRecord: Identifiable, Codable {
++    let id: UUID
++    let recordedAt: Date
++    let eatenAt: Date
++    let meal: LoKeyMealKind
++    let isQuick: Bool
++    let actualCarbs: Double?
++    let protein: Double?
++    let carbLevel: LoKeyMealLevel?
++    let proteinLevel: LoKeyMealLevel?
++    let loopCarbEquivalents: Double?
++    let loopAlreadyIncludesProtein: Bool
++    let referenceProteinFactorPercent: Int
++    let highFat: Bool
++    let possibleDelayedRise: Bool
++    let notes: String
++}
++
++private enum LoKeyMealStorage {
++    private static let baselineKey = "LoKeyAdaptiveMealBaselinesV1"
++    private static let journalKey = "LoKeyAdaptiveMealJournalV1"
++    private static let factorKey = "LoKeyAdaptiveMealProteinFactorPercentV1"
++
++    static func baselines() -> [String: LoKeyMealBaseline] {
++        guard let data = UserDefaults.standard.data(forKey: baselineKey),
++              let result = try? JSONDecoder().decode([String: LoKeyMealBaseline].self, from: data) else {
++            return [:]
++        }
++        return result
++    }
++
++    static func saveBaselines(_ baselines: [String: LoKeyMealBaseline], factor: Int) -> Bool {
++        guard let data = try? JSONEncoder().encode(baselines) else { return false }
++        UserDefaults.standard.set(data, forKey: baselineKey)
++        UserDefaults.standard.set(factor, forKey: factorKey)
++        return true
++    }
++
++    static func proteinFactor() -> Int {
++        guard UserDefaults.standard.object(forKey: factorKey) != nil else { return 60 }
++        return min(100, max(0, UserDefaults.standard.integer(forKey: factorKey)))
++    }
++
++    static func records() -> [LoKeyMealRecord] {
++        guard let data = UserDefaults.standard.data(forKey: journalKey),
++              let records = try? JSONDecoder().decode([LoKeyMealRecord].self, from: data) else {
++            return []
++        }
++        return records.sorted { $0.recordedAt > $1.recordedAt }
++    }
++
++    static func saveRecord(_ record: LoKeyMealRecord) -> Bool {
++        var all = records()
++        all.append(record)
++        guard let data = try? JSONEncoder().encode(all) else { return false }
++        UserDefaults.standard.set(data, forKey: journalKey)
++        return true
++    }
++
++    static func exportJSON() -> String {
++        let encoder = JSONEncoder()
++        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
++        guard let data = try? encoder.encode(records()) else { return "[]" }
++        return String(data: data, encoding: .utf8) ?? "[]"
++    }
++}
++
++private struct LoKeyMealBaselinesView: View {
++    @Environment(\.dismiss) private var dismiss
++    @State private var carbGrams: [String: String]
++    @State private var proteinGrams: [String: String]
++    @State private var factor: Int
++    @State private var saveFailed = false
++
++    init() {
++        let current = LoKeyMealStorage.baselines()
++        _carbGrams = State(initialValue: Dictionary(uniqueKeysWithValues:
++            LoKeyMealKind.allCases.map { meal in
++                (meal.rawValue, current[meal.rawValue]?.actualCarbs.map { String($0) } ?? "")
++            }
++        ))
++        _proteinGrams = State(initialValue: Dictionary(uniqueKeysWithValues:
++            LoKeyMealKind.allCases.map { meal in
++                (meal.rawValue, current[meal.rawValue]?.protein.map { String($0) } ?? "")
++            }
++        ))
++        _factor = State(initialValue: LoKeyMealStorage.proteinFactor())
++    }
++
++    private func parsed(_ text: String) -> Double? {
++        let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: ",", with: ".")
++        guard !cleaned.isEmpty, let result = Double(cleaned), result.isFinite, result > 0 else { return nil }
++        return result
++    }
++
++    private func valid(_ text: String) -> Bool {
++        text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || parsed(text) != nil
++    }
++
++    private var canSave: Bool {
++        LoKeyMealKind.allCases.allSatisfy { meal in
++            valid(carbGrams[meal.rawValue] ?? "") && valid(proteinGrams[meal.rawValue] ?? "")
++        }
++    }
++
++    private func save() {
++        var updated: [String: LoKeyMealBaseline] = [:]
++        for meal in LoKeyMealKind.allCases {
++            updated[meal.rawValue] = LoKeyMealBaseline(
++                actualCarbs: parsed(carbGrams[meal.rawValue] ?? ""),
++                protein: parsed(proteinGrams[meal.rawValue] ?? "")
++            )
++        }
++        if LoKeyMealStorage.saveBaselines(updated, factor: factor) {
++            dismiss()
++        } else {
++            saveFailed = true
++        }
++    }
++
++    var body: some View {
++        NavigationView {
++            Form {
++                Section {
++                    Text("Enter what you consider a usual meal, in actual grams—not your combined Loop carb-equivalent total.")
++                        .font(.subheadline)
++                    Text("Low: below 75% of usual · Usual: 75–125% · High: above 125%. Protein's Usual category appears as Moderate. These are tracking categories, not insulin dosing thresholds.")
++                        .font(.caption)
++                        .foregroundColor(.secondary)
++                }
++
++                ForEach(LoKeyMealKind.allCases) { meal in
++                    Section(meal.rawValue) {
++                        HStack {
++                            Text("Usual actual carbs")
++                            Spacer()
++                            TextField("grams", text: Binding(
++                                get: { carbGrams[meal.rawValue] ?? "" },
++                                set: { carbGrams[meal.rawValue] = $0 }
++                            ))
++                            .multilineTextAlignment(.trailing)
++                            .keyboardType(.decimalPad)
++                            .frame(width: 90)
++                            Text("g").foregroundColor(.secondary)
++                        }
++                        HStack {
++                            Text("Usual protein")
++                            Spacer()
++                            TextField("grams", text: Binding(
++                                get: { proteinGrams[meal.rawValue] ?? "" },
++                                set: { proteinGrams[meal.rawValue] = $0 }
++                            ))
++                            .multilineTextAlignment(.trailing)
++                            .keyboardType(.decimalPad)
++                            .frame(width: 90)
++                            Text("g").foregroundColor(.secondary)
++                        }
++                    }
++                }
++
++                Section("Reference only") {
++                    Stepper("Your protein-equivalent convention: \(factor)%", value: $factor, in: 0...100, step: 5)
++                    Text("This preserves your chosen bookkeeping factor for later analysis. It never changes Loop's entered carbs or calculates a bolus.")
++                        .font(.caption)
++                        .foregroundColor(.secondary)
++                }
++            }
++            .navigationTitle("Meal Baselines")
++            .navigationBarTitleDisplayMode(.inline)
++            .toolbar {
++                ToolbarItem(placement: .navigationBarLeading) {
++                    Button("Cancel") { dismiss() }
++                }
++                ToolbarItem(placement: .navigationBarTrailing) {
++                    Button("Save") { save() }.disabled(!canSave)
++                }
++            }
++            .alert("Couldn't save baselines", isPresented: $saveFailed) {
++                Button("OK", role: .cancel) {}
++            }
++        }
++    }
++}
++
++private struct LoKeyAdaptiveMealView: View {
++    @Environment(\.dismiss) private var dismiss
++    let loopCarbEquivalents: Double?
++    let mealDate: Date
++
++    @State private var meal: LoKeyMealKind
++    @State private var quick = false
++    @State private var carbLevel: LoKeyMealLevel = .usual
++    @State private var proteinLevel: LoKeyMealLevel = .usual
++    @State private var actualCarbsText = ""
++    @State private var proteinText = ""
++    @State private var highFat = false
++    @State private var delayedRise = false
++    @State private var loopIncludesProtein = true
++    @State private var notes = ""
++    @State private var baselines = LoKeyMealStorage.baselines()
++    @State private var factor = LoKeyMealStorage.proteinFactor()
++    @State private var records = LoKeyMealStorage.records()
++    @State private var showBaselines = false
++    @State private var saveFailed = false
++
++    init(loopCarbEquivalents: Double?, mealDate: Date) {
++        self.loopCarbEquivalents = loopCarbEquivalents
++        self.mealDate = mealDate
++        _meal = State(initialValue: LoKeyMealKind.suggested(for: mealDate))
++    }
++
++    private var baseline: LoKeyMealBaseline {
++        baselines[meal.rawValue] ?? LoKeyMealBaseline()
++    }
++
++    private func parseAmount(_ text: String) -> Double? {
++        let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: ",", with: ".")
++        guard let n = Double(cleaned), n.isFinite, n >= 0 else { return nil }
++        return n
++    }
++
++    private var grams: (Double, Double)? {
++        guard let carbs = parseAmount(actualCarbsText),
++              let protein = parseAmount(proteinText),
++              carbs + protein > 0 else { return nil }
++        return (carbs, protein)
++    }
++
++    private var canSave: Bool {
++        quick ? baseline.isComplete : grams != nil
++    }
++
++    private func save() {
++        guard canSave else { return }
++        let amounts = quick ? nil : grams
++        let record = LoKeyMealRecord(
++            id: UUID(),
++            recordedAt: Date(),
++            eatenAt: mealDate,
++            meal: meal,
++            isQuick: quick,
++            actualCarbs: amounts?.0,
++            protein: amounts?.1,
++            carbLevel: quick ? carbLevel : amounts.flatMap {
++                LoKeyMealLevel.classify($0.0, against: baseline.actualCarbs)
++            },
++            proteinLevel: quick ? proteinLevel : amounts.flatMap {
++                LoKeyMealLevel.classify($0.1, against: baseline.protein)
++            },
++            loopCarbEquivalents: loopCarbEquivalents,
++            loopAlreadyIncludesProtein: loopIncludesProtein,
++            referenceProteinFactorPercent: factor,
++            highFat: highFat,
++            possibleDelayedRise: delayedRise,
++            notes: notes.trimmingCharacters(in: .whitespacesAndNewlines)
++        )
++        if LoKeyMealStorage.saveRecord(record) {
++            dismiss()
++        } else {
++            saveFailed = true
++        }
++    }
++
++    var body: some View {
++        NavigationView {
++            Form {
++                Section {
++                    Picker("Meal", selection: $meal) {
++                        ForEach(LoKeyMealKind.allCases) { kind in
++                            Text(kind.rawValue).tag(kind)
++                        }
++                    }
++                    Picker("Entry", selection: $quick) {
++                        Text("Exact grams").tag(false)
++                        Text("Quick labels").tag(true)
++                    }
++                    .pickerStyle(.segmented)
++                } header: {
++                    Text("Announce Meal")
++                } footer: {
++                    Text("This is a private meal journal, separate from Loop's insulin dosing.")
++                }
++
++                Section("Your usual \(meal.rawValue.lowercased())") {
++                    if let carbs = baseline.actualCarbs, let protein = baseline.protein {
++                        Text("\(carbs.formatted()) g carbs · \(protein.formatted()) g protein")
++                    } else {
++                        Text("Baseline not fully configured").foregroundColor(.secondary)
++                    }
++                    Button("Set or edit all meal baselines") {
++                        showBaselines = true
++                    }
++                }
++
++                if quick {
++                    Section {
++                        if !baseline.isComplete {
++                            Text("Set both usual carb and usual protein amounts for \(meal.rawValue.lowercased()) before using quick labels.")
++                                .foregroundColor(.orange)
++                        }
++                        Picker("Carbohydrates", selection: $carbLevel) {
++                            ForEach(LoKeyMealLevel.allCases) { level in
++                                Text(level.rawValue).tag(level)
++                            }
++                        }
++                        Picker("Protein", selection: $proteinLevel) {
++                            ForEach(LoKeyMealLevel.allCases) { level in
++                                Text(level.proteinName).tag(level)
++                            }
++                        }
++                    } header: {
++                        Text("Your meal compared with usual")
++                    } footer: {
++                        Text("Quick labels are estimates. They never become verified carb or protein grams.")
++                    }
++                } else {
++                    Section {
++                        HStack {
++                            Text("Actual carbs")
++                            Spacer()
++                            TextField("grams", text: $actualCarbsText)
++                                .keyboardType(.decimalPad)
++                                .multilineTextAlignment(.trailing)
++                            Text("g").foregroundColor(.secondary)
++                        }
++                        HStack {
++                            Text("Protein")
++                            Spacer()
++                            TextField("grams", text: $proteinText)
++                                .keyboardType(.decimalPad)
++                                .multilineTextAlignment(.trailing)
++                            Text("g").foregroundColor(.secondary)
++                        }
++                        if let amounts = grams {
++                            let c = LoKeyMealLevel.classify(amounts.0, against: baseline.actualCarbs)
++                            let p = LoKeyMealLevel.classify(amounts.1, against: baseline.protein)
++                            Text("Classification: \(c?.rawValue ?? "Uncalibrated") carbs · \(p?.proteinName ?? "Uncalibrated") protein")
++                                .font(.caption)
++                                .foregroundColor(.secondary)
++                            Text("Reference equivalent: \((amounts.0 + amounts.1 * Double(factor) / 100).formatted()) g at \(factor)% protein factor (not sent to Loop)")
++                                .font(.caption)
++                                .foregroundColor(.secondary)
++                        }
++                    } header: {
++                        Text("Actual nutrition")
++                    } footer: {
++                        Text("Enter both amounts for learning. If you already include protein in Loop's carb entry, don't add it a second time.")
++                    }
++                }
++
++                Section("Digestion and context") {
++                    Toggle("High-fat meal", isOn: $highFat)
++                    Toggle("Possible delayed rise", isOn: $delayedRise)
++                    TextField("Meal name or notes (optional)", text: $notes)
++                }
++
++                Section("Loop entry — unchanged") {
++                    Text(loopCarbEquivalents.map { "\($0.formatted()) g entered in Loop" } ?? "No carb amount entered in Loop yet")
++                    Toggle("Loop amount already includes protein equivalents", isOn: $loopIncludesProtein)
++                    Text("Saving here does NOT add carbs to Loop, calculate insulin, or send a bolus. Continue the regular Loop entry separately.")
++                        .font(.caption)
++                        .foregroundColor(.secondary)
++                }
++
++                Section {
++                    Button("Save meal details") { save() }
++                        .disabled(!canSave)
++                }
++
++                if !records.isEmpty {
++                    Section("Recent journal entries") {
++                        ForEach(records.prefix(5)) { item in
++                            VStack(alignment: .leading, spacing: 3) {
++                                Text("\(item.meal.rawValue) · \(item.eatenAt.formatted(date: .abbreviated, time: .shortened))")
++                                    .font(.subheadline)
++                                Text(item.isQuick
++                                     ? "\(item.carbLevel?.rawValue ?? "Unknown") carbs · \(item.proteinLevel?.proteinName ?? "Unknown") protein (estimate)"
++                                     : "\(item.actualCarbs?.formatted() ?? "—") g actual carbs · \(item.protein?.formatted() ?? "—") g protein")
++                                    .font(.caption)
++                                    .foregroundColor(.secondary)
++                            }
++                        }
++                        ShareLink("Export journal JSON", item: LoKeyMealStorage.exportJSON())
++                    }
++                }
++            }
++            .navigationTitle("LoKey Adaptive Meals")
++            .navigationBarTitleDisplayMode(.inline)
++            .toolbar {
++                ToolbarItem(placement: .navigationBarLeading) {
++                    Button("Close") { dismiss() }
++                }
++            }
++            .sheet(isPresented: $showBaselines, onDismiss: {
++                baselines = LoKeyMealStorage.baselines()
++                factor = LoKeyMealStorage.proteinFactor()
++            }) {
++                LoKeyMealBaselinesView()
++            }
++            .alert("Meal wasn't saved", isPresented: $saveFailed) {
++                Button("OK", role: .cancel) {}
++            }
++        }
++    }
++}
++

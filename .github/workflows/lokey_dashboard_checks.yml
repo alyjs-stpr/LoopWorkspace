@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'customizations/LoKeyDashboard*.patch'
+      - 'customizations/LoKeyAdaptiveMealsPhase1.patch'
+      - 'customizations/LoKeyAdaptiveMealsBaselineLearning.patch'
       - 'customizations/LoKeyReports.patch'
       - 'customizations/LoKeyAxisReadability.patch'
       - '.github/workflows/lokey_dashboard_checks.yml'
@@ -49,12 +51,17 @@ jobs:
           git -C LoopKit apply ../customizations/LoKeyDashboardCleanupLoopKit.patch
           git -C Loop apply --check ../customizations/LoKeyDashboardCleanupLoop.patch
           git -C Loop apply ../customizations/LoKeyDashboardCleanupLoop.patch
+
+          git -C Loop apply --check ../customizations/LoKeyAdaptiveMealsPhase1.patch
+          git -C Loop apply ../customizations/LoKeyAdaptiveMealsPhase1.patch
+          git -C Loop apply --check ../customizations/LoKeyAdaptiveMealsBaselineLearning.patch
+          git -C Loop apply ../customizations/LoKeyAdaptiveMealsBaselineLearning.patch
       - name: Parse modified Swift files
         shell: bash
         run: |
           set -euo pipefail
           command -v swiftc
-          swiftc -frontend -parse "Loop/Loop/View Controllers/StatusTableViewController.swift" "Loop/LoopUI/Views/StatusBarHUDView.swift" "Loop/Loop/Views/SettingsView.swift" "LoopKit/LoopKitUI/View Controllers/ChartsManager.swift" "LoopKit/LoopKitUI/Charts/DoseChart.swift"
+          swiftc -frontend -parse "Loop/Loop/View Controllers/StatusTableViewController.swift" "Loop/LoopUI/Views/StatusBarHUDView.swift" "Loop/Loop/Views/SettingsView.swift" "LoopKit/LoopKitUI/View Controllers/ChartsManager.swift" "LoopKit/LoopKitUI/Charts/DoseChart.swift" "Loop/Loop/Views/CarbEntryView.swift"
       - name: Check preservation of key dashboard components
         shell: bash
         run: |
@@ -83,6 +90,18 @@ jobs:
           grep -q 'marker.showsCaption = isGlucose' "$FILE"
           grep -q 'plotFraction(for date: Date)' "LoopKit/LoopKitUI/View Controllers/ChartsManager.swift"
           grep -q 'bolusMarkerSize' "LoopKit/LoopKitUI/Charts/DoseChart.swift"
+          # Adaptive meal journal never substitutes estimated grams into carb store.
+          MEAL="Loop/Loop/Views/CarbEntryView.swift"
+          grep -q 'LoKeyAdaptiveMealView' "$MEAL"
+          grep -q 'LoKeyMealStorage' "$MEAL"
+          grep -q 'quick ? baseline.isComplete' "$MEAL"
+          grep -q 'loopAlreadyIncludesProtein' "$MEAL"
+          grep -q 'func classify(_ grams: Double, against usual: Double?)' "$MEAL"
+          grep -q 'ShareLink("Export journal JSON"' "$MEAL"
+          grep -q 'learnedBaseline(for meal: LoKeyMealKind)' "$MEAL"
+          grep -q 'samples.count >= 5' "$MEAL"
+          test "$(grep -Ec '^diff --git ' customizations/LoKeyAdaptiveMealsPhase1.patch)" -eq 1
+          grep -Fq 'diff --git a/Loop/Views/CarbEntryView.swift b/Loop/Views/CarbEntryView.swift' customizations/LoKeyAdaptiveMealsPhase1.patch
 
       - name: Verify approved cleanup controls across both build routes
         shell: bash
@@ -110,6 +129,8 @@ jobs:
             grep -Fq 'LoKeyDashboardFinalPass.patch' "$workflow"
             grep -Fq 'LoKeyDashboardCleanupLoop.patch' "$workflow"
             grep -Fq 'LoKeyDashboardCleanupLoopKit.patch' "$workflow"
+            grep -Fq 'LoKeyAdaptiveMealsPhase1.patch' "$workflow"
+            grep -Fq 'LoKeyAdaptiveMealsBaselineLearning.patch' "$workflow"
           done
 
   compile-ios:
@@ -153,6 +174,11 @@ jobs:
           git -C LoopKit apply ../customizations/LoKeyDashboardCleanupLoopKit.patch
           git -C Loop apply --check ../customizations/LoKeyDashboardCleanupLoop.patch
           git -C Loop apply ../customizations/LoKeyDashboardCleanupLoop.patch
+
+          git -C Loop apply --check ../customizations/LoKeyAdaptiveMealsPhase1.patch
+          git -C Loop apply ../customizations/LoKeyAdaptiveMealsPhase1.patch
+          git -C Loop apply --check ../customizations/LoKeyAdaptiveMealsBaselineLearning.patch
+          git -C Loop apply ../customizations/LoKeyAdaptiveMealsBaselineLearning.patch
           git -C NightscoutService apply --check ../customizations/LoKeyT1PalNightscout.patch
           git -C NightscoutService apply ../customizations/LoKeyT1PalNightscout.patch
       # This is a source compilation smoke test, not an installable app package.

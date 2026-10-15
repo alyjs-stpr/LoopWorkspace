@@ -1,0 +1,73 @@
+diff --git a/Loop/Views/CarbEntryView.swift b/Loop/Views/CarbEntryView.swift
+--- a/Loop/Views/CarbEntryView.swift
++++ b/Loop/Views/CarbEntryView.swift
+@@ -481,11 +481,31 @@
+         text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || parsed(text) != nil
+     }
+ 
+-    private var canSave: Bool {
+-        LoKeyMealKind.allCases.allSatisfy { meal in
+-            valid(carbGrams[meal.rawValue] ?? "") && valid(proteinGrams[meal.rawValue] ?? "")
+-        }
+-    }
++    private var canSave: Bool {
++        LoKeyMealKind.allCases.allSatisfy { meal in
++            valid(carbGrams[meal.rawValue] ?? "") && valid(proteinGrams[meal.rawValue] ?? "")
++        }
++    }
++
++    // Suggested usual values are median grams from up to 30 exact entries;
++    // quick estimates and Loop carb-equivalent amounts never enter training.
++    // A suggestion is offered only after 5 exact entries for this meal type.
++    private func learnedBaseline(for meal: LoKeyMealKind) -> (carbs: Double, protein: Double, count: Int)? {
++        let samples = LoKeyMealStorage.records().filter {
++            $0.meal == meal && !$0.isQuick && $0.actualCarbs != nil && $0.protein != nil
++        }.prefix(30)
++        guard samples.count >= 5 else { return nil }
++
++        let carbs = samples.compactMap { $0.actualCarbs }.sorted()
++        let proteins = samples.compactMap { $0.protein }.sorted()
++        func median(_ values: [Double]) -> Double {
++            let center = values.count / 2
++            return values.count.isMultiple(of: 2)
++                ? (values[center - 1] + values[center]) / 2
++                : values[center]
++        }
++        return (carbs: median(carbs), protein: median(proteins), count: samples.count)
++    }
+ 
+     private func save() {
+         var updated: [String: LoKeyMealBaseline] = [:]
+@@ -537,12 +557,26 @@
+                             .multilineTextAlignment(.trailing)
+                             .keyboardType(.decimalPad)
+                             .frame(width: 90)
+-                            Text("g").foregroundColor(.secondary)
+-                        }
+-                    }
+-                }
+-
+-                Section("Reference only") {
++                            Text("g").foregroundColor(.secondary)
++                        }
++
++                        if let suggestion = learnedBaseline(for: meal) {
++                            Text("Suggested from \(suggestion.count) exact meals: \(suggestion.carbs.formatted()) g carbs, \(suggestion.protein.formatted()) g protein")
++                                .font(.caption)
++                                .foregroundColor(.secondary)
++                            Button("Use suggested baseline") {
++                                carbGrams[meal.rawValue] = String(suggestion.carbs)
++                                proteinGrams[meal.rawValue] = String(suggestion.protein)
++                            }
++                        } else {
++                            Text("A baseline suggestion appears after 5 exact entries for this meal.")
++                                .font(.caption)
++                                .foregroundColor(.secondary)
++                        }
++                    }
++                }
++
++                Section("Reference only") {
+                     Stepper("Your protein-equivalent convention: \(factor)%", value: $factor, in: 0...100, step: 5)
+                     Text("This preserves your chosen bookkeeping factor for later analysis. It never changes Loop's entered carbs or calculates a bolus.")
+                         .font(.caption)
