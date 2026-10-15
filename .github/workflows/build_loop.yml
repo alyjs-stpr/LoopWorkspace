@@ -231,6 +231,12 @@ jobs:
           # Final dashboard-only safe-area, forecast, and alignment refinements.
           git -C Loop apply --check ../customizations/LoKeyDashboardFinalPass.patch
           git -C Loop apply ../customizations/LoKeyDashboardFinalPass.patch
+
+          # Display-only Build 12 follow-up: actual axis alignment and readable history.
+          git -C LoopKit apply --check ../customizations/LoKeyDashboardCleanupLoopKit.patch
+          git -C LoopKit apply ../customizations/LoKeyDashboardCleanupLoopKit.patch
+          git -C Loop apply --check ../customizations/LoKeyDashboardCleanupLoop.patch
+          git -C Loop apply ../customizations/LoKeyDashboardCleanupLoop.patch
           echo "LoKey final dashboard polish applied."
           echo "LoKey T1D rounded chart cards and shared Now markers applied."
 
