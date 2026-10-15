@@ -139,10 +139,13 @@ jobs:
       # The unsigned simulator run can fail the final bundle validator because
       # Loop's .loopplugin bundles are treated as regular .framework folders.
       # Full validation remains enabled in the real signed TestFlight workflow.
-      - name: Compile without signing, publishing, or validating unsigned bundles
+      - name: Compile without signing or publishing
+        id: compile
         shell: bash
         run: |
-          set -o pipefail
+          set -euo pipefail
+          log="$RUNNER_TEMP/lokey-dashboard-build.log"
+          set +e
           xcodebuild \
             -workspace LoopWorkspace.xcworkspace \
             -scheme LoopWorkspace \
@@ -151,9 +154,39 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             VALIDATE_PRODUCT=NO \
             -derivedDataPath "$RUNNER_TEMP/lokey-dashboard-build" \
-            build 2>&1 | tee "$RUNNER_TEMP/lokey-dashboard-build.log"
-      - name: Save compilation log if failed
-        if: failure()
+            build 2>&1 | tee "$log"
+          build_exit=${PIPESTATUS[0]}
+          set -e
+          if [ "$build_exit" -eq 0 ]; then
+            echo "Unsigned simulator compile and bundle validation passed." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # Xcode 27 calls builtin-validationUtility even with VALIDATE_PRODUCT=NO.
+          # Never hide Swift compile errors: only accept the two independently
+          # diagnosed plugin Info.plist validator errors, and only if the final
+          # failed command was Validate. Signed TestFlight builds are unaffected.
+          mapfile -t errors < <(grep -E '^error:' "$log" || true)
+          if [ "${#errors[@]}" -eq 2 ] \
+            && printf '%s\n' "${errors[@]}" | grep -Fq "AmplitudeServiceKitPlugin.framework did not contain an Info.plist (in target 'Loop' from project 'Loop')" \
+            && printf '%s\n' "${errors[@]}" | grep -Fq "LoopOnboardingPlugin.framework did not contain an Info.plist (in target 'Loop' from project 'Loop')" \
+            && grep -Eq "^[[:space:]]*Validate .*/Loop\\.app \\(in target 'Loop' from project 'Loop'\\)$" "$log" \
+            && grep -Fq '** BUILD FAILED **' "$log" \
+            && grep -Fq '(2 failures)' "$log"; then
+            echo 'validation_only=true' >> "$GITHUB_OUTPUT"
+            echo "::warning title=Known unsigned bundle-validation limitation::Swift compilation reached app validation; Xcode 27 rejected two pre-existing plugin frameworks without Info.plist. Signed TestFlight packaging is NOT verified."
+            {
+              echo '### Simulator compile: source compilation completed; app validation remains unverified'
+              echo 'Xcode 27 failed ONLY in final Validate for AmplitudeServiceKitPlugin and LoopOnboardingPlugin (missing Info.plist).'
+              echo 'This narrowly accepted exception applies solely to the unsigned simulator smoke test, not to signed TestFlight packaging.'
+              echo 'An actual signed build and on-device review remain required before release.'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "::error title=iOS simulator build failed::Xcode failed for reasons beyond the two known plugin Info.plist validation errors; inspect the uploaded full log."
+          exit "$build_exit"
+      - name: Save compilation log if failed or bundle validation was exempted
+        if: failure() || steps.compile.outputs.validation_only == 'true'
         uses: actions/upload-artifact@v6
         with:
           name: lokey-ios-compile-log
