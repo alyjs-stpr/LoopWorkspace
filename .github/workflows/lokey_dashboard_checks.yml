@@ -1,14 +1,5 @@
 name: LoKey dashboard patch validation
 on:
-  push:
-    branches:
-      - feature/lokey-dashboard-insights
-    paths:
-      - 'customizations/LoKeyDashboard*.patch'
-      - 'customizations/LoKeyReports.patch'
-      - 'customizations/LoKeyAxisReadability.patch'
-      - '.github/workflows/lokey_dashboard_checks.yml'
-      - '.github/workflows/build_loop*.yml'
   pull_request:
     paths:
       - 'customizations/LoKeyDashboard*.patch'
