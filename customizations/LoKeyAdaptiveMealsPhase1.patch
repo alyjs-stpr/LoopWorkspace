@@ -53,7 +53,7 @@ diff --git a/Loop/Views/CarbEntryView.swift b/Loop/Views/CarbEntryView.swift
      }
      
      private var mainCard: some View {
-@@ -312,9 +327,465 @@
+@@ -312,8 +327,464 @@
      
  }
  
@@ -523,4 +523,3 @@ diff --git a/Loop/Views/CarbEntryView.swift b/Loop/Views/CarbEntryView.swift
 +    }
 +}
 +
- 
