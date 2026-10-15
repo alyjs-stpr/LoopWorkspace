@@ -1,0 +1,52 @@
+diff --git a/LoopKitUI/View Controllers/ChartsManager.swift b/LoopKitUI/View Controllers/ChartsManager.swift
+--- a/LoopKitUI/View Controllers/ChartsManager.swift
++++ b/LoopKitUI/View Controllers/ChartsManager.swift
+@@ -110,7 +110,15 @@
+     public var plotLeadingInset: CGFloat {
+         chartSettings.leading + labelsWidthY + chartSettings.labelsToAxisSpacingY
+     }
+-    public var plotTrailingInset: CGFloat { chartSettings.trailing }
++    public var plotTrailingInset: CGFloat { chartSettings.trailing }
++
++    /// Align overlays to generated tick endpoints, including sparse-axis padding.
++    public func plotFraction(for date: Date) -> CGFloat? {
++        guard let first = xAxisValues?.first?.scalar,
++              let last = xAxisValues?.last?.scalar, last > first else { return nil }
++        let position = ChartAxisValueDate(date: date, formatter: timeFormatter).scalar
++        return CGFloat((position - first) / (last - first))
++    }
+ 
+     private var endDate = Date() {
+         didSet {
+diff --git a/LoopKitUI/Charts/DoseChart.swift b/LoopKitUI/Charts/DoseChart.swift
+--- a/LoopKitUI/Charts/DoseChart.swift
++++ b/LoopKitUI/Charts/DoseChart.swift
+@@ -22,11 +22,14 @@
+         doseEntries = []
+     }
+     
+-    public var doseEntries: [DoseEntry] {
+-        didSet {
+-            pointsCache = nil
+-        }
+-    }
++    public var doseEntries: [DoseEntry] {
++        didSet {
++            pointsCache = nil
++        }
++    }
++
++    /// Presentation-only; default size of existing non-LoKey charts is unchanged.
++    public var bolusMarkerSize: Double = 12
+ 
+     private var pointsCache: DosePointsCache? {
+         didSet {
+@@ -94,7 +97,7 @@
+         )
+ 
+         // bolus points
+-        let bolusPointSize: Double = 12
++        let bolusPointSize = bolusMarkerSize
+         let bolusLayer: ChartPointsScatterDownTrianglesLayer<ChartPoint>?
+ 
+         if points.bolus.count > 0 {

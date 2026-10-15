@@ -1,0 +1,167 @@
+diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View Controllers/StatusTableViewController.swift
+--- a/Loop/View Controllers/StatusTableViewController.swift
++++ b/Loop/View Controllers/StatusTableViewController.swift
+@@ -166,16 +166,19 @@
+             iobTile.setValue(snapshot.iob)
+             cobTile.setValue(snapshot.cob)
+             basalTile.setValue(snapshot.basal)
+-            bolusTile.setHeading(snapshot.bolusPlanned ? "Bolus · planned" : "Last bolus")
++            bolusTile.setHeading(snapshot.bolusPlanned ? "Bolus · unconfirmed" : "Last bolus")
+             bolusTile.setValue(snapshot.lastBolus)
+         }
+     }
+ 
+     // Overlay is visual-only. It does not fabricate a glucose or insulin value.
+     private final class LoKeyNowOverlayView: UIView {
+-        var nowFraction: CGFloat = 0.5 {
+-            didSet { setNeedsDisplay() }
+-        }
++        var nowFraction: CGFloat? {
++            didSet { setNeedsDisplay() }
++        }
++        var showsCaption = false {
++            didSet { setNeedsDisplay() }
++        }
+         var plotLeadingInset: CGFloat = 0 {
+             didSet { setNeedsDisplay() }
+         }
+@@ -192,7 +195,8 @@
+ 
+         override func draw(_ rect: CGRect) {
+             super.draw(rect)
+-            let plotWidth = max(0, bounds.width - plotLeadingInset - plotTrailingInset)
++            guard let nowFraction else { return }
++            let plotWidth = max(0, bounds.width - plotLeadingInset - plotTrailingInset)
+             let x = plotLeadingInset + plotWidth * min(1, max(0, nowFraction))
+             let marker = UIBezierPath()
+             marker.move(to: CGPoint(x: x, y: 6))
+@@ -201,16 +205,19 @@
+             marker.setLineDash([4, 4], count: 2, phase: 0)
+             UIColor.secondaryLabel.withAlphaComponent(0.5).setStroke()
+             marker.stroke()
+-            let caption = "Now" as NSString
+-            caption.draw(at: CGPoint(x: x - 12, y: max(0, bounds.height - 41)), withAttributes: [
+-                .font: UIFont.preferredFont(forTextStyle: .caption2),
+-                .foregroundColor: UIColor.secondaryLabel
+-            ])
++            if showsCaption {
++                let caption = "Now" as NSString
++                caption.draw(at: CGPoint(x: x - 12, y: max(0, bounds.height - 41)), withAttributes: [
++                    .font: UIFont.preferredFont(forTextStyle: .caption2),
++                    .foregroundColor: UIColor.secondaryLabel
++                ])
++            }
+         }
+     }
+ 
+     private var lokeySnapshot = LoKeyDashboardSnapshot()
+-    private var lokeyHistoryHours = 3
++    private var lokeyHistoryHours = 3
++    private var lokeyGlucoseDeltaTimestamp: Date?
+     private weak var lokeyMetricsCell: LoKeyMetricsCell?
+     private weak var lokeyGlucoseCell: ChartTableViewCell?
+ 
+@@ -277,10 +284,9 @@
+         marker.plotLeadingInset = charts.plotLeadingInset
+         marker.plotTrailingInset = charts.plotTrailingInset
+         marker.translatesAutoresizingMaskIntoConstraints = false
+-        let total = charts.displayedEndDate.timeIntervalSince(charts.startDate)
+-        if total > 0 {
+-            marker.nowFraction = CGFloat(Date().timeIntervalSince(charts.startDate) / total)
+-        }
++        // Generated x-axis ticks may extend beyond the requested chart window.
++        marker.nowFraction = charts.plotFraction(for: Date())
++        marker.showsCaption = isGlucose
+         cell.contentView.addSubview(marker)
+         NSLayoutConstraint.activate([
+             marker.leadingAnchor.constraint(equalTo: chartView.leadingAnchor),
+@@ -378,7 +384,9 @@
+         tableView.register(MuteAlertsWarningCell.self, forCellReuseIdentifier: MuteAlertsWarningCell.className)
+         tableView.register(LoKeyMetricsCell.self, forCellReuseIdentifier: LoKeyMetricsCell.reuseID)
+         tableView.separatorStyle = .none
+-        statusCharts.useSparseTimeAxisLabels = true
++        statusCharts.useSparseTimeAxisLabels = true
++        // Smaller bolus markers keep dense chart activity readable.
++        statusCharts.dose.bolusMarkerSize = 9
+         let savedHistory = UserDefaults.standard.integer(forKey: "LoKeyDashboardHistoryHours")
+         lokeyHistoryHours = [1, 3, 6].contains(savedHistory) ? savedHistory : 3
+ 
+@@ -1016,26 +1024,37 @@
+             if let glucose = self.deviceManager.glucoseStore.latestGlucose {
+                 let ageMinutes = max(0, Int(Date().timeIntervalSince(glucose.startDate) / 60))
+                 self.lokeySnapshot.glucoseAge = "\(ageMinutes) min ago"
+-                self.lokeySnapshot.glucoseDelta = "—"
+-                if !self.deviceManager.isGlucoseValueStale,
+-                   let samples = glucoseSamples, samples.count >= 2 {
+-                    let ordered = samples.sorted { $0.startDate < $1.startDate }
+-                    if let current = ordered.last, let previous = ordered.dropLast().last,
+-                       current.startDate.timeIntervalSince(previous.startDate) <= 15 * 60,
+-                       current.startDate.timeIntervalSinceNow >= -10 * 60 {
+-                        let difference = current.quantity.doubleValue(for: unit) - previous.quantity.doubleValue(for: unit)
+-                        self.lokeySnapshot.glucoseDelta = String(
+-                            format: unit == .milligramsPerDeciliter ? "%+.0f" : "%+.1f", difference
+-                        ) + " " + unitText
+-                    }
+-                }
+-                if self.deviceManager.isGlucoseValueStale {
+-                    self.lokeySnapshot.glucoseAge = "STALE · " + self.lokeySnapshot.glucoseAge
+-                }
+-            } else {
+-                self.lokeySnapshot.glucoseAge = "No reading"
+-                self.lokeySnapshot.glucoseDelta = "—"
+-            }
++                // Preserve a verified delta on status-only refreshes, never on
++                // a new reading or while glucose is stale.
++                if self.lokeyGlucoseDeltaTimestamp != glucose.startDate {
++                    self.lokeySnapshot.glucoseDelta = "—"
++                    self.lokeyGlucoseDeltaTimestamp = nil
++                }
++                if !self.deviceManager.isGlucoseValueStale,
++                   let samples = glucoseSamples,
++                   let previous = samples.filter({
++                       $0.startDate < glucose.startDate.addingTimeInterval(-60)
++                   }).max(by: { $0.startDate < $1.startDate }),
++                   glucose.startDate.timeIntervalSince(previous.startDate) <= 15 * 60,
++                   glucose.startDate.timeIntervalSinceNow >= -10 * 60 {
++                    // Compare with the displayed latest CGM value, not an older
++                    // last sample from a partially refreshed chart.
++                    let difference = glucose.quantity.doubleValue(for: unit) - previous.quantity.doubleValue(for: unit)
++                    self.lokeySnapshot.glucoseDelta = String(
++                        format: unit == .milligramsPerDeciliter ? "%+.0f" : "%+.1f", difference
++                    ) + " " + unitText
++                    self.lokeyGlucoseDeltaTimestamp = glucose.startDate
++                }
++                if self.deviceManager.isGlucoseValueStale {
++                    self.lokeySnapshot.glucoseAge = "STALE · " + self.lokeySnapshot.glucoseAge
++                    self.lokeySnapshot.glucoseDelta = "—"
++                    self.lokeyGlucoseDeltaTimestamp = nil
++                }
++            } else {
++                self.lokeySnapshot.glucoseAge = "No reading"
++                self.lokeySnapshot.glucoseDelta = "—"
++                self.lokeyGlucoseDeltaTimestamp = nil
++            }
+             let predictionsAllowed = !self.deviceManager.isGlucoseValueStale
+                 && (automaticDosingEnabled || !FeatureFlags.simpleBolusCalculatorEnabled)
+                 && predictedGlucoseValues != nil
+@@ -1062,7 +1081,9 @@
+                                                             isDisplayOnly: glucose.isDisplayOnly)
+                 }
+                 hudView.setLoKeyCaptions(
+-                    glucose: self.lokeySnapshot.glucoseDelta + " · " + self.lokeySnapshot.glucoseAge,
++                    glucose: self.lokeySnapshot.glucoseDelta == "—"
++                        ? self.lokeySnapshot.glucoseAge
++                        : self.lokeySnapshot.glucoseDelta + " · " + self.lokeySnapshot.glucoseAge,
+                     loop: self.deviceManager.loopManager.lastLoopCompleted.map {
+                         "\(max(0, Int(Date().timeIntervalSince($0) / 60)))m ago"
+                     } ?? "Waiting",
+@@ -1460,7 +1481,8 @@
+                 cell.setChartGenerator(generator: { [weak self] (frame) in
+                     return self?.statusCharts.doseChart(withFrame: frame)?.view
+                 })
+-                cell.setTitleLabelText(label: NSLocalizedString("Insulin Delivery", comment: "The title of the insulin delivery graph"))
++                cell.setTitleLabelText(label: NSLocalizedString("Basal Changes + Boluses", comment: "Net basal changes from the schedule and bolus events"))
++                cell.accessibilityHint = NSLocalizedString("Negative basal values are reductions from scheduled basal; downward triangles are boluses.", comment: "How to interpret the delivery graph")
+             case .cob:
+                 cell.setChartGenerator(generator: { [weak self] (frame) in
+                     return self?.statusCharts.cobChart(withFrame: frame)?.view

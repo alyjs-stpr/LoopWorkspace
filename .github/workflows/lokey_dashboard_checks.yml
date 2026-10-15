@@ -43,12 +43,18 @@ jobs:
           git -C Loop apply ../customizations/LoKeyDashboardPolish.patch
           git -C Loop apply --check ../customizations/LoKeyDashboardFinalPass.patch
           git -C Loop apply ../customizations/LoKeyDashboardFinalPass.patch
+
+          # Display-only Build 12 follow-up: actual axis alignment and readable history.
+          git -C LoopKit apply --check ../customizations/LoKeyDashboardCleanupLoopKit.patch
+          git -C LoopKit apply ../customizations/LoKeyDashboardCleanupLoopKit.patch
+          git -C Loop apply --check ../customizations/LoKeyDashboardCleanupLoop.patch
+          git -C Loop apply ../customizations/LoKeyDashboardCleanupLoop.patch
       - name: Parse modified Swift files
         shell: bash
         run: |
           set -euo pipefail
           command -v swiftc
-          swiftc -frontend -parse "Loop/Loop/View Controllers/StatusTableViewController.swift" "Loop/LoopUI/Views/StatusBarHUDView.swift" "Loop/Loop/Views/SettingsView.swift" "LoopKit/LoopKitUI/View Controllers/ChartsManager.swift"
+          swiftc -frontend -parse "Loop/Loop/View Controllers/StatusTableViewController.swift" "Loop/LoopUI/Views/StatusBarHUDView.swift" "Loop/Loop/Views/SettingsView.swift" "LoopKit/LoopKitUI/View Controllers/ChartsManager.swift" "LoopKit/LoopKitUI/Charts/DoseChart.swift"
       - name: Check preservation of key dashboard components
         shell: bash
         run: |
@@ -71,6 +77,12 @@ jobs:
           grep -q 'LoKeyDashboardHistoryHours' "$FILE"
           grep -q 'useSparseTimeAxisLabels' "$FILE"
           grep -q 'plotLeadingInset' "$FILE"
+          grep -q 'lokeyGlucoseDeltaTimestamp' "$FILE"
+          grep -q 'Bolus · unconfirmed' "$FILE"
+          grep -q 'Basal Changes + Boluses' "$FILE"
+          grep -q 'marker.showsCaption = isGlucose' "$FILE"
+          grep -q 'plotFraction(for date: Date)' "LoopKit/LoopKitUI/View Controllers/ChartsManager.swift"
+          grep -q 'bolusMarkerSize' "LoopKit/LoopKitUI/Charts/DoseChart.swift"
 
       - name: Verify approved cleanup controls across both build routes
         shell: bash
@@ -96,6 +108,8 @@ jobs:
             grep -Fq 'LoKeyDashboardInsights.patch' "$workflow"
             grep -Fq 'LoKeyDashboardPolish.patch' "$workflow"
             grep -Fq 'LoKeyDashboardFinalPass.patch' "$workflow"
+            grep -Fq 'LoKeyDashboardCleanupLoop.patch' "$workflow"
+            grep -Fq 'LoKeyDashboardCleanupLoopKit.patch' "$workflow"
           done
 
   compile-ios:
@@ -133,6 +147,12 @@ jobs:
           git -C Loop apply ../customizations/LoKeyDashboardPolish.patch
           git -C Loop apply --check ../customizations/LoKeyDashboardFinalPass.patch
           git -C Loop apply ../customizations/LoKeyDashboardFinalPass.patch
+
+          # Display-only Build 12 follow-up: actual axis alignment and readable history.
+          git -C LoopKit apply --check ../customizations/LoKeyDashboardCleanupLoopKit.patch
+          git -C LoopKit apply ../customizations/LoKeyDashboardCleanupLoopKit.patch
+          git -C Loop apply --check ../customizations/LoKeyDashboardCleanupLoop.patch
+          git -C Loop apply ../customizations/LoKeyDashboardCleanupLoop.patch
           git -C NightscoutService apply --check ../customizations/LoKeyT1PalNightscout.patch
           git -C NightscoutService apply ../customizations/LoKeyT1PalNightscout.patch
       # This is a source compilation smoke test, not an installable app package.
