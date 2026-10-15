@@ -1,0 +1,213 @@
+diff --git a/Loop/Views/CarbEntryView.swift b/Loop/Views/CarbEntryView.swift
+--- a/Loop/Views/CarbEntryView.swift
++++ b/Loop/Views/CarbEntryView.swift
+@@ -27,7 +27,8 @@
+     private let isNewEntry: Bool
+ 
+     init(viewModel: CarbEntryViewModel) {
++        // Start new meal entries with meal details visible, not the Loop keypad.
++        if viewModel.shouldBeginEditingQuantity && viewModel.originalCarbEntry != nil {
+-        if viewModel.shouldBeginEditingQuantity {
+             expandedRow = .amountConsumed
+         }
+         isNewEntry = viewModel.originalCarbEntry == nil
+@@ -70,31 +71,21 @@
+             ScrollView {
+                 warningsCard
+ 
+-                mainCard
+-                    .padding(.top, 8)
+-                
+                 if isNewEntry {
++                    LoKeyInlineMealEntry(
++                        data: adaptiveMeals,
++                        loopCarbs: $viewModel.carbsQuantity,
++                        loopCarbUnit: viewModel.preferredCarbUnit,
++                        loopDate: viewModel.time,
++                        showHistory: { showAdaptiveMeals = true }
++                    )
+-                    Button {
+-                        showAdaptiveMeals = true
+-                    } label: {
+-                        VStack(alignment: .leading, spacing: 5) {
+-                            Label("LoKey Adaptive Meals", systemImage: "fork.knife.circle.fill")
+-                                .font(.headline)
+-                            Text("Track actual carbs, protein and delayed rises")
+-                                .font(.footnote)
+-                            Text("Observation only — continue your normal Loop carb entry separately.")
+-                                .font(.caption)
+-                                .foregroundColor(.secondary)
+-                        }
+-                        .frame(maxWidth: .infinity, alignment: .leading)
+-                        .padding()
+-                        .background(CardBackground())
+-                    }
+-                    .buttonStyle(.plain)
+                     .padding(.horizontal)
+                     .padding(.top, 8)
+                 }
+ 
++                mainCard
++                    .padding(.top, 8)
++
+                 continueActionButton
+                 
+                 if isNewEntry, FeatureFlags.allowExperimentalFeatures {
+@@ -129,7 +120,7 @@
+             let foodTypeFocused: Binding<Bool> = Binding(get: { expandedRow == .foodType }, set: { expandedRow = $0 ? .foodType : nil })
+             let absorptionTimeFocused: Binding<Bool> = Binding(get: { expandedRow == .absorptionTime }, set: { expandedRow = $0 ? .absorptionTime : nil })
+             
++            CarbQuantityRow(quantity: $viewModel.carbsQuantity, isFocused: amountConsumedFocused, title: isNewEntry ? "Loop carbs (confirm below)" : NSLocalizedString("Amount Consumed", comment: "Label for carb quantity entry row on carb entry screen"), preferredCarbUnit: viewModel.preferredCarbUnit)
+-            CarbQuantityRow(quantity: $viewModel.carbsQuantity, isFocused: amountConsumedFocused, title: NSLocalizedString("Amount Consumed", comment: "Label for carb quantity entry row on carb entry screen"), preferredCarbUnit: viewModel.preferredCarbUnit)
+ 
+             CardSectionDivider()
+             
+@@ -683,3 +674,148 @@
+         dismiss()
+     }
+ }
++
++
++// MARK: - LoKey integrated meal entry (tracking only; existing Loop dosing untouched)
++//
++// Actual carbohydrates and protein are stored independently. Copying measured
++// carbohydrates into the regular Loop carb entry requires a separate user action.
++// This view does not create carb-store entries or trigger insulin delivery.
++private struct LoKeyInlineMealEntry: View {
++    @ObservedObject var data: LoKeyMealData
++    @Binding var loopCarbs: Double?
++    let loopCarbUnit: HKUnit
++    let loopDate: Date
++    let showHistory: () -> Void
++
++    @State private var meal: LoKeyMealKind = .dinner
++    @State private var actualCarbsText = ""
++    @State private var actualProteinText = ""
++    @State private var possibleDelayedRise = false
++    @State private var note = ""
++    @State private var showCopyConfirmation = false
++    @State private var didSave = false
++
++    private var measuredCarbs: Double? {
++        Double(actualCarbsText.trimmingCharacters(in: .whitespacesAndNewlines))
++    }
++
++    private var measuredProtein: Double? {
++        Double(actualProteinText.trimmingCharacters(in: .whitespacesAndNewlines))
++    }
++
++    private func valid(_ grams: Double?) -> Bool {
++        guard let grams else { return false }
++        return grams.isFinite && grams >= 0 && grams <= 500
++    }
++
++    private var canSave: Bool {
++        valid(measuredCarbs) && valid(measuredProtein)
++    }
++
++    var body: some View {
++        VStack(alignment: .leading, spacing: 12) {
++            HStack {
++                Label("LoKey Adaptive Meals", systemImage: "fork.knife.circle.fill")
++                    .font(.headline)
++                Spacer(minLength: 8)
++                Button("History & settings", action: showHistory)
++                    .font(.footnote)
++            }
++
++            Picker("Meal", selection: $meal) {
++                ForEach(LoKeyMealKind.allCases) { kind in
++                    Text(kind.name).tag(kind)
++                }
++            }
++
++            HStack {
++                Text("Actual carbs (g)")
++                Spacer()
++                TextField("0", text: $actualCarbsText)
++                    .keyboardType(.decimalPad)
++                    .multilineTextAlignment(.trailing)
++                    .frame(maxWidth: 92)
++                    .accessibilityLabel("Measured carbohydrates in grams")
++            }
++
++            HStack {
++                Text("Actual protein (g)")
++                Spacer()
++                TextField("0", text: $actualProteinText)
++                    .keyboardType(.decimalPad)
++                    .multilineTextAlignment(.trailing)
++                    .frame(maxWidth: 92)
++                    .accessibilityLabel("Measured protein in grams")
++            }
++
++            Text("These measured amounts are for your meal history. Protein is not added to Loop carbs automatically.")
++                .font(.caption)
++                .foregroundColor(.secondary)
++
++            Button {
++                showCopyConfirmation = true
++            } label: {
++                Label("Copy actual carbs into Loop field", systemImage: "arrow.down.doc")
++            }
++            .disabled(!valid(measuredCarbs))
++            .confirmationDialog(
++                "Use measured carbohydrates for the Loop carb entry?",
++                isPresented: $showCopyConfirmation,
++                titleVisibility: .visible
++            ) {
++                Button("Confirm carb copy") {
++                    guard let grams = measuredCarbs, valid(grams) else { return }
++                    loopCarbs = HKQuantity(unit: .gram(), doubleValue: grams).doubleValue(for: loopCarbUnit)
++                }
++                Button("Cancel", role: .cancel) {}
++            } message: {
++                Text("Only the carbohydrate value is copied. Review Loop carbs below, then use Loop's regular Continue and bolus confirmation. No insulin is delivered by copying.")
++            }
++
++            Toggle("Possible delayed rise", isOn: $possibleDelayedRise)
++            TextField("Meal notes (optional)", text: $note)
++
++            Button("Save meal observation") {
++                saveObservation()
++            }
++            .disabled(!canSave)
++
++            if didSave {
++                Label("Observation saved locally", systemImage: "checkmark.circle")
++                    .font(.footnote)
++                    .foregroundColor(.green)
++            }
++
++            Text("Loop carb quantity, absorption, predictions and insulin confirmation remain in the original Loop controls below. Saving here never doses insulin.")
++                .font(.caption)
++                .foregroundColor(.secondary)
++        }
++        .padding()
++        .background(CardBackground())
++    }
++
++    private func saveObservation() {
++        guard let carbs = measuredCarbs, let protein = measuredProtein, canSave else { return }
++        let loopGrams = loopCarbs.map {
++            HKQuantity(unit: loopCarbUnit, doubleValue: $0).doubleValue(for: .gram())
++        }
++        data.add(LoKeyMealObservation(
++            date: loopDate,
++            meal: meal,
++            carbCategory: data.classify(carbs, baseline: data.baselineCarbs[meal.rawValue]),
++            proteinCategory: data.classify(protein, baseline: data.baselineProtein[meal.rawValue]),
++            actualCarbs: carbs,
++            actualProtein: protein,
++            loopCarbsRecorded: loopGrams,
++            proteinFactor: data.proteinFactor,
++            possibleDelayedRise: possibleDelayedRise,
++            note: note.trimmingCharacters(in: .whitespacesAndNewlines)
++        ))
++        didSave = true
++        actualCarbsText = ""
++        actualProteinText = ""
++        possibleDelayedRise = false
++        note = ""
++    }
++}
