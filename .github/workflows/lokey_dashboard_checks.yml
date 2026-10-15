@@ -166,10 +166,11 @@ jobs:
           # Never hide Swift compile errors: only accept the two independently
           # diagnosed plugin Info.plist validator errors, and only if the final
           # failed command was Validate. Signed TestFlight builds are unaffected.
-          mapfile -t errors < <(grep -E '^error:' "$log" || true)
-          if [ "${#errors[@]}" -eq 2 ] \
-            && printf '%s\n' "${errors[@]}" | grep -Fq "AmplitudeServiceKitPlugin.framework did not contain an Info.plist (in target 'Loop' from project 'Loop')" \
-            && printf '%s\n' "${errors[@]}" | grep -Fq "LoopOnboardingPlugin.framework did not contain an Info.plist (in target 'Loop' from project 'Loop')" \
+          # macOS ships Bash 3.2; avoid mapfile which is Bash 4+.
+          error_count="$(grep -Ec '^error:' "$log" || true)"
+          if [ "$error_count" -eq 2 ] \
+            && grep -E '^error:' "$log" | grep -Fq "AmplitudeServiceKitPlugin.framework did not contain an Info.plist (in target 'Loop' from project 'Loop')" \
+            && grep -E '^error:' "$log" | grep -Fq "LoopOnboardingPlugin.framework did not contain an Info.plist (in target 'Loop' from project 'Loop')" \
             && grep -Eq "^[[:space:]]*Validate .*/Loop\\.app \\(in target 'Loop' from project 'Loop'\\)$" "$log" \
             && grep -Fq '** BUILD FAILED **' "$log" \
             && grep -Fq '(2 failures)' "$log"; then
