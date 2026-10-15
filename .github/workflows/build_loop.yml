@@ -237,6 +237,11 @@ jobs:
           git -C LoopKit apply ../customizations/LoKeyDashboardCleanupLoopKit.patch
           git -C Loop apply --check ../customizations/LoKeyDashboardCleanupLoop.patch
           git -C Loop apply ../customizations/LoKeyDashboardCleanupLoop.patch
+
+          # Phase 1 local meal tracking only. No carb-store or insulin dosing changes.
+          git -C Loop apply --check ../customizations/LoKeyAdaptiveMealsPhase1.patch
+          git -C Loop apply ../customizations/LoKeyAdaptiveMealsPhase1.patch
+          echo "LoKey protein and meal-baseline journal applied (no dosing changes)."
           echo "LoKey final dashboard polish applied."
           echo "LoKey T1D rounded chart cards and shared Now markers applied."
 
