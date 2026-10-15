@@ -103,8 +103,15 @@ jobs:
           grep -Fq 'loopCarbsRecorded' "$file"
           grep -Fq 'possibleDelayedRise' "$file"
           grep -Fq 'Observation only' "$file"
+          # Unified entry is UI-only: explicit carb copy, native Continue and bolus remain.
+          grep -Fq 'LoKeyInlineMealEntry(' "$file"
+          grep -Fq 'Button("Confirm carb copy")' "$file"
+          grep -Fq 'loopCarbs = HKQuantity(unit: .gram(), doubleValue: grams).doubleValue(for: loopCarbUnit)' "$file"
+          grep -Fq 'Button(action: viewModel.continueToBolus)' "$file"
+          grep -Fq 'BolusEntryView(viewModel: viewModel)' "$file"
           for workflow in .github/workflows/build_loop.yml .github/workflows/build_loop_auto.yml; do
             grep -Fq 'LoKeyAdaptiveMealsTracking.patch' "$workflow"
+            grep -Fq 'LoKeyAdaptiveMealsUnifiedEntry.patch' "$workflow"
           done
 
       - name: Verify approved cleanup controls across both build routes
