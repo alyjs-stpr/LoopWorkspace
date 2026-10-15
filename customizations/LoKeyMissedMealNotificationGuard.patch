@@ -1,0 +1,159 @@
+diff --git a/Loop/Managers/LoopDataManager.swift b/Loop/Managers/LoopDataManager.swift
+--- a/Loop/Managers/LoopDataManager.swift
++++ b/Loop/Managers/LoopDataManager.swift
+@@ -913,29 +913,32 @@
+             carbStore.getGlucoseEffects(start: samplesStart, end: now(), effectVelocities: insulinCounteractionEffects) {[weak self] result in
+                 guard
+                     let self = self,
++                    case .success((let carbEntries, let carbEffects)) = result
+-                    case .success((_, let carbEffects)) = result
+                 else {
+                     if case .failure(let error) = result {
+                         self?.logger.error("Failed to fetch glucose effects to check for missed meal: %{public}@", String(describing: error))
+                     }
+                     return
+                 }
+ 
+                 glucoseStore.getGlucoseSamples(start: samplesStart, end: now()) {[weak self] result in
+                     guard
+                         let self = self,
+                         case .success(let glucoseSamples) = result
+                     else {
+                         if case .failure(let error) = result {
+                             self?.logger.error("Failed to fetch glucose samples to check for missed meal: %{public}@", String(describing: error))
+                         }
+                         return
+                     }
+ 
+                     self.mealDetectionManager.generateMissedMealNotificationIfNeeded(
+                         glucoseSamples: glucoseSamples,
+                         insulinCounteractionEffects: self.insulinCounteractionEffects,
+                         carbEffects: carbEffects,
++                        // Use already stored Loop carb entries only for notification context.
++                        // This does not affect carb effects, bolus prediction or delivery.
++                        loggedCarbStartTimes: carbEntries.map { $0.startDate },
+                         pendingAutobolusUnits: self.recommendedAutomaticDose?.recommendation.bolusUnits,
+                         bolusDurationEstimator: { [unowned self] bolusAmount in
+                             return self.delegate?.loopDataManager(self, estimateBolusDuration: bolusAmount)
+diff --git a/Loop/Managers/Missed Meal Detection/MealDetectionManager.swift b/Loop/Managers/Missed Meal Detection/MealDetectionManager.swift
+--- a/Loop/Managers/Missed Meal Detection/MealDetectionManager.swift
++++ b/Loop/Managers/Missed Meal Detection/MealDetectionManager.swift
+@@ -220,39 +220,58 @@
+     /// - Parameters:
+     ///    - insulinCounteractionEffects: the current insulin counteraction effects that have been observed
+     ///    - carbEffects: the effects of any active carb entries. Must include effects from `currentDate() - MissedMealSettings.maxRecency` until `currentDate()`.
++    ///    - loggedCarbStartTimes: times of actual carb entries in Loop, used solely to avoid duplicate missed-meal alerts.
+     ///    - pendingAutobolusUnits: any autobolus units that are still being delivered. Used to delay the missed meal notification to avoid notifying during an autobolus.
+     ///    - bolusDurationEstimator: estimator of bolus duration that takes the units of the bolus as an input. Used to delay the missed meal notification to avoid notifying during an autobolus.
+     func generateMissedMealNotificationIfNeeded(
+         glucoseSamples: [some GlucoseSampleValue],
+         insulinCounteractionEffects: [GlucoseEffectVelocity],
+         carbEffects: [GlucoseEffect],
++        loggedCarbStartTimes: [Date] = [],
+         pendingAutobolusUnits: Double? = nil,
+         bolusDurationEstimator: @escaping (Double) -> TimeInterval?
+     ) {
+         hasMissedMeal(glucoseSamples: glucoseSamples, insulinCounteractionEffects: insulinCounteractionEffects, carbEffects: carbEffects) {[weak self] status in
++            self?.manageMealNotifications(for: status, loggedCarbStartTimes: loggedCarbStartTimes, pendingAutobolusUnits: pendingAutobolusUnits, bolusDurationEstimator: bolusDurationEstimator)
+-            self?.manageMealNotifications(for: status, pendingAutobolusUnits: pendingAutobolusUnits, bolusDurationEstimator: bolusDurationEstimator)
+         }
+     }
+     
+     
+     // Internal for unit testing
++    func manageMealNotifications(for status: MissedMealStatus, loggedCarbStartTimes: [Date] = [], pendingAutobolusUnits: Double? = nil, bolusDurationEstimator getBolusDuration: (Double) -> TimeInterval?) {
+-    func manageMealNotifications(for status: MissedMealStatus, pendingAutobolusUnits: Double? = nil, bolusDurationEstimator getBolusDuration: (Double) -> TimeInterval?) {
+         // We should remove expired notifications regardless of whether or not there was a meal
+         NotificationManager.removeExpiredMealNotifications()
+         
+         // Figure out if we should deliver a notification
+         let now = self.currentDate
+         let notificationTimeTooRecent = now.timeIntervalSince(lastMissedMealNotification?.deliveryTime ?? .distantPast) < (MissedMealSettings.maxRecency - MissedMealSettings.minRecency)
+         
+         guard
+             case .hasMissedMeal(let startTime, let carbAmount) = status,
+             !notificationTimeTooRecent,
+             UserDefaults.standard.missedMealNotificationsEnabled
+         else {
+             // No notification needed!
+             return
+         }
+         
++        // Missed-meal detection already considers modeled carb effects. Nevertheless,
++        // an unusually fast rise after a newly recorded meal can still be flagged
++        // as unannounced carbs. Avoid inviting a duplicate entry when Loop has a
++        // meal logged near the suspected onset. Never alter the dosing model.
++        // A distinct unannounced meal outside this narrow window can still alert.
++        let recentLogWindow = TimeInterval(minutes: 75)
++        let candidateWindow = TimeInterval(minutes: 45)
++        let mealAlreadyLogged = loggedCarbStartTimes.contains { loggedAt in
++            let age = now.timeIntervalSince(loggedAt)
++            return age >= 0 && age <= recentLogWindow
++                && abs(loggedAt.timeIntervalSince(startTime)) <= candidateWindow
++        }
++        if mealAlreadyLogged {
++            log.debug("Skipping possible missed meal notification: carb entry already logged near estimated meal time")
++            return
++        }
++
+         var clampedCarbAmount = carbAmount
+         if
+             let maxBolus = maximumBolus,
+diff --git a/LoopTests/Managers/MealDetectionManagerTests.swift b/LoopTests/Managers/MealDetectionManagerTests.swift
+--- a/LoopTests/Managers/MealDetectionManagerTests.swift
++++ b/LoopTests/Managers/MealDetectionManagerTests.swift
+@@ -383,6 +383,54 @@
+     }
+     
+     // MARK: - Notification Tests
++    func testRecentlyLoggedMealDoesNotTriggerDuplicateMissedMealAlert() {
++        setUp(for: .notificationTest)
++        UserDefaults.standard.missedMealNotificationsEnabled = true
++
++        let suspectedMeal = now.addingTimeInterval(-TimeInterval(minutes: 25))
++        let loggedDinner = now.addingTimeInterval(-TimeInterval(minutes: 30))
++        let status = MissedMealStatus.hasMissedMeal(startTime: suspectedMeal, carbAmount: 30)
++        mealDetectionManager.manageMealNotifications(
++            for: status, loggedCarbStartTimes: [loggedDinner],
++            bolusDurationEstimator: { _ in nil }
++        )
++
++        XCTAssertNil(mealDetectionManager.lastMissedMealNotification)
++    }
++
++    func testUnloggedMealStillTriggersMissedMealAlert() {
++        setUp(for: .notificationTest)
++        UserDefaults.standard.missedMealNotificationsEnabled = true
++
++        let status = MissedMealStatus.hasMissedMeal(
++            startTime: now.addingTimeInterval(-TimeInterval(minutes: 25)), carbAmount: 30
++        )
++        mealDetectionManager.manageMealNotifications(
++            for: status, loggedCarbStartTimes: [],
++            bolusDurationEstimator: { _ in nil }
++        )
++
++        XCTAssertEqual(mealDetectionManager.lastMissedMealNotification?.carbAmount, 30)
++    }
++
++    func testUnrelatedOrFutureCarbEntriesDoNotHideMissedMeal() {
++        setUp(for: .notificationTest)
++        UserDefaults.standard.missedMealNotificationsEnabled = true
++
++        let suspectedMeal = now.addingTimeInterval(-TimeInterval(minutes: 105))
++        let recentlyLoggedUnrelatedMeal = now.addingTimeInterval(-TimeInterval(minutes: 20))
++        let futurePreannouncement = now.addingTimeInterval(TimeInterval(minutes: 10))
++        let status = MissedMealStatus.hasMissedMeal(startTime: suspectedMeal, carbAmount: 30)
++
++        mealDetectionManager.manageMealNotifications(
++            for: status,
++            loggedCarbStartTimes: [recentlyLoggedUnrelatedMeal, futurePreannouncement],
++            bolusDurationEstimator: { _ in nil }
++        )
++
++        XCTAssertEqual(mealDetectionManager.lastMissedMealNotification?.carbAmount, 30)
++    }
++
+     func testNoMissedMealLastNotificationTime() {
+         setUp(for: .notificationTest)
+         UserDefaults.standard.missedMealNotificationsEnabled = true
