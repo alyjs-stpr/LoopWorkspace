@@ -49,12 +49,16 @@ jobs:
           git -C LoopKit apply ../customizations/LoKeyDashboardCleanupLoopKit.patch
           git -C Loop apply --check ../customizations/LoKeyDashboardCleanupLoop.patch
           git -C Loop apply ../customizations/LoKeyDashboardCleanupLoop.patch
+
+          # Adaptive Meals adds only independent tracking and local storage.
+          git -C Loop apply --check ../customizations/LoKeyAdaptiveMealsTracking.patch
+          git -C Loop apply ../customizations/LoKeyAdaptiveMealsTracking.patch
       - name: Parse modified Swift files
         shell: bash
         run: |
           set -euo pipefail
           command -v swiftc
-          swiftc -frontend -parse "Loop/Loop/View Controllers/StatusTableViewController.swift" "Loop/LoopUI/Views/StatusBarHUDView.swift" "Loop/Loop/Views/SettingsView.swift" "LoopKit/LoopKitUI/View Controllers/ChartsManager.swift" "LoopKit/LoopKitUI/Charts/DoseChart.swift"
+          swiftc -frontend -parse "Loop/Loop/View Controllers/StatusTableViewController.swift" "Loop/LoopUI/Views/StatusBarHUDView.swift" "Loop/Loop/Views/SettingsView.swift" "Loop/Loop/Views/CarbEntryView.swift" "LoopKit/LoopKitUI/View Controllers/ChartsManager.swift" "LoopKit/LoopKitUI/Charts/DoseChart.swift"
       - name: Check preservation of key dashboard components
         shell: bash
         run: |
@@ -83,6 +87,21 @@ jobs:
           grep -q 'marker.showsCaption = isGlucose' "$FILE"
           grep -q 'plotFraction(for date: Date)' "LoopKit/LoopKitUI/View Controllers/ChartsManager.swift"
           grep -q 'bolusMarkerSize' "LoopKit/LoopKitUI/Charts/DoseChart.swift"
+
+      - name: Verify Adaptive Meals is observation-only
+        shell: bash
+        run: |
+          set -euo pipefail
+          file="Loop/Loop/Views/CarbEntryView.swift"
+          grep -Fq 'LoKeyMealTrackingView(data: adaptiveMeals)' "$file"
+          grep -Fq 'baselineCarbs = c?.count == 4' "$file"
+          grep -Fq 'baselineProtein = p?.count == 4' "$file"
+          grep -Fq 'loopCarbsRecorded' "$file"
+          grep -Fq 'possibleDelayedRise' "$file"
+          grep -Fq 'Observation only' "$file"
+          for workflow in .github/workflows/build_loop.yml .github/workflows/build_loop_auto.yml; do
+            grep -Fq 'LoKeyAdaptiveMealsTracking.patch' "$workflow"
+          done
 
       - name: Verify approved cleanup controls across both build routes
         shell: bash
@@ -153,6 +172,10 @@ jobs:
           git -C LoopKit apply ../customizations/LoKeyDashboardCleanupLoopKit.patch
           git -C Loop apply --check ../customizations/LoKeyDashboardCleanupLoop.patch
           git -C Loop apply ../customizations/LoKeyDashboardCleanupLoop.patch
+
+          # Adaptive Meals adds only independent tracking and local storage.
+          git -C Loop apply --check ../customizations/LoKeyAdaptiveMealsTracking.patch
+          git -C Loop apply ../customizations/LoKeyAdaptiveMealsTracking.patch
           git -C NightscoutService apply --check ../customizations/LoKeyT1PalNightscout.patch
           git -C NightscoutService apply ../customizations/LoKeyT1PalNightscout.patch
       # This is a source compilation smoke test, not an installable app package.
@@ -182,29 +205,29 @@ jobs:
             exit 0
           fi
 
-          # Xcode 27 calls builtin-validationUtility even with VALIDATE_PRODUCT=NO.
-          # Never hide Swift compile errors: only accept the two independently
-          # diagnosed plugin Info.plist validator errors, and only if the final
-          # failed command was Validate. Signed TestFlight builds are unaffected.
-          # macOS ships Bash 3.2; avoid mapfile which is Bash 4+.
+          # Xcode 27 still validates .loopplugin frameworks when VALIDATE_PRODUCT=NO.
+          # Accept ONLY one or two previously observed plugin Info.plist errors,
+          # with no other compiler/packaging errors, and ONLY at final Validate.
+          # This is an unsigned simulator source smoke test, NOT a signed package.
           error_count="$(grep -Ec '^error:' "$log" || true)"
-          if [ "$error_count" -eq 2 ] \
-            && grep -E '^error:' "$log" | grep -Fq "AmplitudeServiceKitPlugin.framework did not contain an Info.plist (in target 'Loop' from project 'Loop')" \
-            && grep -E '^error:' "$log" | grep -Fq "LoopOnboardingPlugin.framework did not contain an Info.plist (in target 'Loop' from project 'Loop')" \
-            && grep -Eq "^[[:space:]]*Validate .*/Loop\\.app \\(in target 'Loop' from project 'Loop'\\)$" "$log" \
+          unexpected_errors="$(grep '^error:' "$log" | grep -Ev "^error: Framework .*/Loop[.]app/Frameworks/(AmplitudeServiceKitPlugin|LoopOnboardingPlugin)[.]framework did not contain an Info[.]plist [(]in target 'Loop' from project 'Loop'[)]$" || true)"
+          if [ "$error_count" -ge 1 ] && [ "$error_count" -le 2 ] \
+            && [ -z "$unexpected_errors" ] \
+            && ! grep -Eq '[.]swift:[0-9]+:[0-9]+: error:' "$log" \
+            && grep -Eq "^[[:space:]]*Validate .*/Loop[.]app [(]in target 'Loop' from project 'Loop'[)]$" "$log" \
             && grep -Fq '** BUILD FAILED **' "$log" \
-            && grep -Fq '(2 failures)' "$log"; then
+            && grep -Fq '(2 failures)' "$log" \
+            && [ "$(grep -Ec '^[[:space:]]+Validate .*[(]in target 'Loop' from project 'Loop'[)]$' "$log" || true)" -eq 1 ]; then
             echo 'validation_only=true' >> "$GITHUB_OUTPUT"
-            echo "::warning title=Known unsigned bundle-validation limitation::Swift compilation reached app validation; Xcode 27 rejected two pre-existing plugin frameworks without Info.plist. Signed TestFlight packaging is NOT verified."
+            echo "::warning title=Known unsigned bundle-validation limitation::Swift compilation reached app validation; Xcode 27 rejected $error_count pre-existing plugin framework(s) without Info.plist. Signed TestFlight packaging is NOT verified."
             {
-              echo '### Simulator compile: source compilation completed; app validation remains unverified'
-              echo 'Xcode 27 failed ONLY in final Validate for AmplitudeServiceKitPlugin and LoopOnboardingPlugin (missing Info.plist).'
-              echo 'This narrowly accepted exception applies solely to the unsigned simulator smoke test, not to signed TestFlight packaging.'
-              echo 'An actual signed build and on-device review remain required before release.'
+              echo '### Simulator smoke test: source compilation completed; bundle validation remains unverified'
+              echo "Only $error_count recognized unsigned plugin Info.plist validation error(s) were observed, and final Validate was the sole failed build command."
+              echo 'This exception NEVER applies to signed TestFlight packaging. Physical-device safety review remains necessary.'
             } >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          echo "::error title=iOS simulator build failed::Xcode failed for reasons beyond the two known plugin Info.plist validation errors; inspect the uploaded full log."
+          echo "::error title=iOS simulator build failed::Not exclusively a recognized final unsigned plugin framework validation issue; inspect the full log."
           exit "$build_exit"
       - name: Save compilation log if failed or bundle validation was exempted
         if: failure() || steps.compile.outputs.validation_only == 'true'

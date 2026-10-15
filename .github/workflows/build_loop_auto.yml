@@ -265,6 +265,10 @@ jobs:
           git -C LoopKit apply ../customizations/LoKeyDashboardCleanupLoopKit.patch
           git -C Loop apply --check ../customizations/LoKeyDashboardCleanupLoop.patch
           git -C Loop apply ../customizations/LoKeyDashboardCleanupLoop.patch
+
+          # Adaptive Meals adds only independent tracking and local storage.
+          git -C Loop apply --check ../customizations/LoKeyAdaptiveMealsTracking.patch
+          git -C Loop apply ../customizations/LoKeyAdaptiveMealsTracking.patch
           echo "LoKey final dashboard polish applied."
           echo "LoKey T1D rounded chart cards and shared Now markers applied."
 
