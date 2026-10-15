@@ -53,6 +53,10 @@ jobs:
           # Adaptive Meals adds only independent tracking and local storage.
           git -C Loop apply --check ../customizations/LoKeyAdaptiveMealsTracking.patch
           git -C Loop apply ../customizations/LoKeyAdaptiveMealsTracking.patch
+          # Build 13: inline measured carbs/protein and explicit carb-copy confirmation.
+          # Applies after the observation-only feature; never changes the bolus engine.
+          git -C Loop apply --check ../customizations/LoKeyAdaptiveMealsUnifiedEntry.patch
+          git -C Loop apply ../customizations/LoKeyAdaptiveMealsUnifiedEntry.patch
       - name: Parse modified Swift files
         shell: bash
         run: |
@@ -176,6 +180,10 @@ jobs:
           # Adaptive Meals adds only independent tracking and local storage.
           git -C Loop apply --check ../customizations/LoKeyAdaptiveMealsTracking.patch
           git -C Loop apply ../customizations/LoKeyAdaptiveMealsTracking.patch
+          # Build 13: inline measured carbs/protein and explicit carb-copy confirmation.
+          # Applies after the observation-only feature; never changes the bolus engine.
+          git -C Loop apply --check ../customizations/LoKeyAdaptiveMealsUnifiedEntry.patch
+          git -C Loop apply ../customizations/LoKeyAdaptiveMealsUnifiedEntry.patch
           git -C NightscoutService apply --check ../customizations/LoKeyT1PalNightscout.patch
           git -C NightscoutService apply ../customizations/LoKeyT1PalNightscout.patch
       # This is a source compilation smoke test, not an installable app package.
