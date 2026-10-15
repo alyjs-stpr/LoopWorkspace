@@ -49,12 +49,16 @@ jobs:
           git -C LoopKit apply ../customizations/LoKeyDashboardCleanupLoopKit.patch
           git -C Loop apply --check ../customizations/LoKeyDashboardCleanupLoop.patch
           git -C Loop apply ../customizations/LoKeyDashboardCleanupLoop.patch
+
+          # Adaptive Meals adds only independent tracking and local storage.
+          git -C Loop apply --check ../customizations/LoKeyAdaptiveMealsTracking.patch
+          git -C Loop apply ../customizations/LoKeyAdaptiveMealsTracking.patch
       - name: Parse modified Swift files
         shell: bash
         run: |
           set -euo pipefail
           command -v swiftc
-          swiftc -frontend -parse "Loop/Loop/View Controllers/StatusTableViewController.swift" "Loop/LoopUI/Views/StatusBarHUDView.swift" "Loop/Loop/Views/SettingsView.swift" "LoopKit/LoopKitUI/View Controllers/ChartsManager.swift" "LoopKit/LoopKitUI/Charts/DoseChart.swift"
+          swiftc -frontend -parse "Loop/Loop/View Controllers/StatusTableViewController.swift" "Loop/LoopUI/Views/StatusBarHUDView.swift" "Loop/Loop/Views/SettingsView.swift" "Loop/Loop/Views/CarbEntryView.swift" "LoopKit/LoopKitUI/View Controllers/ChartsManager.swift" "LoopKit/LoopKitUI/Charts/DoseChart.swift"
       - name: Check preservation of key dashboard components
         shell: bash
         run: |
@@ -83,6 +87,21 @@ jobs:
           grep -q 'marker.showsCaption = isGlucose' "$FILE"
           grep -q 'plotFraction(for date: Date)' "LoopKit/LoopKitUI/View Controllers/ChartsManager.swift"
           grep -q 'bolusMarkerSize' "LoopKit/LoopKitUI/Charts/DoseChart.swift"
+
+      - name: Verify Adaptive Meals is observation-only
+        shell: bash
+        run: |
+          set -euo pipefail
+          file="Loop/Loop/Views/CarbEntryView.swift"
+          grep -Fq 'LoKeyMealTrackingView(data: adaptiveMeals)' "$file"
+          grep -Fq 'baselineCarbs = c?.count == 4' "$file"
+          grep -Fq 'baselineProtein = p?.count == 4' "$file"
+          grep -Fq 'loopCarbsRecorded' "$file"
+          grep -Fq 'possibleDelayedRise' "$file"
+          grep -Fq 'Observation only' "$file"
+          for workflow in .github/workflows/build_loop.yml .github/workflows/build_loop_auto.yml; do
+            grep -Fq 'LoKeyAdaptiveMealsTracking.patch' "$workflow"
+          done
 
       - name: Verify approved cleanup controls across both build routes
         shell: bash
@@ -153,6 +172,10 @@ jobs:
           git -C LoopKit apply ../customizations/LoKeyDashboardCleanupLoopKit.patch
           git -C Loop apply --check ../customizations/LoKeyDashboardCleanupLoop.patch
           git -C Loop apply ../customizations/LoKeyDashboardCleanupLoop.patch
+
+          # Adaptive Meals adds only independent tracking and local storage.
+          git -C Loop apply --check ../customizations/LoKeyAdaptiveMealsTracking.patch
+          git -C Loop apply ../customizations/LoKeyAdaptiveMealsTracking.patch
           git -C NightscoutService apply --check ../customizations/LoKeyT1PalNightscout.patch
           git -C NightscoutService apply ../customizations/LoKeyT1PalNightscout.patch
       # This is a source compilation smoke test, not an installable app package.
