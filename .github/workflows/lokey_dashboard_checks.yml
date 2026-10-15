@@ -1,0 +1,195 @@
+name: LoKey dashboard patch validation
+on:
+  pull_request:
+    paths:
+      - 'customizations/LoKeyDashboard*.patch'
+      - 'customizations/LoKeyReports.patch'
+      - 'customizations/LoKeyAxisReadability.patch'
+      - '.github/workflows/lokey_dashboard_checks.yml'
+      - '.github/workflows/build_loop*.yml'
+  workflow_dispatch:
+
+jobs:
+  validate-dashboard:
+    name: Patch compatibility and Swift parsing
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout pinned Loop workspace and submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - name: Apply existing Loop chart and reporting customizations
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -C Loop apply --check ../customizations/LoKeyChartColors.patch
+          git -C Loop apply ../customizations/LoKeyChartColors.patch
+          git -C LoopKit apply --check ../customizations/LoKeyAxisReadability.patch
+          git -C LoopKit apply ../customizations/LoKeyAxisReadability.patch
+          git -C Loop apply --check ../customizations/LoKeyReports.patch
+          git -C Loop apply ../customizations/LoKeyReports.patch
+          git -C Loop apply --check ../customizations/LoKeyTIRShortcut.patch
+          git -C Loop apply ../customizations/LoKeyTIRShortcut.patch
+      - name: Apply LoKey dashboard and visual polish
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -C Loop apply --check ../customizations/LoKeyDashboardInsights.patch
+          git -C Loop apply ../customizations/LoKeyDashboardInsights.patch
+          git -C Loop apply --check ../customizations/LoKeyDashboardPolish.patch
+          git -C Loop apply ../customizations/LoKeyDashboardPolish.patch
+          git -C Loop apply --check ../customizations/LoKeyDashboardFinalPass.patch
+          git -C Loop apply ../customizations/LoKeyDashboardFinalPass.patch
+      - name: Parse modified Swift files
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v swiftc
+          swiftc -frontend -parse "Loop/Loop/View Controllers/StatusTableViewController.swift" "Loop/LoopUI/Views/StatusBarHUDView.swift" "Loop/Loop/Views/SettingsView.swift" "LoopKit/LoopKitUI/View Controllers/ChartsManager.swift"
+      - name: Check preservation of key dashboard components
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILE="Loop/Loop/View Controllers/StatusTableViewController.swift"
+          grep -q 'case glucose' "$FILE"
+          grep -q 'case iob' "$FILE"
+          grep -q 'case dose' "$FILE"
+          grep -q 'case cob' "$FILE"
+          grep -q 'case metrics' "$FILE"
+          grep -q 'lokeyHistoryChanged' "$FILE"
+          grep -q 'LoKeyNowOverlayView' "$FILE"
+          grep -q 'reportsItem' "$FILE"
+          grep -q 'LoKeyCGMTIRStatistics' "Loop/Loop/Views/SettingsView.swift"
+          grep -q 'Time in range (custom)' "Loop/Loop/Views/SettingsView.swift"
+          grep -q 'LoKeyTargetStatistics' "Loop/Loop/Views/SettingsView.swift"
+          grep -q 'tickHours' "LoopKit/LoopKitUI/View Controllers/ChartsManager.swift"
+          grep -q 'bolusPlanned' "$FILE"
+          grep -q 'lokeyInstallStatusBarScrim' "$FILE"
+          grep -q 'LoKeyDashboardHistoryHours' "$FILE"
+          grep -q 'useSparseTimeAxisLabels' "$FILE"
+          grep -q 'plotLeadingInset' "$FILE"
+
+      - name: Verify approved cleanup controls across both build routes
+        shell: bash
+        run: |
+          set -euo pipefail
+          insights=customizations/LoKeyDashboardInsights.patch
+          final=customizations/LoKeyDashboardFinalPass.patch
+          # History selection must persist and restore, not just look selected.
+          grep -Fq 'UserDefaults.standard.set(hours, forKey: "LoKeyDashboardHistoryHours")' "$insights"
+          grep -Fq 'UserDefaults.standard.integer(forKey: "LoKeyDashboardHistoryHours")' "$insights"
+          grep -Fq 'selector.selectedSegmentTintColor' "$insights"
+          # Predictions, status-bar protection, axis alignment, and flexible HUDs.
+          grep -Fq 'forecastChip("30m"' "$insights"
+          grep -Fq 'forecastChip("60m"' "$insights"
+          grep -Fq 'host.safeAreaLayoutGuide.topAnchor' "$insights"
+          grep -Fq 'marker.plotLeadingInset = charts.plotLeadingInset' "$final"
+          grep -Fq 'marker.plotTrailingInset = charts.plotTrailingInset' "$final"
+          grep -Fq 'glucoseRatio.priority = .defaultHigh' "$final"
+          grep -Fq 'pumpRatio.priority = .defaultHigh' "$final"
+          for workflow in .github/workflows/build_loop.yml .github/workflows/build_loop_auto.yml; do
+            grep -Fq 'LoKeyAxisReadability.patch' "$workflow"
+            grep -Fq 'LoKeyReports.patch' "$workflow"
+            grep -Fq 'LoKeyDashboardInsights.patch' "$workflow"
+            grep -Fq 'LoKeyDashboardPolish.patch' "$workflow"
+            grep -Fq 'LoKeyDashboardFinalPass.patch' "$workflow"
+          done
+
+  compile-ios:
+    if: github.event_name == 'pull_request'
+    name: Unsigned iOS simulator compile (no upload)
+    runs-on: xcode-27
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - name: Select Xcode 27
+        run: sudo xcode-select --switch /Applications/Xcode_27.0.app/Contents/Developer
+      - name: Checkout pinned workspace and submodules
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - name: Apply LoKey changes in production build order
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -C Loop apply --check ../customizations/LoKeyChartColors.patch
+          git -C Loop apply ../customizations/LoKeyChartColors.patch
+          git -C LoopKit apply --check ../customizations/LoKeyFoodEmojis.patch
+          git -C LoopKit apply ../customizations/LoKeyFoodEmojis.patch
+          git -C LoopKit apply --check ../customizations/LoKeyAxisReadability.patch
+          git -C LoopKit apply ../customizations/LoKeyAxisReadability.patch
+          git -C Loop apply --check ../customizations/LoKeyReports.patch
+          git -C Loop apply ../customizations/LoKeyReports.patch
+          git -C Loop apply --check ../customizations/LoKeyTIRShortcut.patch
+          git -C Loop apply ../customizations/LoKeyTIRShortcut.patch
+          git -C Loop apply --check ../customizations/LoKeyDashboardInsights.patch
+          git -C Loop apply ../customizations/LoKeyDashboardInsights.patch
+          git -C Loop apply --check ../customizations/LoKeyDashboardPolish.patch
+          git -C Loop apply ../customizations/LoKeyDashboardPolish.patch
+          git -C Loop apply --check ../customizations/LoKeyDashboardFinalPass.patch
+          git -C Loop apply ../customizations/LoKeyDashboardFinalPass.patch
+          git -C NightscoutService apply --check ../customizations/LoKeyT1PalNightscout.patch
+          git -C NightscoutService apply ../customizations/LoKeyT1PalNightscout.patch
+      # This is a source compilation smoke test, not an installable app package.
+      # The unsigned simulator run can fail the final bundle validator because
+      # Loop's .loopplugin bundles are treated as regular .framework folders.
+      # Full validation remains enabled in the real signed TestFlight workflow.
+      - name: Compile without signing or publishing
+        id: compile
+        shell: bash
+        run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/lokey-dashboard-build.log"
+          set +e
+          xcodebuild \
+            -workspace LoopWorkspace.xcworkspace \
+            -scheme LoopWorkspace \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            VALIDATE_PRODUCT=NO \
+            -derivedDataPath "$RUNNER_TEMP/lokey-dashboard-build" \
+            build 2>&1 | tee "$log"
+          build_exit=${PIPESTATUS[0]}
+          set -e
+          if [ "$build_exit" -eq 0 ]; then
+            echo "Unsigned simulator compile and bundle validation passed." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # Xcode 27 calls builtin-validationUtility even with VALIDATE_PRODUCT=NO.
+          # Never hide Swift compile errors: only accept the two independently
+          # diagnosed plugin Info.plist validator errors, and only if the final
+          # failed command was Validate. Signed TestFlight builds are unaffected.
+          # macOS ships Bash 3.2; avoid mapfile which is Bash 4+.
+          error_count="$(grep -Ec '^error:' "$log" || true)"
+          if [ "$error_count" -eq 2 ] \
+            && grep -E '^error:' "$log" | grep -Fq "AmplitudeServiceKitPlugin.framework did not contain an Info.plist (in target 'Loop' from project 'Loop')" \
+            && grep -E '^error:' "$log" | grep -Fq "LoopOnboardingPlugin.framework did not contain an Info.plist (in target 'Loop' from project 'Loop')" \
+            && grep -Eq "^[[:space:]]*Validate .*/Loop\\.app \\(in target 'Loop' from project 'Loop'\\)$" "$log" \
+            && grep -Fq '** BUILD FAILED **' "$log" \
+            && grep -Fq '(2 failures)' "$log"; then
+            echo 'validation_only=true' >> "$GITHUB_OUTPUT"
+            echo "::warning title=Known unsigned bundle-validation limitation::Swift compilation reached app validation; Xcode 27 rejected two pre-existing plugin frameworks without Info.plist. Signed TestFlight packaging is NOT verified."
+            {
+              echo '### Simulator compile: source compilation completed; app validation remains unverified'
+              echo 'Xcode 27 failed ONLY in final Validate for AmplitudeServiceKitPlugin and LoopOnboardingPlugin (missing Info.plist).'
+              echo 'This narrowly accepted exception applies solely to the unsigned simulator smoke test, not to signed TestFlight packaging.'
+              echo 'An actual signed build and on-device review remain required before release.'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "::error title=iOS simulator build failed::Xcode failed for reasons beyond the two known plugin Info.plist validation errors; inspect the uploaded full log."
+          exit "$build_exit"
+      - name: Save compilation log if failed or bundle validation was exempted
+        if: failure() || steps.compile.outputs.validation_only == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: lokey-ios-compile-log
+          path: ${{ runner.temp }}/lokey-dashboard-build.log
+          retention-days: 5

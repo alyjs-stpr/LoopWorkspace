@@ -94,7 +94,7 @@ jobs:
       - name: Sync upstream changes
         if: | # do not run the upstream sync action on the upstream repository
           steps.workflow-permission.outputs.has_permission == 'true' &&
-          vars.SCHEDULED_SYNC != 'false' && github.repository_owner != 'LoopKit'
+          vars.SCHEDULED_SYNC != 'false' && github.repository_owner != 'LoopKit' && github.ref_name == 'main'
         id: sync
         uses: aormsby/Fork-Sync-With-Upstream-action@v3.4.2
         with:
@@ -200,6 +200,11 @@ jobs:
           # Keep the Fast, Medium, and Slow absorption shortcuts unchanged.
           git -C LoopKit apply --check ../customizations/LoKeyFoodEmojis.patch
           git -C LoopKit apply ../customizations/LoKeyFoodEmojis.patch
+
+          # Sparse, adaptive time ticks on all four graphs (display only).
+          git -C LoopKit apply --check ../customizations/LoKeyAxisReadability.patch
+          git -C LoopKit apply ../customizations/LoKeyAxisReadability.patch
+          echo "LoKey chart time axis cleaned up."
           echo "LoKey T1D More Foods picker applied (18 new icons)."
 
           # LoKey T1D reporting: read-only settings PDF and historical Loop-target TIR.
@@ -212,6 +217,22 @@ jobs:
           git -C Loop apply --check ../customizations/LoKeyTIRShortcut.patch
           git -C Loop apply ../customizations/LoKeyTIRShortcut.patch
           echo "LoKey T1D bottom toolbar TIR shortcut applied."
+
+          # LoKey T1D dashboard insights are presentation-only. Apply after the
+          # TIR shortcut because both patches touch StatusTableViewController.
+          git -C Loop apply --check ../customizations/LoKeyDashboardInsights.patch
+          git -C Loop apply ../customizations/LoKeyDashboardInsights.patch
+          echo "LoKey T1D dashboard insights and precise daily insulin total applied."
+
+          # Cosmetic card spacing and shared Now markers, after the dashboard.
+          git -C Loop apply --check ../customizations/LoKeyDashboardPolish.patch
+          git -C Loop apply ../customizations/LoKeyDashboardPolish.patch
+
+          # Final dashboard-only safe-area, forecast, and alignment refinements.
+          git -C Loop apply --check ../customizations/LoKeyDashboardFinalPass.patch
+          git -C Loop apply ../customizations/LoKeyDashboardFinalPass.patch
+          echo "LoKey final dashboard polish applied."
+          echo "LoKey T1D rounded chart cards and shared Now markers applied."
 
           # T1Pal returns a server error for Nightscout's legacy auth-test endpoint.
           # Apply a bounded authenticated-read fallback only for t1pal.com sites.

@@ -1,0 +1,638 @@
+diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View Controllers/StatusTableViewController.swift
+--- a/Loop/View Controllers/StatusTableViewController.swift
++++ b/Loop/View Controllers/StatusTableViewController.swift
+@@ -43,7 +43,260 @@
+ 
+     var supportManager: SupportManager!
+ 
+-    lazy private var cancellables = Set<AnyCancellable>()
++    lazy private var cancellables = Set<AnyCancellable>()
++
++    // LoKey visual dashboard. These values never feed dosing or pump commands.
++    private struct LoKeyDashboardSnapshot {
++        var iob = "—"
++        var cob = "—"
++        var basal = "—"
++        var lastBolus = "—"
++        var bolusPlanned = false
++        var glucoseAge = "—"
++        var glucoseDelta = "—"
++        var forecast30 = "—"
++        var forecast60 = "—"
++    }
++
++    // Fixed above the scrolling table so cards cannot pass behind the clock.
++    private let lokeyStatusBarScrim: UIView = {
++        let view = UIView()
++        view.backgroundColor = .systemGroupedBackground
++        view.isUserInteractionEnabled = false
++        view.isAccessibilityElement = false
++        view.translatesAutoresizingMaskIntoConstraints = false
++        return view
++    }()
++
++    private func lokeyInstallStatusBarScrim() {
++        guard let host = navigationController?.view, lokeyStatusBarScrim.superview == nil else { return }
++        host.addSubview(lokeyStatusBarScrim)
++        NSLayoutConstraint.activate([
++            lokeyStatusBarScrim.topAnchor.constraint(equalTo: host.topAnchor),
++            lokeyStatusBarScrim.bottomAnchor.constraint(equalTo: host.safeAreaLayoutGuide.topAnchor),
++            lokeyStatusBarScrim.leadingAnchor.constraint(equalTo: host.leadingAnchor),
++            lokeyStatusBarScrim.trailingAnchor.constraint(equalTo: host.trailingAnchor)
++        ])
++    }
++    private final class LoKeyMetricTile: UIStackView {
++        private let valueLabel = UILabel()
++        private let headingLabel = UILabel()
++
++        init(title: String) {
++            super.init(frame: .zero)
++            axis = .vertical
++            alignment = .fill
++            spacing = 3
++            isLayoutMarginsRelativeArrangement = true
++            directionalLayoutMargins = NSDirectionalEdgeInsets(top: 8, leading: 11, bottom: 8, trailing: 9)
++
++            headingLabel.text = title
++            headingLabel.font = .preferredFont(forTextStyle: .caption1)
++            headingLabel.adjustsFontForContentSizeCategory = true
++            headingLabel.textColor = .secondaryLabel
++            headingLabel.numberOfLines = 1
++            headingLabel.adjustsFontSizeToFitWidth = true
++            headingLabel.minimumScaleFactor = 0.8
++            valueLabel.font = .preferredFont(forTextStyle: .headline)
++            valueLabel.adjustsFontForContentSizeCategory = true
++            valueLabel.textColor = .label
++            valueLabel.numberOfLines = 1
++            valueLabel.adjustsFontSizeToFitWidth = true
++            valueLabel.minimumScaleFactor = 0.72
++            valueLabel.lineBreakMode = .byTruncatingTail
++            addArrangedSubview(headingLabel)
++            addArrangedSubview(valueLabel)
++        }
++        required init(coder: NSCoder) { fatalError("init(coder:) unavailable") }
++        func setHeading(_ heading: String) { headingLabel.text = heading }
++        func setValue(_ value: String) {
++            valueLabel.text = value
++            accessibilityLabel = (headingLabel.text ?? "") + ": " + value
++        }
++    }
++
++    private final class LoKeyMetricsCell: UITableViewCell {
++        static let reuseID = "LoKeyMetricsCell"
++        private let iobTile = LoKeyMetricTile(title: "Active insulin")
++        private let cobTile = LoKeyMetricTile(title: "Active carbs")
++        private let basalTile = LoKeyMetricTile(title: "Basal")
++        private let bolusTile = LoKeyMetricTile(title: "Last bolus")
++
++        override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
++            super.init(style: style, reuseIdentifier: reuseIdentifier)
++            selectionStyle = .none
++            backgroundColor = .clear
++
++            func pair(_ left: UIView, _ right: UIView) -> UIStackView {
++                let row = UIStackView(arrangedSubviews: [left, right])
++                row.backgroundColor = .separator
++                row.spacing = 1
++                left.backgroundColor = .secondarySystemGroupedBackground; right.backgroundColor = .secondarySystemGroupedBackground
++                row.axis = .horizontal
++                row.distribution = .fillEqually
++                return row
++            }
++
++            let first = pair(iobTile, cobTile)
++            let second = pair(basalTile, bolusTile)
++            let line = UIView()
++            line.backgroundColor = .separator
++            line.heightAnchor.constraint(equalToConstant: 1 / UIScreen.main.scale).isActive = true
++            let stack = UIStackView(arrangedSubviews: [first, line, second])
++            stack.axis = .vertical
++            stack.spacing = 0
++            stack.backgroundColor = .secondarySystemGroupedBackground
++            stack.layer.cornerRadius = 18
++            stack.clipsToBounds = true
++            stack.translatesAutoresizingMaskIntoConstraints = false
++            contentView.addSubview(stack)
++            NSLayoutConstraint.activate([
++                stack.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 5),
++                stack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -5),
++                stack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 10),
++                stack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -10),
++                first.heightAnchor.constraint(greaterThanOrEqualToConstant: 62),
++                second.heightAnchor.constraint(greaterThanOrEqualToConstant: 62)
++            ])
++        }
++
++        required init?(coder: NSCoder) { fatalError("init(coder:) unavailable") }
++
++        func configure(_ snapshot: LoKeyDashboardSnapshot) {
++            iobTile.setValue(snapshot.iob)
++            cobTile.setValue(snapshot.cob)
++            basalTile.setValue(snapshot.basal)
++            bolusTile.setHeading(snapshot.bolusPlanned ? "Bolus · planned" : "Last bolus")
++            bolusTile.setValue(snapshot.lastBolus)
++        }
++    }
++
++    private var lokeySnapshot = LoKeyDashboardSnapshot()
++    private var lokeyHistoryHours = 3
++    private weak var lokeyMetricsCell: LoKeyMetricsCell?
++    private weak var lokeyGlucoseCell: ChartTableViewCell?
++
++    private func lokeyPredicted(_ minutes: Int, values: [GlucoseValue], unit: HKUnit) -> String {
++        let time = Date().addingTimeInterval(TimeInterval(minutes * 60))
++        guard let point = values.min(by: {
++            abs($0.startDate.timeIntervalSince(time)) < abs($1.startDate.timeIntervalSince(time))
++        }), abs(point.startDate.timeIntervalSince(time)) <= 180 else {
++            return "—"
++        }
++        return String(format: unit == .milligramsPerDeciliter ? "%.0f" : "%.1f",
++                      point.quantity.doubleValue(for: unit))
++    }
++
++    @objc private func lokeyHistoryChanged(_ sender: UISegmentedControl) {
++        let allowed = [1, 3, 6]
++        guard allowed.indices.contains(sender.selectedSegmentIndex) else { return }
++        let hours = allowed[sender.selectedSegmentIndex]
++        guard hours != lokeyHistoryHours else { return }
++        lokeyHistoryHours = hours
++        UserDefaults.standard.set(hours, forKey: "LoKeyDashboardHistoryHours")
++        refreshContext.formUnion(RefreshContext.all)
++        updateChartDateRange()
++        reloadData(animated: false)
++    }
++
++    private func lokeyStyleChartCell(_ cell: ChartTableViewCell, isGlucose: Bool) {
++        cell.backgroundColor = .clear
++        cell.contentView.backgroundColor = .secondarySystemGroupedBackground
++        cell.contentView.layer.cornerRadius = 18
++        cell.contentView.layer.masksToBounds = true
++        cell.contentView.directionalLayoutMargins = NSDirectionalEdgeInsets(
++            top: 10, leading: 18, bottom: 8, trailing: 18
++        )
++        for label in cell.contentView.subviews.compactMap({ $0 as? UILabel }) {
++            label.font = .preferredFont(forTextStyle: label.textAlignment == .right ? .subheadline : .title3)
++            label.adjustsFontForContentSizeCategory = true
++        }
++
++        guard let chartView = cell.contentView.subviews.first(where: { $0 is ChartContainerView }) else {
++            return
++        }
++        let topConstraint = cell.contentView.constraints.first {
++            ($0.firstItem as? UIView) === chartView && $0.firstAttribute == .top
++        }
++        topConstraint?.constant = isGlucose ? 77 : 0
++
++        // A chart cell can be reused as a different chart; clean up its controls.
++        cell.contentView.viewWithTag(87203)?.removeFromSuperview()
++        if !isGlucose { return }
++
++        let caption = UILabel()
++        caption.text = "Forecast · " + (statusCharts.glucose.glucoseUnit == .milligramsPerDeciliter ? "mg/dL" : "mmol/L")
++        caption.font = .preferredFont(forTextStyle: .caption1)
++        caption.textColor = .secondaryLabel
++
++        caption.adjustsFontSizeToFitWidth = true
++        caption.minimumScaleFactor = 0.75
++        caption.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
++
++        func forecastChip(_ title: String, value: String) -> UIView {
++            let label = UILabel()
++            label.text = "\(title)  \(value)"
++            label.font = .preferredFont(forTextStyle: .caption1)
++            label.adjustsFontForContentSizeCategory = true
++            label.adjustsFontSizeToFitWidth = true
++            label.minimumScaleFactor = 0.8
++            label.numberOfLines = 1
++            label.textColor = UIColor { traits in
++                traits.userInterfaceStyle == .dark
++                    ? UIColor(red: 0.75, green: 0.60, blue: 1, alpha: 1)
++                    : UIColor(red: 0.50, green: 0.17, blue: 0.93, alpha: 1)
++            }
++            let chip = UIStackView(arrangedSubviews: [label])
++            chip.isLayoutMarginsRelativeArrangement = true
++            chip.directionalLayoutMargins = NSDirectionalEdgeInsets(
++                top: 5, leading: 8, bottom: 5, trailing: 8
++            )
++            chip.backgroundColor = .tertiarySystemGroupedBackground
++            chip.layer.cornerRadius = 10
++            chip.clipsToBounds = true
++            chip.isAccessibilityElement = true
++            chip.accessibilityLabel = title + " forecast: " + value
++            return chip
++        }
++        let p30 = forecastChip("30m", value: lokeySnapshot.forecast30)
++        let p60 = forecastChip("60m", value: lokeySnapshot.forecast60)
++        let predictions = UIStackView(arrangedSubviews: [caption, p30, p60])
++        predictions.axis = .horizontal
++        predictions.alignment = .center
++        predictions.distribution = .fill
++        predictions.spacing = 6
++
++        let selector = UISegmentedControl(items: ["1h", "3h", "6h"])
++        selector.selectedSegmentIndex = [1, 3, 6].firstIndex(of: lokeyHistoryHours) ?? 1
++        // Keep the active history range immediately obvious in both light and dark mode.
++        selector.backgroundColor = .tertiarySystemFill
++        selector.selectedSegmentTintColor = UIColor(red: 0.48, green: 0.16, blue: 0.84, alpha: 1)
++        selector.setTitleTextAttributes([
++            .foregroundColor: UIColor.white,
++            .font: UIFont.boldSystemFont(ofSize: 15)
++        ], for: .selected)
++        selector.setTitleTextAttributes([
++            .foregroundColor: UIColor.secondaryLabel,
++            .font: UIFont.systemFont(ofSize: 15, weight: .medium)
++        ], for: .normal)
++        selector.accessibilityLabel = "Glucose chart history"
++        selector.accessibilityHint = "Select the number of past hours shown in all four charts."
++        selector.addTarget(self, action: #selector(lokeyHistoryChanged(_:)), for: .valueChanged)
++
++        let controls = UIStackView(arrangedSubviews: [predictions, selector])
++        controls.tag = 87203
++        controls.axis = .vertical
++        controls.spacing = 8
++        controls.translatesAutoresizingMaskIntoConstraints = false
++        cell.contentView.addSubview(controls)
++        NSLayoutConstraint.activate([
++            controls.bottomAnchor.constraint(equalTo: chartView.topAnchor, constant: -7),
++            controls.leadingAnchor.constraint(equalTo: cell.contentView.leadingAnchor, constant: 20),
++            controls.trailingAnchor.constraint(equalTo: cell.contentView.trailingAnchor, constant: -20),
++            controls.heightAnchor.constraint(equalToConstant: 65)
++        ])
++        lokeyGlucoseCell = cell
++    }
+ 
+     override func viewDidLoad() {
+ 
+@@ -53,7 +306,12 @@
+         
+         tableView.register(BolusProgressTableViewCell.nib(), forCellReuseIdentifier: BolusProgressTableViewCell.className)
+         tableView.register(AlertPermissionsDisabledWarningCell.self, forCellReuseIdentifier: AlertPermissionsDisabledWarningCell.className)
+-        tableView.register(MuteAlertsWarningCell.self, forCellReuseIdentifier: MuteAlertsWarningCell.className)
++        tableView.register(MuteAlertsWarningCell.self, forCellReuseIdentifier: MuteAlertsWarningCell.className)
++        tableView.register(LoKeyMetricsCell.self, forCellReuseIdentifier: LoKeyMetricsCell.reuseID)
++        tableView.separatorStyle = .none
++        statusCharts.useSparseTimeAxisLabels = true
++        let savedHistory = UserDefaults.standard.integer(forKey: "LoKeyDashboardHistoryHours")
++        lokeyHistoryHours = [1, 3, 6].contains(savedHistory) ? savedHistory : 3
+ 
+         if FeatureFlags.predictedGlucoseChartClampEnabled {
+             statusCharts.glucose.glucoseDisplayRange = LoopConstants.glucoseChartDefaultDisplayBoundClamped
+@@ -144,7 +402,7 @@
+ 
+         addScenarioStepGestureRecognizers()
+ 
+-        tableView.backgroundColor = .secondarySystemBackground
++        tableView.backgroundColor = .systemGroupedBackground
+     
+     }
+ 
+@@ -394,9 +652,11 @@
+         // How far back should we show data? Use the screen size as a guide.
+         let availableWidth = (refreshContext.newSize ?? tableView.bounds.size).width - charts.fixedHorizontalMargin
+ 
+-        let totalHours = floor(Double(availableWidth / LoopConstants.minimumChartWidthPerHour))
+-        let futureHours = ceil(deviceManager.doseStore.longestEffectDuration.hours)
+-        let historyHours = max(LoopConstants.statusChartMinimumHistoryDisplay.hours, totalHours - futureHours)
++        // The history selector intentionally changes the past window; Loop's
++        // complete predicted horizon is retained to the right of Now.
++        let historyHours = Double(lokeyHistoryHours)
++        let futureHours = ceil(deviceManager.doseStore.longestEffectDuration.hours)
++        let totalHours = historyHours + futureHours
+ 
+         let date = Date(timeIntervalSinceNow: -TimeInterval(hours: historyHours))
+         let chartStartDate = Calendar.current.nextDate(after: date, matching: DateComponents(minute: 0), matchingPolicy: .strict, direction: .backward) ?? date
+@@ -457,7 +717,8 @@
+         var carbsOnBoard: HKQuantity?
+         let startDate = charts.startDate
+         let basalDeliveryState = self.basalDeliveryState
+-        let automaticDosingEnabled = automaticDosingStatus.automaticDosingEnabled
++        let automaticDosingEnabled = automaticDosingStatus.automaticDosingEnabled
++        var dashboardBasalRate: Double?
+ 
+         // TODO: Don't always assume currentContext.contains(.status)
+         reloadGroup.enter()
+@@ -479,7 +740,17 @@
+             } else {
+                 netBasal = nil
+             }
+-            self.log.debug("Update net basal to %{public}@", String(describing: netBasal))
++            self.log.debug("Update net basal to %{public}@", String(describing: netBasal))
++            // The net basal adjustment is not the actual insulin delivery rate.
++            if case .tempBasal(let activeDose) = basalDeliveryState {
++                dashboardBasalRate = activeDose.unitsPerHour
++            } else if case .active = basalDeliveryState {
++                dashboardBasalRate = manager.basalRateScheduleApplyingOverrideHistory?.value(at: Date())
++            } else if case .suspended = basalDeliveryState {
++                dashboardBasalRate = 0
++            } else {
++                dashboardBasalRate = nil
++            }
+ 
+             DispatchQueue.main.async {
+                 self.lastLoopError = lastLoopError
+@@ -643,8 +914,65 @@
+                 self.currentCOBDescription = nil
+             }
+ 
+-            self.tableView.beginUpdates()
+-            if let hudView = self.hudView {
++            // Populate display-only metrics using the same values as the charts.
++            let unit = self.statusCharts.glucose.glucoseUnit
++            let unitText = unit == .milligramsPerDeciliter ? "mg/dL" : "mmol/L"
++            self.lokeySnapshot.iob = self.currentIOBDescription ?? "—"
++            self.lokeySnapshot.cob = self.currentCOBDescription ?? "—"
++            self.lokeySnapshot.basal = dashboardBasalRate.map {
++                String(format: "%.2f U/hr", $0)
++            } ?? "—"
++            if let doses = doseEntries,
++               let latest = doses.filter({ $0.type == .bolus }).max(by: { $0.startDate < $1.startDate }) {
++                let time = DateFormatter.localizedString(from: latest.startDate, dateStyle: .none, timeStyle: .short)
++                if let delivered = latest.deliveredUnits {
++                    self.lokeySnapshot.lastBolus = String(format: "%.2f U · %@", delivered, time)
++                    self.lokeySnapshot.bolusPlanned = false
++                } else {
++                    self.lokeySnapshot.lastBolus = String(format: "%.2f U · %@", latest.programmedUnits, time)
++                    self.lokeySnapshot.bolusPlanned = true
++                }
++            } else if doseEntries != nil {
++                self.lokeySnapshot.lastBolus = "—"
++                self.lokeySnapshot.bolusPlanned = false
++            }
++            if let glucose = self.deviceManager.glucoseStore.latestGlucose {
++                let ageMinutes = max(0, Int(Date().timeIntervalSince(glucose.startDate) / 60))
++                self.lokeySnapshot.glucoseAge = "\(ageMinutes) min ago"
++                self.lokeySnapshot.glucoseDelta = "—"
++                if !self.deviceManager.isGlucoseValueStale,
++                   let samples = glucoseSamples, samples.count >= 2 {
++                    let ordered = samples.sorted { $0.startDate < $1.startDate }
++                    if let current = ordered.last, let previous = ordered.dropLast().last,
++                       current.startDate.timeIntervalSince(previous.startDate) <= 15 * 60,
++                       current.startDate.timeIntervalSinceNow >= -10 * 60 {
++                        let difference = current.quantity.doubleValue(for: unit) - previous.quantity.doubleValue(for: unit)
++                        self.lokeySnapshot.glucoseDelta = String(
++                            format: unit == .milligramsPerDeciliter ? "%+.0f" : "%+.1f", difference
++                        ) + " " + unitText
++                    }
++                }
++                if self.deviceManager.isGlucoseValueStale {
++                    self.lokeySnapshot.glucoseAge = "STALE · " + self.lokeySnapshot.glucoseAge
++                }
++            } else {
++                self.lokeySnapshot.glucoseAge = "No reading"
++                self.lokeySnapshot.glucoseDelta = "—"
++            }
++            let predictionsAllowed = !self.deviceManager.isGlucoseValueStale
++                && (automaticDosingEnabled || !FeatureFlags.simpleBolusCalculatorEnabled)
++                && predictedGlucoseValues != nil
++            let predictions = predictionsAllowed ? (predictedGlucoseValues ?? []) : []
++            self.lokeySnapshot.forecast30 = self.lokeyPredicted(30, values: predictions, unit: unit)
++            self.lokeySnapshot.forecast60 = self.lokeyPredicted(60, values: predictions, unit: unit)
++            self.lokeyMetricsCell?.configure(self.lokeySnapshot)
++            // Recreate only the cosmetic glucose controls; do not touch dosing.
++            if let cell = self.lokeyGlucoseCell {
++                self.lokeyStyleChartCell(cell, isGlucose: true)
++            }
++
++            self.tableView.beginUpdates()
++            if let hudView = self.hudView {
+                 // CGM Status
+                 if let glucose = self.deviceManager.glucoseStore.latestGlucose {
+                     let unit = self.statusCharts.glucose.glucoseUnit
+@@ -656,7 +984,14 @@
+                                                             wasUserEntered: glucose.wasUserEntered,
+                                                             isDisplayOnly: glucose.isDisplayOnly)
+                 }
+-                hudView.cgmStatusHUD.presentStatusHighlight(self.deviceManager.cgmStatusHighlight)
++                hudView.setLoKeyCaptions(
++                    glucose: self.lokeySnapshot.glucoseDelta + " · " + self.lokeySnapshot.glucoseAge,
++                    loop: self.deviceManager.loopManager.lastLoopCompleted.map {
++                        "\(max(0, Int(Date().timeIntervalSince($0) / 60)))m ago"
++                    } ?? "Waiting",
++                    pump: self.deviceManager.pumpStatusHighlight == nil ? "" : "Pump alert"
++                )
++                hudView.cgmStatusHUD.presentStatusHighlight(self.deviceManager.cgmStatusHighlight)
+                 hudView.cgmStatusHUD.presentStatusBadge(self.deviceManager.cgmStatusBadge)
+                 hudView.cgmStatusHUD.lifecycleProgress = self.deviceManager.cgmLifecycleProgress
+ 
+@@ -689,9 +1024,10 @@
+ 
+     private enum Section: Int, CaseIterable {
+         case alertWarning
+-        case hud
+-        case status
+-        case charts
++        case hud
++        case status
++        case metrics
++        case charts
+     }
+ 
+     // MARK: - Chart Section Data
+@@ -815,14 +1151,16 @@
+         
+         updateBannerRow(animated: animated)
+ 
+-        switch (hudWasVisible, hudIsVisible) {
+-        case (false, true):
+-            tableView.insertRows(at: [IndexPath(row: 0, section: Section.hud.rawValue)], with: animated ? .top : .none)
+-        case (true, false):
+-            tableView.deleteRows(at: [IndexPath(row: 0, section: Section.hud.rawValue)], with: animated ? .top : .none)
+-        default:
+-            break
+-        }
++        switch (hudWasVisible, hudIsVisible) {
++        case (false, true):
++            tableView.insertRows(at: [IndexPath(row: 0, section: Section.hud.rawValue)], with: animated ? .top : .none)
++            tableView.insertRows(at: [IndexPath(row: 0, section: Section.metrics.rawValue)], with: animated ? .top : .none)
++        case (true, false):
++            tableView.deleteRows(at: [IndexPath(row: 0, section: Section.hud.rawValue)], with: animated ? .top : .none)
++            tableView.deleteRows(at: [IndexPath(row: 0, section: Section.metrics.rawValue)], with: animated ? .top : .none)
++        default:
++            break
++        }
+ 
+         let statusIndexPath = IndexPath(row: StatusRow.status.rawValue, section: Section.status.rawValue)
+ 
+@@ -913,9 +1251,9 @@
+         switch Section(rawValue: section)! {
+         case .alertWarning:
+             return shouldShowBannerWarning ? 1 : 0
+-        case .hud:
+-            return shouldShowHUD ? 1 : 0
+-        case .charts:
++        case .hud, .metrics:
++            return shouldShowHUD ? 1 : 0
++        case .charts:
+             return ChartRow.allCases.count
+         case .status:
+             return shouldShowStatus ? StatusRow.allCases.count : 0
+@@ -1020,8 +1358,14 @@
+             hudView = cell.hudView
+ 
+             return cell
+-        case .charts:
+-            let cell = tableView.dequeueReusableCell(withIdentifier: ChartTableViewCell.className, for: indexPath) as! ChartTableViewCell
++        case .metrics:
++            let cell = tableView.dequeueReusableCell(withIdentifier: LoKeyMetricsCell.reuseID, for: indexPath) as! LoKeyMetricsCell
++            cell.configure(lokeySnapshot)
++            lokeyMetricsCell = cell
++            return cell
++        case .charts:
++            let cell = tableView.dequeueReusableCell(withIdentifier: ChartTableViewCell.className, for: indexPath) as! ChartTableViewCell
++            lokeyStyleChartCell(cell, isGlucose: ChartRow(rawValue: indexPath.row) == .glucose)
+ 
+             switch ChartRow(rawValue: indexPath.row)! {
+             case .glucose:
+@@ -1192,11 +1536,12 @@
+                 }
+             case .dose:
+                 let integerFormatter = NumberFormatter()
+-                integerFormatter.maximumFractionDigits = 0
++                integerFormatter.minimumFractionDigits = 1
++                integerFormatter.maximumFractionDigits = 2
+ 
+                 if  let total = totalDelivery,
+                     let totalString = integerFormatter.string(from: total) {
+-                    cell.setSubtitleLabel(label: String(format: NSLocalizedString("%@ U Total", comment: "The subtitle format describing total insulin. (1: localized insulin total)"), totalString))
++                    cell.setSubtitleLabel(label: String(format: NSLocalizedString("%@ U today", comment: "Insulin delivered since local midnight (1: localized insulin total)"), totalString))
+                 } else {
+                     cell.setSubtitleLabel(label: nil)
+                 }
+@@ -1207,8 +1552,8 @@
+                     cell.setSubtitleLabel(label: nil)
+                 }
+             }
+-        case .hud, .status, .alertWarning:
+-            break
++        case .hud, .status, .metrics, .alertWarning:
++            break
+         }
+     }
+ 
+@@ -1223,13 +1568,13 @@
+             availableSize -= (tableView.safeAreaInsets.top + tableView.safeAreaInsets.bottom + hudHeight)
+ 
+             switch ChartRow(rawValue: indexPath.row)! {
+-            case .glucose:
+-                return max(106, 0.37 * availableSize)
++            case .glucose:
++                return max(275, 0.37 * availableSize + 77)
+             case .iob, .dose, .cob:
+                 return max(106, 0.21 * availableSize)
+             }
+-        case .hud, .status, .alertWarning:
+-            return UITableView.automaticDimension
++        case .hud, .status, .metrics, .alertWarning:
++            return UITableView.automaticDimension
+         }
+     }
+ 
+@@ -1243,10 +1588,10 @@
+                 tableView.deselectRow(at: indexPath, animated: true)
+                 presentUnmuteAlertConfirmation()
+             }
+-        case .hud:
+-            break
+-        case .status:
+-            switch StatusRow(rawValue: indexPath.row)! {
++        case .hud, .metrics:
++            break
++        case .status:
++            switch StatusRow(rawValue: indexPath.row)! {
+             case .status:
+                 tableView.deselectRow(at: indexPath, animated: true)
+ 
+
+diff --git a/LoopUI/Views/StatusBarHUDView.swift b/LoopUI/Views/StatusBarHUDView.swift
+--- a/LoopUI/Views/StatusBarHUDView.swift
++++ b/LoopUI/Views/StatusBarHUDView.swift
+@@ -17,7 +17,45 @@
+     
+     @IBOutlet public weak var pumpStatusHUD: PumpStatusHUDView!
+         
+-    public var containerView: UIStackView!
++    public var containerView: UIStackView!
++
++    private let lokeyGlucoseAgeLabel = UILabel()
++    private let lokeyLoopAgeLabel = UILabel()
++    private let lokeyPumpLabel = UILabel()
++
++    // Update informational captions without changing the safety/status HUDs.
++    public func setLoKeyCaptions(glucose: String, loop: String, pump: String) {
++        lokeyGlucoseAgeLabel.text = glucose
++        lokeyLoopAgeLabel.text = loop
++        lokeyPumpLabel.text = pump
++    }
++
++    private func lokeyTile(for view: UIView, caption: UILabel) -> UIView {
++        caption.font = .preferredFont(forTextStyle: .caption2)
++        caption.adjustsFontForContentSizeCategory = true
++        caption.textColor = .secondaryLabel
++        caption.textAlignment = .center
++        caption.numberOfLines = 1
++        caption.adjustsFontSizeToFitWidth = true
++        caption.minimumScaleFactor = 0.6
++        caption.lineBreakMode = .byTruncatingTail
++
++        // Retain the original native HUD and its tap gestures inside each tile.
++        view.heightAnchor.constraint(greaterThanOrEqualToConstant: 64).isActive = true
++        let tile = UIStackView(arrangedSubviews: [view, caption])
++        tile.axis = .vertical
++        tile.alignment = .fill
++        tile.spacing = 0
++        tile.isLayoutMarginsRelativeArrangement = true
++        tile.directionalLayoutMargins = NSDirectionalEdgeInsets(
++            top: 0, leading: 3, bottom: 3, trailing: 3
++        )
++        tile.backgroundColor = .secondarySystemGroupedBackground
++        tile.layer.cornerRadius = 18
++        // Do not clip status badges or pump/CGM warning overlays.
++        tile.clipsToBounds = false
++        return tile
++    }
+     
+     public var adjustViewsForNarrowDisplay: Bool = false {
+         didSet {
+@@ -24,7 +62,7 @@
+             if adjustViewsForNarrowDisplay != oldValue {
+                 cgmStatusHUD.adjustViewsForNarrowDisplay = adjustViewsForNarrowDisplay
+                 pumpStatusHUD.adjustViewsForNarrowDisplay = adjustViewsForNarrowDisplay
+-                containerView.spacing = adjustViewsForNarrowDisplay ? 8.0 : 16.0
++                containerView.spacing = adjustViewsForNarrowDisplay ? 4.0 : 6.0
+             }
+         }
+     }
+@@ -47,8 +85,22 @@
+     }
+     
+     func setup() {
+-        containerView = (StatusBarHUDView.nib().instantiate(withOwner: self, options: nil)[0] as! UIStackView)
+-        containerView.translatesAutoresizingMaskIntoConstraints = false
++        containerView = (StatusBarHUDView.nib().instantiate(withOwner: self, options: nil)[0] as! UIStackView)
++        containerView.translatesAutoresizingMaskIntoConstraints = false
++
++        // Convert the existing three status HUDs into separate display tiles.
++        // Reparenting retains the original status, action, and warning views.
++        let huds: [UIView] = [cgmStatusHUD, loopCompletionHUD, pumpStatusHUD]
++        for hud in huds {
++            containerView.removeArrangedSubview(hud)
++            hud.removeFromSuperview()
++        }
++        containerView.spacing = 4
++        containerView.addArrangedSubview(lokeyTile(for: cgmStatusHUD, caption: lokeyGlucoseAgeLabel))
++        containerView.addArrangedSubview(lokeyTile(for: loopCompletionHUD, caption: lokeyLoopAgeLabel))
++        containerView.addArrangedSubview(lokeyTile(for: pumpStatusHUD, caption: lokeyPumpLabel))
++        setLoKeyCaptions(glucose: "CGM: —", loop: "Loop: —", pump: "Pump")
++
+         self.addSubview(containerView)
+ 
+         // Use AutoLayout to have the stack view fill its entire container.
+@@ -59,7 +111,7 @@
+             containerView.heightAnchor.constraint(equalTo: heightAnchor),
+         ])
+         
+-        self.backgroundColor = UIColor.secondarySystemBackground
++        self.backgroundColor = .systemGroupedBackground
+     }
+         
+     public func removePumpManagerProvidedView() {
