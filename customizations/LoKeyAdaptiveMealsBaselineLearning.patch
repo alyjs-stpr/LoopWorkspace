@@ -47,7 +47,7 @@ diff --git a/Loop/Views/CarbEntryView.swift b/Loop/Views/CarbEntryView.swift
 -                    }
 -                }
 -
--                Section("Reference only")
+-                Section("Reference only") {
 +                            Text("g").foregroundColor(.secondary)
 +                        }
 +
@@ -67,7 +67,7 @@ diff --git a/Loop/Views/CarbEntryView.swift b/Loop/Views/CarbEntryView.swift
 +                    }
 +                }
 +
-+                Section("Reference only")
++                Section("Reference only") {
                      Stepper("Your protein-equivalent convention: \(factor)%", value: $factor, in: 0...100, step: 5)
                      Text("This preserves your chosen bookkeeping factor for later analysis. It never changes Loop's entered carbs or calculates a bolus.")
                          .font(.caption)
