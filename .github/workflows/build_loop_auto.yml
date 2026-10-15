@@ -269,6 +269,8 @@ jobs:
           # Phase 1 local meal tracking only. No carb-store or insulin dosing changes.
           git -C Loop apply --check ../customizations/LoKeyAdaptiveMealsPhase1.patch
           git -C Loop apply ../customizations/LoKeyAdaptiveMealsPhase1.patch
+          git -C Loop apply --check ../customizations/LoKeyAdaptiveMealsBaselineLearning.patch
+          git -C Loop apply ../customizations/LoKeyAdaptiveMealsBaselineLearning.patch
           echo "LoKey protein and meal-baseline journal applied (no dosing changes)."
           echo "LoKey final dashboard polish applied."
           echo "LoKey T1D rounded chart cards and shared Now markers applied."
