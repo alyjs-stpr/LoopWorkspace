@@ -194,7 +194,7 @@ jobs:
           for patch in ./patches/*.patch; do
             [ -f "$patch" ] || break
             git apply --check "$patch"
-            git apply "$patch" --whitespace=fix
+            git apply --whitespace=fix "$patch"
           done
 
           # LoKey T1D graph colors: patch chart UI inside the Loop submodule only.
