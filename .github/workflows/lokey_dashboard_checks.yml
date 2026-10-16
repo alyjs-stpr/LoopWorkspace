@@ -310,10 +310,10 @@ jobs:
           fi
           xcrun simctl boot "$simulator_id" || true
           xcrun simctl bootstatus "$simulator_id" -b
+          # Run only LoopTests. The broader workspace test scheme also
+          # compiles unrelated LoopKitTests and can fail their chart tests.
           xcodebuild \
             -workspace LoopWorkspace.xcworkspace \
-            # Use LoopTests-only scheme: the workspace scheme also compiles
-            # unrelated LoopKitTests, which fails upstream chart test compilation.
             -scheme LoopTests \
             -configuration Debug \
             -destination "platform=iOS Simulator,id=$simulator_id" \
