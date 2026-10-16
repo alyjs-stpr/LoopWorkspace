@@ -25,6 +25,12 @@ for expected in ("let candidateWindow", "loggedCarbStartTimes.contains", "age >=
 
 swift_program = """import Foundation
 
+// LoopKit provides this convenience initializer. Supply the same conversion
+// here so the production predicate can compile as an isolated Swift program.
+extension TimeInterval {
+    init(minutes: Double) { self = minutes * 60 }
+}
+
 func suppression(_ loggedCarbStartTimes: [Date], _ startTime: Date, _ now: Date) -> Bool {
 """ + predicate + """
     return mealAlreadyLogged
