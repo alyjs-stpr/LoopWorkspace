@@ -312,10 +312,14 @@ jobs:
           xcrun simctl bootstatus "$simulator_id" -b
           xcodebuild \
             -workspace LoopWorkspace.xcworkspace \
-            -scheme LoopWorkspace \
+            # Use LoopTests-only scheme: the workspace scheme also compiles
+            # unrelated LoopKitTests, which fails upstream chart test compilation.
+            -scheme LoopTests \
             -configuration Debug \
             -destination "platform=iOS Simulator,id=$simulator_id" \
             -parallel-testing-enabled NO \
+            -derivedDataPath "$RUNNER_TEMP/lokey-dashboard-build" \
+            -quiet \
             -only-testing:LoopTests/MealDetectionManagerTests \
             -resultBundlePath "$RUNNER_TEMP/lokey-missed-meal-tests.xcresult" \
             CODE_SIGNING_ALLOWED=NO \
