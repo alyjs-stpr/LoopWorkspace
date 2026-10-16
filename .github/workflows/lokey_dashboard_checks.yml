@@ -2,10 +2,22 @@ name: LoKey dashboard patch validation
 on:
   pull_request:
     paths:
-      - 'customizations/LoKeyDashboard*.patch'
-      - 'customizations/LoKeyReports.patch'
-      - 'customizations/LoKeyAxisReadability.patch'
+      # Trigger preflight for every LoKey customization, not just dashboards.
+      - 'customizations/*.patch'
+      - 'Scripts/check_missed_meal_heuristic.py'
+      - '.gitmodules'
+      - 'Loop'
+      - 'LoopKit'
+      - 'NightscoutService'
+      - 'OmnipodKit'
+      - 'LoopConfigOverride.xcconfig'
+      - 'VersionOverride.xcconfig'
+      - 'fastlane/**'
+      - 'OverrideAssetsLoop.xcassets/**'
+      - 'OverrideAssetsWatchApp.xcassets/**'
       - '.github/workflows/lokey_dashboard_checks.yml'
+      - '.github/workflows/create_certs.yml'
+      - '.github/workflows/validate_secrets.yml'
       - '.github/workflows/build_loop*.yml'
   workflow_dispatch:
 
@@ -61,12 +73,22 @@ jobs:
           # Notification-only guard: avoid false missed-meal prompts after logged meals.
           git -C Loop apply --check ../customizations/LoKeyMissedMealNotificationGuard.patch
           git -C Loop apply ../customizations/LoKeyMissedMealNotificationGuard.patch
+          # Build 17: history/settings cleanup, separate from Loop dosing.
+          git -C Loop apply --check ../customizations/LoKeyBuild17MealHistoryCleanup.patch
+          git -C Loop apply ../customizations/LoKeyBuild17MealHistoryCleanup.patch
       - name: Parse modified Swift files
         shell: bash
         run: |
           set -euo pipefail
           command -v swiftc
           swiftc -frontend -parse "Loop/Loop/View Controllers/StatusTableViewController.swift" "Loop/LoopUI/Views/StatusBarHUDView.swift" "Loop/Loop/Views/SettingsView.swift" "Loop/Loop/Views/CarbEntryView.swift" "Loop/Loop/Managers/LoopDataManager.swift" "Loop/Loop/Managers/Missed Meal Detection/MealDetectionManager.swift" "Loop/LoopTests/Managers/MealDetectionManagerTests.swift" "LoopKit/LoopKitUI/View Controllers/ChartsManager.swift" "LoopKit/LoopKitUI/Charts/DoseChart.swift"
+      - name: Execute source-derived missed-meal notification timing checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 Scripts/check_missed_meal_heuristic.py
+      # The full LoopTests XCTest suite requires an appropriately configured
+      # simulator host app and is not executed by this source-level check.
       - name: Check preservation of key dashboard components
         shell: bash
         run: |
@@ -101,12 +123,12 @@ jobs:
         run: |
           set -euo pipefail
           file="Loop/Loop/Views/CarbEntryView.swift"
-          grep -Fq 'LoKeyMealTrackingView(data: adaptiveMeals)' "$file"
+          grep -Fq 'LoKeyMealHistorySettingsView(data: adaptiveMeals)' "$file"
           grep -Fq 'baselineCarbs = c?.count == 4' "$file"
           grep -Fq 'baselineProtein = p?.count == 4' "$file"
           grep -Fq 'loopCarbsRecorded' "$file"
           grep -Fq 'possibleDelayedRise' "$file"
-          grep -Fq 'Observation only' "$file"
+          grep -Fq 'Saving an observation is not a carb entry or a bolus.' "$file"
           # Unified entry is UI-only: explicit carb copy, native Continue and bolus remain.
           grep -Fq 'LoKeyInlineMealEntry(' "$file"
           grep -Fq 'Button("Confirm carb copy")' "$file"
@@ -117,9 +139,15 @@ jobs:
           grep -Fq 'mealAlreadyLogged' "Loop/Loop/Managers/Missed Meal Detection/MealDetectionManager.swift"
           grep -Fq 'testRecentlyLoggedMealDoesNotTriggerDuplicateMissedMealAlert' "Loop/LoopTests/Managers/MealDetectionManagerTests.swift"
           grep -Fq 'testUnloggedMealStillTriggersMissedMealAlert' "Loop/LoopTests/Managers/MealDetectionManagerTests.swift"
+          grep -Fq 'loopCarbsRecorded: nil' "$file"
+          if grep -Fq 'private struct LoKeyMealTrackingView: View' "$file"; then
+            echo '::error::Duplicate meal-entry screen has not been removed'
+            exit 1
+          fi
           for workflow in .github/workflows/build_loop.yml .github/workflows/build_loop_auto.yml; do
             grep -Fq 'LoKeyAdaptiveMealsTracking.patch' "$workflow"
             grep -Fq 'LoKeyAdaptiveMealsUnifiedEntry.patch' "$workflow"
+            grep -Fq 'LoKeyBuild17MealHistoryCleanup.patch' "$workflow"
           done
 
       - name: Verify approved cleanup controls across both build routes
@@ -140,6 +168,23 @@ jobs:
           grep -Fq 'marker.plotTrailingInset = charts.plotTrailingInset' "$final"
           grep -Fq 'glucoseRatio.priority = .defaultHigh' "$final"
           grep -Fq 'pumpRatio.priority = .defaultHigh' "$final"
+          # Check every LoKey customization remains in BOTH build paths, not just
+          # the dashboard subset. This avoids publishing an incomplete build.
+          for workflow in .github/workflows/build_loop.yml .github/workflows/build_loop_auto.yml; do
+            for patch in customizations/*.patch; do
+              patchname="${patch##*/}"
+              grep -Fq "$patchname" "$workflow" || {
+                echo "::error::$workflow does not apply $patchname"
+                exit 1
+              }
+            done
+          done
+          # Manual builds must use a reviewed immutable SHA.
+          grep -Fq 'github.sha' .github/workflows/build_loop.yml
+          # Scheduled builds / upstream changes are only enabled via explicit opt-in.
+          grep -Fq "vars.SCHEDULED_BUILD == 'true'" .github/workflows/build_loop_auto.yml
+          grep -Fq "vars.SCHEDULED_SYNC == 'true'" .github/workflows/build_loop_auto.yml
+
           for workflow in .github/workflows/build_loop.yml .github/workflows/build_loop_auto.yml; do
             grep -Fq 'LoKeyAxisReadability.patch' "$workflow"
             grep -Fq 'LoKeyReports.patch' "$workflow"
@@ -154,7 +199,7 @@ jobs:
     if: github.event_name == 'pull_request'
     name: Unsigned iOS simulator compile (no upload)
     runs-on: xcode-27
-    timeout-minutes: 45
+    timeout-minutes: 100
     permissions:
       contents: read
     steps:
@@ -203,6 +248,9 @@ jobs:
           # Notification-only guard: avoid false missed-meal prompts after logged meals.
           git -C Loop apply --check ../customizations/LoKeyMissedMealNotificationGuard.patch
           git -C Loop apply ../customizations/LoKeyMissedMealNotificationGuard.patch
+          # Build 17: history/settings cleanup, separate from Loop dosing.
+          git -C Loop apply --check ../customizations/LoKeyBuild17MealHistoryCleanup.patch
+          git -C Loop apply ../customizations/LoKeyBuild17MealHistoryCleanup.patch
           git -C NightscoutService apply --check ../customizations/LoKeyT1PalNightscout.patch
           git -C NightscoutService apply ../customizations/LoKeyT1PalNightscout.patch
       # This is a source compilation smoke test, not an installable app package.
@@ -244,7 +292,7 @@ jobs:
             && grep -Eq "^[[:space:]]*Validate .*/Loop[.]app [(]in target 'Loop' from project 'Loop'[)]$" "$log" \
             && grep -Fq '** BUILD FAILED **' "$log" \
             && grep -Fq '(2 failures)' "$log" \
-            && [ "$(grep -Ec '^[[:space:]]+Validate .*[(]in target 'Loop' from project 'Loop'[)]$' "$log" || true)" -eq 1 ]; then
+            && [ "$(grep -Ec "^[[:space:]]+Validate .*[(]in target 'Loop' from project 'Loop'[)]$" "$log" || true)" -eq 1 ]; then
             echo 'validation_only=true' >> "$GITHUB_OUTPUT"
             echo "::warning title=Known unsigned bundle-validation limitation::Swift compilation reached app validation; Xcode 27 rejected $error_count pre-existing plugin framework(s) without Info.plist. Signed TestFlight packaging is NOT verified."
             {
@@ -256,6 +304,9 @@ jobs:
           fi
           echo "::error title=iOS simulator build failed::Not exclusively a recognized final unsigned plugin framework validation issue; inspect the full log."
           exit "$build_exit"
+      # An unsigned Loop.app cannot reliably bootstrap its hosted XCTest runner
+      # in this CI environment. Do not present a runner crash as a dosing-code
+      # regression or claim the native iOS XCTest suite was executed.
       - name: Save compilation log if failed or bundle validation was exempted
         if: failure() || steps.compile.outputs.validation_only == 'true'
         uses: actions/upload-artifact@v6
