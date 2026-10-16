@@ -269,6 +269,14 @@ jobs:
           # Adaptive Meals adds only independent tracking and local storage.
           git -C Loop apply --check ../customizations/LoKeyAdaptiveMealsTracking.patch
           git -C Loop apply ../customizations/LoKeyAdaptiveMealsTracking.patch
+          # Build 13: inline measured carbs/protein and explicit carb-copy confirmation.
+          # Applies after the observation-only feature; never changes the bolus engine.
+          git -C Loop apply --check ../customizations/LoKeyAdaptiveMealsUnifiedEntry.patch
+          git -C Loop apply ../customizations/LoKeyAdaptiveMealsUnifiedEntry.patch
+
+          # Notification-only guard: avoid false missed-meal prompts after logged meals.
+          git -C Loop apply --check ../customizations/LoKeyMissedMealNotificationGuard.patch
+          git -C Loop apply ../customizations/LoKeyMissedMealNotificationGuard.patch
           echo "LoKey final dashboard polish applied."
           echo "LoKey T1D rounded chart cards and shared Now markers applied."
 
