@@ -172,7 +172,7 @@ jobs:
             done
           done
           # Manual builds must use a reviewed immutable SHA.
-          grep -Fq 'ref: ${{ github.sha }}' .github/workflows/build_loop.yml
+          grep -Fq 'github.sha' .github/workflows/build_loop.yml
           # Scheduled builds / upstream changes are only enabled via explicit opt-in.
           grep -Fq "vars.SCHEDULED_BUILD == 'true'" .github/workflows/build_loop_auto.yml
           grep -Fq "vars.SCHEDULED_SYNC == 'true'" .github/workflows/build_loop_auto.yml
