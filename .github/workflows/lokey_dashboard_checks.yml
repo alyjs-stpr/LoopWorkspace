@@ -284,7 +284,7 @@ jobs:
             && grep -Eq "^[[:space:]]*Validate .*/Loop[.]app [(]in target 'Loop' from project 'Loop'[)]$" "$log" \
             && grep -Fq '** BUILD FAILED **' "$log" \
             && grep -Fq '(2 failures)' "$log" \
-            && [ "$(grep -Ec '^[[:space:]]+Validate .*[(]in target 'Loop' from project 'Loop'[)]$' "$log" || true)" -eq 1 ]; then
+            && [ "$(grep -Ec "^[[:space:]]+Validate .*[(]in target 'Loop' from project 'Loop'[)]$" "$log" || true)" -eq 1 ]; then
             echo 'validation_only=true' >> "$GITHUB_OUTPUT"
             echo "::warning title=Known unsigned bundle-validation limitation::Swift compilation reached app validation; Xcode 27 rejected $error_count pre-existing plugin framework(s) without Info.plist. Signed TestFlight packaging is NOT verified."
             {
