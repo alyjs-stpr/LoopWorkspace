@@ -1,0 +1,282 @@
+diff --git a/Loop/Views/CarbEntryView.swift b/Loop/Views/CarbEntryView.swift
+--- a/Loop/Views/CarbEntryView.swift
++++ b/Loop/Views/CarbEntryView.swift
+@@ -109,7 +109,7 @@
+             HowAbsorptionTimeWorksView()
+         }
+         .sheet(isPresented: $showAdaptiveMeals) {
++            LoKeyMealHistorySettingsView(data: adaptiveMeals)
+-            LoKeyMealTrackingView(data: adaptiveMeals)
+         }
+     }
+     
+@@ -120,7 +120,7 @@
+             let foodTypeFocused: Binding<Bool> = Binding(get: { expandedRow == .foodType }, set: { expandedRow = $0 ? .foodType : nil })
+             let absorptionTimeFocused: Binding<Bool> = Binding(get: { expandedRow == .absorptionTime }, set: { expandedRow = $0 ? .absorptionTime : nil })
+             
++            CarbQuantityRow(quantity: $viewModel.carbsQuantity, isFocused: amountConsumedFocused, title: isNewEntry ? "Loop carbs for bolus review" : NSLocalizedString("Amount Consumed", comment: "Label for carb quantity entry row on carb entry screen"), preferredCarbUnit: viewModel.preferredCarbUnit)
+-            CarbQuantityRow(quantity: $viewModel.carbsQuantity, isFocused: amountConsumedFocused, title: isNewEntry ? "Loop carbs (confirm below)" : NSLocalizedString("Amount Consumed", comment: "Label for carb quantity entry row on carb entry screen"), preferredCarbUnit: viewModel.preferredCarbUnit)
+ 
+             CardSectionDivider()
+             
+@@ -414,150 +414,69 @@
+     }
+ }
+ 
++// Build 17: this sheet is for review and settings only.
++// Enter a new meal once, in the main Loop meal-entry screen.
++private struct LoKeyMealHistorySettingsView: View {
+-private struct LoKeyMealTrackingView: View {
+     @Environment(\.dismiss) private var dismiss
+     @ObservedObject var data: LoKeyMealData
+-
+-    @State private var meal: LoKeyMealKind = .dinner
+-    @State private var when = Date()
+-    @State private var detailed = false
+-    @State private var carbCategory = 1
+-    @State private var proteinCategory = 1
+-    @State private var carbs = ""
+-    @State private var protein = ""
+-    @State private var loopRecorded = ""
+-    @State private var delayed = false
+-    @State private var note = ""
+     @State private var showBaselines = false
+-    @State private var didSave = false
+ 
++    private let carbLabels = ["Low", "Usual", "High"]
++    private let proteinLabels = ["Low", "Moderate", "High"]
+-    private var typicalCarbs: Double { data.baselineCarbs[meal.rawValue] }
+-    private var typicalProtein: Double { data.baselineProtein[meal.rawValue] }
+-    private var parsedCarbs: Double? { Double(carbs) }
+-    private var parsedProtein: Double? { Double(protein) }
+-    private var parsedLoop: Double? { Double(loopRecorded) }
+ 
+-    private func allowed(_ amount: Double?) -> Bool {
+-        guard let amount else { return false }
+-        return amount.isFinite && amount >= 0 && amount <= 500
+-    }
+-
+-    private var valid: Bool {
+-        (loopRecorded.isEmpty || allowed(parsedLoop)) &&
+-        (!detailed || (allowed(parsedCarbs) && allowed(parsedProtein)))
+-    }
+-
+-    private var chosenCarbs: Int {
+-        detailed ? data.classify(parsedCarbs ?? 0, baseline: typicalCarbs) : carbCategory
+-    }
+-    private var chosenProtein: Int {
+-        detailed ? data.classify(parsedProtein ?? 0, baseline: typicalProtein) : proteinCategory
+-    }
+-
+-    private var proteinLabels: [String] { ["Low", "Moderate", "High"] }
+-    private var carbLabels: [String] { ["Low", "Usual", "High"] }
+-
+     var body: some View {
+         NavigationView {
+             Form {
++                Section(
++                    header: Text("Personal baselines"),
++                    footer: Text("Baselines describe your usual meals; they are not dosing targets.")
++                ) {
++                    Button("Edit Baselines & Protein Factor") {
++                        showBaselines = true
+-                Section(header: Text("Meal")) {
+-                    Picker("Meal", selection: $meal) {
+-                        ForEach(LoKeyMealKind.allCases) { item in
+-                            Text(item.name).tag(item)
+-                        }
+                     }
++                    Text("Your meal history is stored on this device. Changing baselines will not change Loop's insulin settings.")
++                        .font(.footnote)
++                        .foregroundColor(.secondary)
+-                    DatePicker("When", selection: $when, displayedComponents: [.date, .hourAndMinute])
+-                    Text("Your baseline: \(Int(typicalCarbs)) g actual carbs · \(Int(typicalProtein)) g protein")
+-                        .font(.footnote).foregroundColor(.secondary)
+-                    Button("Edit Baselines & Protein Factor") { showBaselines = true }
+                 }
+ 
++                Section(header: Text("Saved meal observations")) {
++                    if data.history.isEmpty {
++                        Text("No observations saved yet.")
++                            .foregroundColor(.secondary)
+-                Section(header: Text("Announcement")) {
+-                    Toggle("Detailed grams", isOn: $detailed)
+-                    if detailed {
+-                        HStack {
+-                            Text("Actual carbs (g)")
+-                            Spacer()
+-                            TextField("g", text: $carbs).keyboardType(.decimalPad)
+-                                .multilineTextAlignment(.trailing)
+-                        }
+-                        HStack {
+-                            Text("Actual protein (g)")
+-                            Spacer()
+-                            TextField("g", text: $protein).keyboardType(.decimalPad)
+-                                .multilineTextAlignment(.trailing)
+-                        }
+-                        if allowed(parsedCarbs) && allowed(parsedProtein) {
+-                            Text("\(carbLabels[chosenCarbs]) carbs · \(proteinLabels[chosenProtein]) protein")
+-                            Text("Observation only: \(Int(parsedCarbs!)) g carbs + \(Int(parsedProtein! * data.proteinFactor)) g protein equivalents (\(Int(data.proteinFactor * 100))%).")
+-                                .font(.caption).foregroundColor(.secondary)
+-                        }
+-                    } else {
+-                        Picker("Carbs", selection: $carbCategory) {
+-                            ForEach(0..<3, id: \.self) { index in
+-                                Text(carbLabels[index]).tag(index)
+-                            }
+-                        }.pickerStyle(.segmented)
+-                        Picker("Protein", selection: $proteinCategory) {
+-                            ForEach(0..<3, id: \.self) { index in
+-                                Text(proteinLabels[index]).tag(index)
+-                            }
+-                        }.pickerStyle(.segmented)
+-                        Text("Usual carbs: \(range(typicalCarbs)) g; moderate protein: \(range(typicalProtein)) g. Categories are estimates, not exact grams.")
+-                            .font(.caption).foregroundColor(.secondary)
+                     }
+-                }
+ 
++                    ForEach(data.history) { record in
++                        VStack(alignment: .leading, spacing: 5) {
++                            Text("\(record.meal.name) · \(record.date.formatted(date: .abbreviated, time: .shortened))")
++                                .font(.subheadline)
++                                .bold()
+-                Section(header: Text("Observations")) {
+-                    Toggle("Possible delayed rise", isOn: $delayed)
+-                    TextField("Meal notes (optional)", text: $note)
+-                    HStack {
+-                        Text("Loop carbs entered (optional)")
+-                        Spacer()
+-                        TextField("g", text: $loopRecorded).keyboardType(.decimalPad)
+-                            .multilineTextAlignment(.trailing)
+-                    }
+-                    Text("This documents a separate existing Loop carb entry; it never creates or changes one.")
+-                        .font(.caption).foregroundColor(.secondary)
+-                }
+ 
+-                Section {
+-                    Button("Save Meal Observation") { save() }.disabled(!valid)
+-                    if didSave {
+-                        Label("Saved locally; dosing unchanged", systemImage: "checkmark.circle.fill")
+-                            .foregroundColor(.green)
+-                    }
+-                    Text("Logging is separate from insulin dosing, Loop carbs, predictions and pump settings.")
+-                        .font(.caption).foregroundColor(.secondary)
+-                }
+-
+-                Section(header: Text("Recent observations")) {
+-                    if data.history.isEmpty {
+-                        Text("No observations yet").foregroundColor(.secondary)
+-                    }
+-                    ForEach(data.history.prefix(20)) { record in
+-                        VStack(alignment: .leading, spacing: 3) {
+-                            Text("\(record.meal.name) · \(record.date.formatted(date: .abbreviated, time: .shortened))")
+-                                .font(.subheadline).bold()
+                             if let c = record.actualCarbs, let p = record.actualProtein {
++                                Text("\(c.formatted()) g actual carbs · \(p.formatted()) g protein")
+-                                Text("\(Int(c)) g actual carbs · \(Int(p)) g protein")
+                             } else {
+                                 Text("\(carbLabels[record.carbCategory]) carbs · \(proteinLabels[record.proteinCategory]) protein (category only)")
+                             }
++
+                             if record.possibleDelayedRise {
++                                Text("Possible delayed rise")
++                                    .foregroundColor(.secondary)
+-                                Text("Possible delayed rise").foregroundColor(.secondary)
+                             }
++
+                             if !record.note.isEmpty {
++                                Text(record.note)
++                                    .foregroundColor(.secondary)
+-                                Text(record.note).foregroundColor(.secondary)
+                             }
++                        }
++                        .font(.footnote)
+-                        }.font(.footnote)
+                     }
+                     .onDelete(perform: delete)
++
++                    Text("Meal observations stay local to this installation. They are not synchronized to HealthKit or Nightscout.")
++                        .font(.caption)
++                        .foregroundColor(.secondary)
+-                    Text("History is stored on this device only, not in HealthKit or Nightscout.")
+-                        .font(.caption).foregroundColor(.secondary)
+                 }
+             }
++            .navigationTitle("Meal History & Settings")
+-            .navigationTitle("Adaptive Meals")
+             .navigationBarTitleDisplayMode(.inline)
+             .toolbar {
+                 ToolbarItem(placement: .navigationBarLeading) {
+@@ -570,30 +489,10 @@
+         }
+     }
+ 
+-    private func range(_ baseline: Double) -> String {
+-        String(format: "%.1f–%.1f", baseline * 0.75, baseline * 1.25)
+-    }
+-
+-    private func save() {
+-        guard valid else { return }
+-        data.add(LoKeyMealObservation(
+-            date: when, meal: meal,
+-            carbCategory: chosenCarbs, proteinCategory: chosenProtein,
+-            actualCarbs: detailed ? parsedCarbs : nil,
+-            actualProtein: detailed ? parsedProtein : nil,
+-            loopCarbsRecorded: loopRecorded.isEmpty ? nil : parsedLoop,
+-            proteinFactor: data.proteinFactor,
+-            possibleDelayedRise: delayed,
+-            note: note.trimmingCharacters(in: .whitespacesAndNewlines)
+-        ))
+-        didSave = true
+-        carbs = ""; protein = ""; loopRecorded = ""; note = ""; delayed = false
+-        when = Date()
+-    }
+-
+     private func delete(at offsets: IndexSet) {
++        let ids = Set(offsets.compactMap { index in
++            data.history.indices.contains(index) ? data.history[index].id : nil
++        })
+-        let recent = Array(data.history.prefix(20))
+-        let ids = Set(offsets.compactMap { recent.indices.contains($0) ? recent[$0].id : nil })
+         data.delete(ids)
+     }
+ }
+@@ -749,7 +648,7 @@
+                     .accessibilityLabel("Measured protein in grams")
+             }
+ 
++            Text("Track both nutrients here. Only the carbs you confirm in the Loop field below are used by Loop.")
+-            Text("These measured amounts are for your meal history. Protein is not added to Loop carbs automatically.")
+                 .font(.caption)
+                 .foregroundColor(.secondary)
+ 
+@@ -787,7 +686,7 @@
+                     .foregroundColor(.green)
+             }
+ 
++            Text("Saving an observation is not a carb entry or a bolus. Review Loop carbs and Continue below to use the normal Loop workflow.")
+-            Text("Loop carb quantity, absorption, predictions and insulin confirmation remain in the original Loop controls below. Saving here never doses insulin.")
+                 .font(.caption)
+                 .foregroundColor(.secondary)
+         }
+@@ -797,9 +696,8 @@
+ 
+     private func saveObservation() {
+         guard let carbs = measuredCarbs, let protein = measuredProtein, canSave else { return }
++        // The observed meal may be saved before Loop's native carb and bolus
++        // confirmations. Don't claim that copied/proposed carbs were logged.
+-        let loopGrams = loopCarbs.map {
+-            HKQuantity(unit: loopCarbUnit, doubleValue: $0).doubleValue(for: .gram())
+-        }
+         data.add(LoKeyMealObservation(
+             date: loopDate,
+             meal: meal,
+@@ -807,7 +705,7 @@
+             proteinCategory: data.classify(protein, baseline: data.baselineProtein[meal.rawValue]),
+             actualCarbs: carbs,
+             actualProtein: protein,
++            loopCarbsRecorded: nil,
+-            loopCarbsRecorded: loopGrams,
+             proteinFactor: data.proteinFactor,
+             possibleDelayedRise: possibleDelayedRise,
+             note: note.trimmingCharacters(in: .whitespacesAndNewlines)
