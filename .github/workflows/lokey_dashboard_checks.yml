@@ -165,7 +165,7 @@ jobs:
     if: github.event_name == 'pull_request'
     name: Unsigned iOS simulator compile (no upload)
     runs-on: xcode-27
-    timeout-minutes: 45
+    timeout-minutes: 100
     permissions:
       contents: read
     steps:
@@ -270,6 +270,38 @@ jobs:
           fi
           echo "::error title=iOS simulator build failed::Not exclusively a recognized final unsigned plugin framework validation issue; inspect the full log."
           exit "$build_exit"
+      # Compile success is not enough: actually execute the missed-meal regression
+      # tests in a simulator, rather than just grep for their names.
+      - name: Run missed-meal notification regression tests
+        timeout-minutes: 45
+        shell: bash
+        run: |
+          set -euo pipefail
+          simulator_id="$(xcrun simctl list devices available -j | python3 -c 'import json,sys; data=json.load(sys.stdin); devices=[d for group in data["devices"].values() for d in group if d.get("isAvailable") and "iPhone" in d.get("name","")]; print(devices[0]["udid"] if devices else "")')"
+          if [ -z "$simulator_id" ]; then
+            echo "::error::No available iPhone simulator. Cannot certify the notification tests."
+            exit 1
+          fi
+          xcrun simctl boot "$simulator_id" || true
+          xcrun simctl bootstatus "$simulator_id" -b
+          xcodebuild \
+            -workspace LoopWorkspace.xcworkspace \
+            -scheme LoopWorkspace \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,id=$simulator_id" \
+            -parallel-testing-enabled NO \
+            -only-testing:LoopTests/MealDetectionManagerTests \
+            -resultBundlePath "$RUNNER_TEMP/lokey-missed-meal-tests.xcresult" \
+            CODE_SIGNING_ALLOWED=NO \
+            VALIDATE_PRODUCT=NO \
+            test
+      - name: Save failed missed-meal test results
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: lokey-missed-meal-test-results
+          path: ${{ runner.temp }}/lokey-missed-meal-tests.xcresult
+          retention-days: 5
       - name: Save compilation log if failed or bundle validation was exempted
         if: failure() || steps.compile.outputs.validation_only == 'true'
         uses: actions/upload-artifact@v6
