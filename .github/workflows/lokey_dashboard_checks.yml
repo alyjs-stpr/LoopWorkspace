@@ -151,6 +151,23 @@ jobs:
           grep -Fq 'marker.plotTrailingInset = charts.plotTrailingInset' "$final"
           grep -Fq 'glucoseRatio.priority = .defaultHigh' "$final"
           grep -Fq 'pumpRatio.priority = .defaultHigh' "$final"
+          # Check every LoKey customization remains in BOTH build paths, not just
+          # the dashboard subset. This avoids publishing an incomplete build.
+          for workflow in .github/workflows/build_loop.yml .github/workflows/build_loop_auto.yml; do
+            for patch in customizations/*.patch; do
+              patchname="${patch##*/}"
+              grep -Fq "$patchname" "$workflow" || {
+                echo "::error::$workflow does not apply $patchname"
+                exit 1
+              }
+            done
+          done
+          # Manual builds must use a reviewed immutable SHA.
+          grep -Fq 'ref: ${{ github.sha }}' .github/workflows/build_loop.yml
+          # Scheduled builds / upstream changes are only enabled via explicit opt-in.
+          grep -Fq "vars.SCHEDULED_BUILD == 'true'" .github/workflows/build_loop_auto.yml
+          grep -Fq "vars.SCHEDULED_SYNC == 'true'" .github/workflows/build_loop_auto.yml
+
           for workflow in .github/workflows/build_loop.yml .github/workflows/build_loop_auto.yml; do
             grep -Fq 'LoKeyAxisReadability.patch' "$workflow"
             grep -Fq 'LoKeyReports.patch' "$workflow"
