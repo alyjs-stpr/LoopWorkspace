@@ -7,7 +7,16 @@ on:
       - '.gitmodules'
       - 'Loop'
       - 'LoopKit'
+      - 'NightscoutService'
+      - 'OmnipodKit'
+      - 'LoopConfigOverride.xcconfig'
+      - 'VersionOverride.xcconfig'
+      - 'fastlane/**'
+      - 'OverrideAssetsLoop.xcassets/**'
+      - 'OverrideAssetsWatchApp.xcassets/**'
       - '.github/workflows/lokey_dashboard_checks.yml'
+      - '.github/workflows/create_certs.yml'
+      - '.github/workflows/validate_secrets.yml'
       - '.github/workflows/build_loop*.yml'
   workflow_dispatch:
 
