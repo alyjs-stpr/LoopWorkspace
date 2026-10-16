@@ -2,9 +2,11 @@ name: LoKey dashboard patch validation
 on:
   pull_request:
     paths:
-      - 'customizations/LoKeyDashboard*.patch'
-      - 'customizations/LoKeyReports.patch'
-      - 'customizations/LoKeyAxisReadability.patch'
+      # Trigger preflight for every LoKey customization, not just dashboards.
+      - 'customizations/*.patch'
+      - '.gitmodules'
+      - 'Loop'
+      - 'LoopKit'
       - '.github/workflows/lokey_dashboard_checks.yml'
       - '.github/workflows/build_loop*.yml'
   workflow_dispatch:
@@ -61,6 +63,9 @@ jobs:
           # Notification-only guard: avoid false missed-meal prompts after logged meals.
           git -C Loop apply --check ../customizations/LoKeyMissedMealNotificationGuard.patch
           git -C Loop apply ../customizations/LoKeyMissedMealNotificationGuard.patch
+          # Build 17: history/settings cleanup, separate from Loop dosing.
+          git -C Loop apply --check ../customizations/LoKeyBuild17MealHistoryCleanup.patch
+          git -C Loop apply ../customizations/LoKeyBuild17MealHistoryCleanup.patch
       - name: Parse modified Swift files
         shell: bash
         run: |
@@ -101,7 +106,7 @@ jobs:
         run: |
           set -euo pipefail
           file="Loop/Loop/Views/CarbEntryView.swift"
-          grep -Fq 'LoKeyMealTrackingView(data: adaptiveMeals)' "$file"
+          grep -Fq 'LoKeyMealHistorySettingsView(data: adaptiveMeals)' "$file"
           grep -Fq 'baselineCarbs = c?.count == 4' "$file"
           grep -Fq 'baselineProtein = p?.count == 4' "$file"
           grep -Fq 'loopCarbsRecorded' "$file"
@@ -117,9 +122,15 @@ jobs:
           grep -Fq 'mealAlreadyLogged' "Loop/Loop/Managers/Missed Meal Detection/MealDetectionManager.swift"
           grep -Fq 'testRecentlyLoggedMealDoesNotTriggerDuplicateMissedMealAlert' "Loop/LoopTests/Managers/MealDetectionManagerTests.swift"
           grep -Fq 'testUnloggedMealStillTriggersMissedMealAlert' "Loop/LoopTests/Managers/MealDetectionManagerTests.swift"
+          grep -Fq 'loopCarbsRecorded: nil' "$file"
+          if grep -Fq 'private struct LoKeyMealTrackingView: View' "$file"; then
+            echo '::error::Duplicate meal-entry screen has not been removed'
+            exit 1
+          fi
           for workflow in .github/workflows/build_loop.yml .github/workflows/build_loop_auto.yml; do
             grep -Fq 'LoKeyAdaptiveMealsTracking.patch' "$workflow"
             grep -Fq 'LoKeyAdaptiveMealsUnifiedEntry.patch' "$workflow"
+            grep -Fq 'LoKeyBuild17MealHistoryCleanup.patch' "$workflow"
           done
 
       - name: Verify approved cleanup controls across both build routes
@@ -203,6 +214,9 @@ jobs:
           # Notification-only guard: avoid false missed-meal prompts after logged meals.
           git -C Loop apply --check ../customizations/LoKeyMissedMealNotificationGuard.patch
           git -C Loop apply ../customizations/LoKeyMissedMealNotificationGuard.patch
+          # Build 17: history/settings cleanup, separate from Loop dosing.
+          git -C Loop apply --check ../customizations/LoKeyBuild17MealHistoryCleanup.patch
+          git -C Loop apply ../customizations/LoKeyBuild17MealHistoryCleanup.patch
           git -C NightscoutService apply --check ../customizations/LoKeyT1PalNightscout.patch
           git -C NightscoutService apply ../customizations/LoKeyT1PalNightscout.patch
       # This is a source compilation smoke test, not an installable app package.
