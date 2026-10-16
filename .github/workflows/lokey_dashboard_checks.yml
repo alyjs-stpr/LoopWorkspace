@@ -111,7 +111,7 @@ jobs:
           grep -Fq 'baselineProtein = p?.count == 4' "$file"
           grep -Fq 'loopCarbsRecorded' "$file"
           grep -Fq 'possibleDelayedRise' "$file"
-          grep -Fq 'Observation only' "$file"
+          grep -Fq 'Saving an observation is not a carb entry or a bolus.' "$file"
           # Unified entry is UI-only: explicit carb copy, native Continue and bolus remain.
           grep -Fq 'LoKeyInlineMealEntry(' "$file"
           grep -Fq 'Button("Confirm carb copy")' "$file"
