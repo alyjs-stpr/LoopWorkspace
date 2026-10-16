@@ -214,9 +214,13 @@ jobs:
 
           # LoopWorkspace patches
           # -applies any patches located in the LoopWorkspace/patches/ directory
-          if $(ls ./patches/* &> /dev/null); then
-          git apply ./patches/* --allow-empty -v --whitespace=fix
-          fi
+          # Only accept actual .patch files; ignore instructions/README files.
+          # Refuse incompatible patches before attempting to apply them.
+          for patch in ./patches/*.patch; do
+            [ -f "$patch" ] || break
+            git apply --check "$patch"
+            git apply "$patch" --whitespace=fix
+          done
 
           # LoKey T1D graph colors: patch chart UI inside the Loop submodule only.
           # Check before applying so upstream changes cannot silently skip the palette.
