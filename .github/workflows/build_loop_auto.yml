@@ -89,7 +89,7 @@ jobs:
       - name: Checkout target repo
         if: |
           steps.workflow-permission.outputs.has_permission == 'true' &&
-          (vars.SCHEDULED_BUILD != 'false' || vars.SCHEDULED_SYNC != 'false')
+          (vars.SCHEDULED_BUILD == 'true' || vars.SCHEDULED_SYNC == 'true')
         uses: actions/checkout@v5
         with:
           token: ${{ secrets.GH_PAT }}
@@ -98,7 +98,7 @@ jobs:
       - name: Sync upstream changes
         if: | # do not run the upstream sync action on the upstream repository
           steps.workflow-permission.outputs.has_permission == 'true' &&
-          vars.SCHEDULED_SYNC != 'false' && github.repository_owner != 'LoopKit' && github.ref_name == 'main'
+          vars.SCHEDULED_SYNC == 'true' && github.repository_owner != 'LoopKit' && github.ref_name == 'main'
         id: sync
         uses: aormsby/Fork-Sync-With-Upstream-action@v3.4.2
         with:
@@ -112,17 +112,17 @@ jobs:
       - name: New commits found
         if: |
           steps.workflow-permission.outputs.has_permission == 'true' &&
-          vars.SCHEDULED_SYNC != 'false' && steps.sync.outputs.has_new_commits == 'true'
+          vars.SCHEDULED_SYNC == 'true' && steps.sync.outputs.has_new_commits == 'true'
         run: echo "New commits were found to sync."
 
       - name: No new commits
         if: |
           steps.workflow-permission.outputs.has_permission == 'true' &&
-          vars.SCHEDULED_SYNC != 'false' && steps.sync.outputs.has_new_commits == 'false'
+          vars.SCHEDULED_SYNC == 'true' && steps.sync.outputs.has_new_commits == 'false'
         run: echo "There were no new commits."
 
       - name: Show value of 'has_new_commits'
-        if: steps.workflow-permission.outputs.has_permission == 'true' && vars.SCHEDULED_SYNC != 'false'
+        if: steps.workflow-permission.outputs.has_permission == 'true' && vars.SCHEDULED_SYNC == 'true'
         run: |
           echo ${{ steps.sync.outputs.has_new_commits }}
           echo "NEW_COMMITS=${{ steps.sync.outputs.has_new_commits }}" >> $GITHUB_OUTPUT
@@ -159,8 +159,8 @@ jobs:
       actions: write
     if: |
       github.event_name == 'schedule' &&
-        !(vars.SCHEDULED_BUILD != 'false' && needs.check_status.outputs.IS_SECOND_IN_MONTH == 'true') &&
-        !(vars.SCHEDULED_SYNC != 'false' && needs.check_status.outputs.NEW_COMMITS == 'true')
+        !(vars.SCHEDULED_BUILD == 'true' && needs.check_status.outputs.IS_SECOND_IN_MONTH == 'true') &&
+        !(vars.SCHEDULED_SYNC == 'true' && needs.check_status.outputs.NEW_COMMITS == 'true')
     steps:
       - name: Cancel the run
         env:
@@ -182,8 +182,8 @@ jobs:
       secrets: inherit
       if: |
         github.event_name == 'workflow_dispatch' ||
-          (vars.SCHEDULED_BUILD != 'false' && needs.check_status.outputs.IS_SECOND_IN_MONTH == 'true') ||
-          (vars.SCHEDULED_SYNC != 'false' && needs.check_status.outputs.NEW_COMMITS == 'true' )
+          (vars.SCHEDULED_BUILD == 'true' && needs.check_status.outputs.IS_SECOND_IN_MONTH == 'true') ||
+          (vars.SCHEDULED_SYNC == 'true' && needs.check_status.outputs.NEW_COMMITS == 'true' )
 
   # Builds Loop
   build:
@@ -195,8 +195,8 @@ jobs:
     if:
       | # builds with manual start; if scheduled: once a month or when new commits are found
       github.event_name == 'workflow_dispatch' ||
-        (vars.SCHEDULED_BUILD != 'false' && needs.check_status.outputs.IS_SECOND_IN_MONTH == 'true') ||
-        (vars.SCHEDULED_SYNC != 'false' && needs.check_status.outputs.NEW_COMMITS == 'true' )
+        (vars.SCHEDULED_BUILD == 'true' && needs.check_status.outputs.IS_SECOND_IN_MONTH == 'true') ||
+        (vars.SCHEDULED_SYNC == 'true' && needs.check_status.outputs.NEW_COMMITS == 'true' )
     steps:
       - name: Select Xcode version
         run: "sudo xcode-select --switch /Applications/Xcode_27.0.app/Contents/Developer"
@@ -214,9 +214,13 @@ jobs:
 
           # LoopWorkspace patches
           # -applies any patches located in the LoopWorkspace/patches/ directory
-          if $(ls ./patches/* &> /dev/null); then
-          git apply ./patches/* --allow-empty -v --whitespace=fix
-          fi
+          # Only accept actual .patch files; ignore instructions/README files.
+          # Refuse incompatible patches before attempting to apply them.
+          for patch in ./patches/*.patch; do
+            [ -f "$patch" ] || break
+            git apply --check "$patch"
+            git apply --whitespace=fix "$patch"
+          done
 
           # LoKey T1D graph colors: patch chart UI inside the Loop submodule only.
           # Check before applying so upstream changes cannot silently skip the palette.
@@ -277,6 +281,12 @@ jobs:
           # Notification-only guard: avoid false missed-meal prompts after logged meals.
           git -C Loop apply --check ../customizations/LoKeyMissedMealNotificationGuard.patch
           git -C Loop apply ../customizations/LoKeyMissedMealNotificationGuard.patch
+          # Build 17: history/settings cleanup, separate from Loop dosing.
+          git -C Loop apply --check ../customizations/LoKeyBuild17MealHistoryCleanup.patch
+          git -C Loop apply ../customizations/LoKeyBuild17MealHistoryCleanup.patch
+          # Display-only Home Screen widget failure and stale-data handling.
+          git -C Loop apply --check ../customizations/LoKeyBuild17WidgetReliability.patch
+          git -C Loop apply ../customizations/LoKeyBuild17WidgetReliability.patch
           echo "LoKey final dashboard polish applied."
           echo "LoKey T1D rounded chart cards and shared Now markers applied."
 

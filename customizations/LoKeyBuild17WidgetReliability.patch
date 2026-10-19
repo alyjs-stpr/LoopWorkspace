@@ -1,0 +1,104 @@
+diff --git a/Loop Widget Extension/Timeline/StatusWidgetTimelineProvider.swift b/Loop Widget Extension/Timeline/StatusWidgetTimelineProvider.swift
+--- a/Loop Widget Extension/Timeline/StatusWidgetTimelineProvider.swift
++++ b/Loop Widget Extension/Timeline/StatusWidgetTimelineProvider.swift
+@@ -74,15 +74,17 @@
+             // Date context staleness changes
+             datesToRefreshWidget.append(newEntry.contextUpdatedAt.addingTimeInterval(StatusWidgetTimelineProvider.stalenessAge+1))
+ 
+-            for date in datesToRefreshWidget {
+-                // Copy the previous entry but mark it as stale
++            // WidgetKit timelines must be chronological. Past dates should not
++            // replace the current reading or result in an unusable timeline.
++            for date in Set(datesToRefreshWidget).filter({ $0 > newEntry.date }).sorted() {
+                 var copiedEntry = newEntry
+                 copiedEntry.date = date
+                 entries.append(copiedEntry)
+             }
+-                                
+-            let nextHour = Date().addingTimeInterval(.hours(1))
+-            let timeline = Timeline(entries: entries, policy: .after(nextHour))
++
++            // This is a refresh request, not a promise of a five-minute iOS update.
++            let nextRefresh = Date().addingTimeInterval(.minutes(5))
++            let timeline = Timeline(entries: entries, policy: .after(nextRefresh))
+             self.log.default("Returning timeline: %{public}@", String(describing: datesToRefreshWidget))
+             completion(timeline)
+         }
+@@ -93,7 +95,9 @@
+ 
+         var glucose: [StoredGlucoseSample] = []
+ 
+-        let startDate = Date(timeIntervalSinceNow: -LoopCoreConstants.inputDataRecencyInterval)
++        // Preserve a recent cached BG for stale-but-labelled display if iOS
++        // delays a widget refresh. Never present a cached value as fresh.
++        let startDate = Date(timeIntervalSinceNow: -.minutes(45))
+ 
+         group.enter()
+         glucoseStore.getGlucoseSamples(start: startDate) { (result) in
+@@ -117,6 +121,17 @@
+                   let contextUpdatedAt = context.createdAt,
+                   let unit = await healthStore.cachedPreferredUnits(for: .bloodGlucose)
+             else {
++                // Always finish the snapshot/timeline callback. Otherwise iOS
++                // can show a permanently blank or spinning widget.
++                completion(StatusWidgetTimelimeEntry(
++                    date: Date(), contextUpdatedAt: .distantPast,
++                    lastLoopCompleted: nil, closeLoop: false,
++                    currentGlucose: nil, glucoseFetchedAt: nil,
++                    delta: nil, unit: nil, sensor: nil, pumpHighlight: nil,
++                    netBasal: nil, eventualGlucose: nil,
++                    preMealPresetAllowed: false, preMealPresetActive: false,
++                    customPresetActive: false
++                ))
+                 return
+             }
+ 
+diff --git a/Loop Widget Extension/Components/GlucoseView.swift b/Loop Widget Extension/Components/GlucoseView.swift
+--- a/Loop Widget Extension/Components/GlucoseView.swift
++++ b/Loop Widget Extension/Components/GlucoseView.swift
+@@ -19,7 +19,6 @@
+         VStack(alignment: .center, spacing: 0) {
+             HStack(spacing: 2) {
+                 if let glucose = entry.currentGlucose,
+-                   !entry.glucoseIsStale,
+                    let unit = entry.unit
+                 {
+                     let quantity = glucose.quantity
+@@ -38,16 +37,22 @@
+                         .font(.system(size: 24, weight: .heavy, design: .default))
+                 }
+                 
+-                if let trendImageName = getArrowImage() {
++                if !entry.glucoseIsStale, let trendImageName = getArrowImage() {
+                     Image(systemName: trendImageName)
+                 }
+             }
+             // Prevent truncation of text
+             .fixedSize(horizontal: true, vertical: false)
+-            .foregroundColor(entry.glucoseStatusIsStale ? Color(UIColor.systemGray3) : .primary)
++            .foregroundColor(entry.glucoseIsStale || entry.glucoseStatusIsStale ? Color(UIColor.systemGray3) : .primary)
+             
+             let unitString = entry.unit == nil ? "-" : entry.unit!.localizedShortUnitString
+-            if let delta = entry.delta, let unit = entry.unit {
++            if entry.glucoseIsStale, let sampleDate = entry.currentGlucose?.startDate {
++                (Text("STALE · ") + Text(sampleDate, style: .relative))
++                    .font(.system(size: 12, weight: .semibold))
++                    .foregroundColor(.orange)
++                    .fixedSize(horizontal: true, vertical: false)
++            }
++            else if let delta = entry.delta, let unit = entry.unit {
+                 let deltaValue = delta.doubleValue(for: unit)
+                 let numberFormatter = NumberFormatter.glucoseFormatter(for: unit)
+                 let deltaString = (deltaValue < 0 ? "-" : "+") + numberFormatter.string(from: abs(deltaValue))!
+@@ -59,9 +64,9 @@
+                     .fixedSize(horizontal: true, vertical: true)
+             }
+             else {
+-                Text(unitString)
++                Text(entry.currentGlucose == nil ? "No glucose data" : unitString)
+                     .font(.footnote)
+-                    .foregroundColor(entry.glucoseStatusIsStale ? Color(UIColor.systemGray3) : Color(UIColor.secondaryLabel))
++                    .foregroundColor(Color(UIColor.secondaryLabel))
+             }
+         }
+     }
