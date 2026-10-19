@@ -1,15 +1,7 @@
 diff --git a/Loop/Views/CarbEntryView.swift b/Loop/Views/CarbEntryView.swift
 --- a/Loop/Views/CarbEntryView.swift
 +++ b/Loop/Views/CarbEntryView.swift
-@@ -100,6 +100,7 @@
-                 .opacity(0)
-                 .accessibility(hidden: true)
-             }
-+            .scrollDismissesKeyboard(.interactively)
-         }
-         .alert(item: $viewModel.alert, content: alert(for:))
-         .sheet(isPresented: $showAddFavoriteFood, onDismiss: clearExpandedRow) {
-@@ -594,7 +595,14 @@
+@@ -594,7 +594,14 @@
      @State private var note = ""
      @State private var showCopyConfirmation = false
      @State private var didSave = false
@@ -24,7 +16,7 @@ diff --git a/Loop/Views/CarbEntryView.swift b/Loop/Views/CarbEntryView.swift
      private var measuredCarbs: Double? {
          Double(actualCarbsText.trimmingCharacters(in: .whitespacesAndNewlines))
      }
-@@ -615,11 +623,17 @@
+@@ -615,11 +622,17 @@
      var body: some View {
          VStack(alignment: .leading, spacing: 12) {
              HStack {
@@ -45,7 +37,7 @@ diff --git a/Loop/Views/CarbEntryView.swift b/Loop/Views/CarbEntryView.swift
              }
  
              Picker("Meal", selection: $meal) {
-@@ -633,6 +647,7 @@
+@@ -633,6 +646,7 @@
                  Spacer()
                  TextField("0", text: $actualCarbsText)
                      .keyboardType(.decimalPad)
@@ -53,7 +45,7 @@ diff --git a/Loop/Views/CarbEntryView.swift b/Loop/Views/CarbEntryView.swift
                      .multilineTextAlignment(.trailing)
                      .frame(maxWidth: 92)
                      .accessibilityLabel("Measured carbohydrates in grams")
-@@ -643,6 +658,7 @@
+@@ -643,6 +657,7 @@
                  Spacer()
                  TextField("0", text: $actualProteinText)
                      .keyboardType(.decimalPad)
@@ -61,7 +53,7 @@ diff --git a/Loop/Views/CarbEntryView.swift b/Loop/Views/CarbEntryView.swift
                      .multilineTextAlignment(.trailing)
                      .frame(maxWidth: 92)
                      .accessibilityLabel("Measured protein in grams")
-@@ -674,6 +690,7 @@
+@@ -674,6 +689,7 @@
  
              Toggle("Possible delayed rise", isOn: $possibleDelayedRise)
              TextField("Meal notes (optional)", text: $note)
@@ -69,7 +61,7 @@ diff --git a/Loop/Views/CarbEntryView.swift b/Loop/Views/CarbEntryView.swift
  
              Button("Save meal observation") {
                  saveObservation()
-@@ -692,6 +709,13 @@
+@@ -692,6 +708,13 @@
          }
          .padding()
          .background(CardBackground())
@@ -77,7 +69,7 @@ diff --git a/Loop/Views/CarbEntryView.swift b/Loop/Views/CarbEntryView.swift
 +            ToolbarItemGroup(placement: .keyboard) {
 +                Spacer()
 +                Button("Done") { focusedMealInput = nil }
-+                    .fontWeight(.semibold)
++                    .font(.headline)
 +            }
 +        }
      }
