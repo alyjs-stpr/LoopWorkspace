@@ -1,0 +1,85 @@
+diff --git a/Loop/Views/CarbEntryView.swift b/Loop/Views/CarbEntryView.swift
+--- a/Loop/Views/CarbEntryView.swift
++++ b/Loop/Views/CarbEntryView.swift
+@@ -100,6 +100,7 @@
+                 .opacity(0)
+                 .accessibility(hidden: true)
+             }
++            .scrollDismissesKeyboard(.interactively)
+         }
+         .alert(item: $viewModel.alert, content: alert(for:))
+         .sheet(isPresented: $showAddFavoriteFood, onDismiss: clearExpandedRow) {
+@@ -594,7 +595,14 @@
+     @State private var note = ""
+     @State private var showCopyConfirmation = false
+     @State private var didSave = false
++    @FocusState private var focusedMealInput: MealInput?
+ 
++    private enum MealInput: Hashable {
++        case carbs
++        case protein
++        case note
++    }
++
+     private var measuredCarbs: Double? {
+         Double(actualCarbsText.trimmingCharacters(in: .whitespacesAndNewlines))
+     }
+@@ -615,11 +623,17 @@
+     var body: some View {
+         VStack(alignment: .leading, spacing: 12) {
+             HStack {
+-                Label("LoKey Adaptive Meals", systemImage: "fork.knife.circle.fill")
++                Label("Meal details", systemImage: "fork.knife.circle.fill")
+                     .font(.headline)
++                    .lineLimit(1)
++                    .minimumScaleFactor(0.85)
+                 Spacer(minLength: 8)
+-                Button("History & settings", action: showHistory)
+-                    .font(.footnote)
++                Button(action: showHistory) {
++                    Image(systemName: "clock.arrow.circlepath")
++                        .font(.title3)
++                        .frame(minWidth: 36, minHeight: 36)
++                }
++                .accessibilityLabel("Meal history and settings")
+             }
+ 
+             Picker("Meal", selection: $meal) {
+@@ -633,6 +647,7 @@
+                 Spacer()
+                 TextField("0", text: $actualCarbsText)
+                     .keyboardType(.decimalPad)
++                    .focused($focusedMealInput, equals: .carbs)
+                     .multilineTextAlignment(.trailing)
+                     .frame(maxWidth: 92)
+                     .accessibilityLabel("Measured carbohydrates in grams")
+@@ -643,6 +658,7 @@
+                 Spacer()
+                 TextField("0", text: $actualProteinText)
+                     .keyboardType(.decimalPad)
++                    .focused($focusedMealInput, equals: .protein)
+                     .multilineTextAlignment(.trailing)
+                     .frame(maxWidth: 92)
+                     .accessibilityLabel("Measured protein in grams")
+@@ -674,6 +690,7 @@
+ 
+             Toggle("Possible delayed rise", isOn: $possibleDelayedRise)
+             TextField("Meal notes (optional)", text: $note)
++                .focused($focusedMealInput, equals: .note)
+ 
+             Button("Save meal observation") {
+                 saveObservation()
+@@ -692,6 +709,13 @@
+         }
+         .padding()
+         .background(CardBackground())
++        .toolbar {
++            ToolbarItemGroup(placement: .keyboard) {
++                Spacer()
++                Button("Done") { focusedMealInput = nil }
++                    .fontWeight(.semibold)
++            }
++        }
+     }
+ 
+     private func saveObservation() {
