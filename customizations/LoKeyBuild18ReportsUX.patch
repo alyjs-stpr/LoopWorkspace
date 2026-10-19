@@ -1,0 +1,66 @@
+diff --git a/Loop/Views/SettingsView.swift b/Loop/Views/SettingsView.swift
+--- a/Loop/Views/SettingsView.swift
++++ b/Loop/Views/SettingsView.swift
+@@ -467,7 +467,7 @@
+     private var loKeyReportsSection: some View {
+         Section(header: SectionHeader(label: "LoKey T1D Reports")) {
+             NavigationLink(destination: LoKeyReportsView(viewModel: viewModel)) {
+-                Label("Time in Loop Target & Settings Report", systemImage: "chart.pie")
++                Label("Glucose reports & settings PDF", systemImage: "chart.pie")
+             }
+         }
+     }
+@@ -756,12 +756,13 @@
+                 }
+                 .pickerStyle(.segmented)
+ 
+-                Picker("Period", selection: $selectedDays) {
++                Picker("Reporting period", selection: $selectedDays) {
+                     ForEach(days, id: \.self) { day in
+-                        Text("\(day)d").tag(day)
++                        Text("\(day) days").tag(day)
+                     }
+                 }
+-                .pickerStyle(.segmented)
++                // Five segmented choices were too narrow on iPhone.
++                .pickerStyle(.menu)
+                 .onChange(of: selectedDays) { _ in refresh() }
+ 
+                 if selectedReport == 0 {
+@@ -795,10 +796,12 @@
+                             Spacer(minLength: 0)
+                         }
+                         .padding(.vertical, 12)
+-                        Text("Five glucose bands use your custom CGM limits, not Loop's correction target.")
+-                            .font(.footnote).foregroundColor(.secondary)
+-                        Text("Very low is below 54 mg/dL, very high is above 250 mg/dL. Small differences from the CGM app may occur because of missing samples and reporting rules.")
+-                            .font(.caption).foregroundColor(.secondary)
++                        DisclosureGroup("How CGM TIR is calculated") {
++                            Text("Five glucose bands use your custom CGM limits, not Loop's correction target.")
++                            Text("Very low is below 54 mg/dL, very high is above 250 mg/dL. Small differences from the CGM app may occur because of missing samples and reporting rules.")
++                        }
++                        .font(.footnote)
++                        .foregroundColor(.secondary)
+                     } else {
+                         Text("No glucose readings are available for this period.")
+                             .foregroundColor(.secondary)
+@@ -835,8 +838,8 @@
+                     Text("Loop Target compares readings to historical correction targets and active overrides. It is not CGM Time in Range.")
+                         .font(.footnote).foregroundColor(.secondary)
+                 }
+-                Text("Missing CGM readings are excluded rather than assumed to be in range.")
+-                    .font(.footnote).foregroundColor(.secondary)
++                Text("Missing CGM readings are excluded, not counted as in range.")
++                    .font(.caption).foregroundColor(.secondary)
+             }
+ 
+             if selectedReport == 0, let results = clinicalStatistics {
+@@ -889,6 +892,8 @@
+                 .font(.headline).monospacedDigit()
+                 .foregroundColor(color)
+             Text(title).font(.caption2).foregroundColor(.secondary)
++                .lineLimit(1)
++                .minimumScaleFactor(0.75)
+         }
+     }
+ 
