@@ -205,7 +205,8 @@ jobs:
           done
 
   compile-ios:
-    if: github.event_name == 'pull_request'
+    # Manual pre-merge validation must compile Swift too, not just parse patches.
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     name: Unsigned iOS simulator compile (no upload)
     runs-on: xcode-27
     timeout-minutes: 100
