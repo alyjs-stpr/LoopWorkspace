@@ -76,12 +76,15 @@ jobs:
           # Build 17: history/settings cleanup, separate from Loop dosing.
           git -C Loop apply --check ../customizations/LoKeyBuild17MealHistoryCleanup.patch
           git -C Loop apply ../customizations/LoKeyBuild17MealHistoryCleanup.patch
+          # Display-only Home Screen widget failure and stale-data handling.
+          git -C Loop apply --check ../customizations/LoKeyBuild17WidgetReliability.patch
+          git -C Loop apply ../customizations/LoKeyBuild17WidgetReliability.patch
       - name: Parse modified Swift files
         shell: bash
         run: |
           set -euo pipefail
           command -v swiftc
-          swiftc -frontend -parse "Loop/Loop/View Controllers/StatusTableViewController.swift" "Loop/LoopUI/Views/StatusBarHUDView.swift" "Loop/Loop/Views/SettingsView.swift" "Loop/Loop/Views/CarbEntryView.swift" "Loop/Loop/Managers/LoopDataManager.swift" "Loop/Loop/Managers/Missed Meal Detection/MealDetectionManager.swift" "Loop/LoopTests/Managers/MealDetectionManagerTests.swift" "LoopKit/LoopKitUI/View Controllers/ChartsManager.swift" "LoopKit/LoopKitUI/Charts/DoseChart.swift"
+          swiftc -frontend -parse "Loop/Loop Widget Extension/Timeline/StatusWidgetTimelineProvider.swift" "Loop/Loop Widget Extension/Components/GlucoseView.swift" "Loop/Loop/View Controllers/StatusTableViewController.swift" "Loop/LoopUI/Views/StatusBarHUDView.swift" "Loop/Loop/Views/SettingsView.swift" "Loop/Loop/Views/CarbEntryView.swift" "Loop/Loop/Managers/LoopDataManager.swift" "Loop/Loop/Managers/Missed Meal Detection/MealDetectionManager.swift" "Loop/LoopTests/Managers/MealDetectionManagerTests.swift" "LoopKit/LoopKitUI/View Controllers/ChartsManager.swift" "LoopKit/LoopKitUI/Charts/DoseChart.swift"
       - name: Execute source-derived missed-meal notification timing checks
         shell: bash
         run: |
@@ -148,6 +151,7 @@ jobs:
             grep -Fq 'LoKeyAdaptiveMealsTracking.patch' "$workflow"
             grep -Fq 'LoKeyAdaptiveMealsUnifiedEntry.patch' "$workflow"
             grep -Fq 'LoKeyBuild17MealHistoryCleanup.patch' "$workflow"
+            grep -Fq 'LoKeyBuild17WidgetReliability.patch' "$workflow"
           done
 
       - name: Verify approved cleanup controls across both build routes
@@ -179,6 +183,11 @@ jobs:
               }
             done
           done
+          # Widget safety: old readings remain explicitly labelled stale, never live.
+          grep -Fq 'STALE · ' customizations/LoKeyBuild17WidgetReliability.patch
+          grep -Fq 'completion(StatusWidgetTimelimeEntry(' customizations/LoKeyBuild17WidgetReliability.patch
+          grep -Fq 'filter({ $0 > newEntry.date }).sorted()' customizations/LoKeyBuild17WidgetReliability.patch
+
           # Manual builds must use a reviewed immutable SHA.
           grep -Fq 'github.sha' .github/workflows/build_loop.yml
           # Scheduled builds / upstream changes are only enabled via explicit opt-in.
@@ -251,6 +260,9 @@ jobs:
           # Build 17: history/settings cleanup, separate from Loop dosing.
           git -C Loop apply --check ../customizations/LoKeyBuild17MealHistoryCleanup.patch
           git -C Loop apply ../customizations/LoKeyBuild17MealHistoryCleanup.patch
+          # Display-only Home Screen widget failure and stale-data handling.
+          git -C Loop apply --check ../customizations/LoKeyBuild17WidgetReliability.patch
+          git -C Loop apply ../customizations/LoKeyBuild17WidgetReliability.patch
           git -C NightscoutService apply --check ../customizations/LoKeyT1PalNightscout.patch
           git -C NightscoutService apply ../customizations/LoKeyT1PalNightscout.patch
       # This is a source compilation smoke test, not an installable app package.
