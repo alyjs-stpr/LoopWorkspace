@@ -262,6 +262,13 @@ jobs:
           # Display-only Home Screen widget failure and stale-data handling.
           git -C Loop apply --check ../customizations/LoKeyBuild17WidgetReliability.patch
           git -C Loop apply ../customizations/LoKeyBuild17WidgetReliability.patch
+          # Build 18: presentation and keyboard only; carb dosing handoff remains unchanged.
+          git -C Loop apply --check ../customizations/LoKeyBuild18ToolbarLayout.patch
+          git -C Loop apply ../customizations/LoKeyBuild18ToolbarLayout.patch
+          git -C Loop apply --check ../customizations/LoKeyBuild18KeyboardOnly.patch
+          git -C Loop apply ../customizations/LoKeyBuild18KeyboardOnly.patch
+          git -C Loop apply --check ../customizations/LoKeyBuild18ReportsUX.patch
+          git -C Loop apply ../customizations/LoKeyBuild18ReportsUX.patch
           echo "LoKey final dashboard polish applied."
           echo "LoKey T1D rounded chart cards and shared Now markers applied."
 
