@@ -259,6 +259,9 @@ jobs:
           # Build 17: history/settings cleanup, separate from Loop dosing.
           git -C Loop apply --check ../customizations/LoKeyBuild17MealHistoryCleanup.patch
           git -C Loop apply ../customizations/LoKeyBuild17MealHistoryCleanup.patch
+          # Display-only Home Screen widget failure and stale-data handling.
+          git -C Loop apply --check ../customizations/LoKeyBuild17WidgetReliability.patch
+          git -C Loop apply ../customizations/LoKeyBuild17WidgetReliability.patch
           echo "LoKey final dashboard polish applied."
           echo "LoKey T1D rounded chart cards and shared Now markers applied."
 
