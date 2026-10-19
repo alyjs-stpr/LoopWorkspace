@@ -13,6 +13,7 @@ This document describes **source-code review and pre-release checks**, not a med
 
 ## Build 17 changes
 - `LoKeyBuild17MealHistoryCleanup.patch`: one primary meal-entry form and a separate **history/settings-only** screen
+- `LoKeyBuild17WidgetReliability.patch`: request a new widget timeline around five minutes (subject to iOS scheduling), order timeline entries, always complete fallback snapshots, and retain clearly labelled **stale** CGM readings for up to 45 minutes when refresh is delayed
 - Keep existing V1 saved meal data unchanged; do not duplicate or migrate it
 - Observational meal save is **not** proof of a completed Loop carb entry; do not store a proposed carb amount as if it were entered
 - Native Loop carb quantity, date/absorption settings, Continue, final bolus review and delivery code untouched
@@ -45,6 +46,9 @@ This document describes **source-code review and pre-release checks**, not a med
 - [ ] Dexcom updates, Nightscout sync, and Omnipod control remain normal
 - [ ] Pod displays the real reservoir reading at 50 U or below, and `50+` above that
 - [ ] Watch/widget state, system alerts and accessibility sizing still behave appropriately
+- [ ] Home Screen widget displays a reading with timestamp and **STALE** warning when old; never mistakes cached CGM data for a live reading
+- [ ] Missing app-group context or HealthKit glucose unit produces an unavailable widget rather than a blank/spinning extension
+- [ ] Test both Home Screen widget and separate Lock Screen/Dynamic Island Live Activity on physical iPhone; iOS can throttle widget reloads
 - [ ] Confirm TestFlight package validity, app signing and on-device behavior after signed build
 
 ## Known limits / remaining risks
