@@ -79,6 +79,13 @@ jobs:
           # Display-only Home Screen widget failure and stale-data handling.
           git -C Loop apply --check ../customizations/LoKeyBuild17WidgetReliability.patch
           git -C Loop apply ../customizations/LoKeyBuild17WidgetReliability.patch
+          # Build 18 UI-only; protein-equivalent dosing proposal deliberately excluded.
+          git -C Loop apply --check ../customizations/LoKeyBuild18ToolbarLayout.patch
+          git -C Loop apply ../customizations/LoKeyBuild18ToolbarLayout.patch
+          git -C Loop apply --check ../customizations/LoKeyBuild18KeyboardOnly.patch
+          git -C Loop apply ../customizations/LoKeyBuild18KeyboardOnly.patch
+          git -C Loop apply --check ../customizations/LoKeyBuild18ReportsUX.patch
+          git -C Loop apply ../customizations/LoKeyBuild18ReportsUX.patch
       - name: Parse modified Swift files
         shell: bash
         run: |
@@ -152,6 +159,13 @@ jobs:
             grep -Fq 'LoKeyAdaptiveMealsUnifiedEntry.patch' "$workflow"
             grep -Fq 'LoKeyBuild17MealHistoryCleanup.patch' "$workflow"
             grep -Fq 'LoKeyBuild17WidgetReliability.patch' "$workflow"
+            grep -Fq 'LoKeyBuild18ToolbarLayout.patch' "$workflow"
+            grep -Fq 'LoKeyBuild18KeyboardOnly.patch' "$workflow"
+            grep -Fq 'LoKeyBuild18ReportsUX.patch' "$workflow"
+            if grep -Fq 'LoKeyBuild18MealUX.patch' "$workflow"; then
+              echo "::error::The unreviewed protein-equivalent carb transfer is not release-approved."
+              exit 1
+            fi
           done
 
       - name: Verify approved cleanup controls across both build routes
@@ -177,6 +191,10 @@ jobs:
           for workflow in .github/workflows/build_loop.yml .github/workflows/build_loop_auto.yml; do
             for patch in customizations/*.patch; do
               patchname="${patch##*/}"
+              # Experimental protein-based carb transfer remains review-only.
+              if [[ "$patchname" == "LoKeyBuild18MealUX.patch" ]]; then
+                continue
+              fi
               grep -Fq "$patchname" "$workflow" || {
                 echo "::error::$workflow does not apply $patchname"
                 exit 1
@@ -187,6 +205,17 @@ jobs:
           grep -Fq 'STALE · ' customizations/LoKeyBuild17WidgetReliability.patch
           grep -Fq 'completion(StatusWidgetTimelimeEntry(' customizations/LoKeyBuild17WidgetReliability.patch
           grep -Fq 'filter({ $0 > newEntry.date }).sorted()' customizations/LoKeyBuild17WidgetReliability.patch
+
+          # Build 18 must keep the native Loop carb confirmation and bolus step.
+          grep -Fq 'Button("Done")' customizations/LoKeyBuild18KeyboardOnly.patch
+          grep -Fq 'targetsItem.menu = UIMenu' customizations/LoKeyBuild18ToolbarLayout.patch
+          grep -Fq 'pickerStyle(.menu)' customizations/LoKeyBuild18ReportsUX.patch
+          grep -Fq 'Copy actual carbs into Loop field' Loop/Loop/Views/CarbEntryView.swift
+          grep -Fq 'Button("Confirm carb copy")' Loop/Loop/Views/CarbEntryView.swift
+          if grep -Fq 'proposedLoopCarbs' Loop/Loop/Views/CarbEntryView.swift; then
+            echo '::error::Experimental protein-equivalent dosing UI must not be included'
+            exit 1
+          fi
 
           # Manual builds must use a reviewed immutable SHA.
           grep -Fq 'github.sha' .github/workflows/build_loop.yml
@@ -264,6 +293,13 @@ jobs:
           # Display-only Home Screen widget failure and stale-data handling.
           git -C Loop apply --check ../customizations/LoKeyBuild17WidgetReliability.patch
           git -C Loop apply ../customizations/LoKeyBuild17WidgetReliability.patch
+          # Build 18 UI-only; protein-equivalent dosing proposal deliberately excluded.
+          git -C Loop apply --check ../customizations/LoKeyBuild18ToolbarLayout.patch
+          git -C Loop apply ../customizations/LoKeyBuild18ToolbarLayout.patch
+          git -C Loop apply --check ../customizations/LoKeyBuild18KeyboardOnly.patch
+          git -C Loop apply ../customizations/LoKeyBuild18KeyboardOnly.patch
+          git -C Loop apply --check ../customizations/LoKeyBuild18ReportsUX.patch
+          git -C Loop apply ../customizations/LoKeyBuild18ReportsUX.patch
           git -C NightscoutService apply --check ../customizations/LoKeyT1PalNightscout.patch
           git -C NightscoutService apply ../customizations/LoKeyT1PalNightscout.patch
       # This is a source compilation smoke test, not an installable app package.
