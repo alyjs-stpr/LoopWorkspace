@@ -1,0 +1,90 @@
+diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View Controllers/StatusTableViewController.swift
+--- a/Loop/View Controllers/StatusTableViewController.swift
++++ b/Loop/View Controllers/StatusTableViewController.swift
+@@ -280,6 +280,15 @@
+     private lazy var reportsItem = makeToolbarItem(title: NSLocalizedString("TIR Report", comment: "Shortcut to the Time in Loop Target report"), image: UIImage(systemName: "chart.pie"), tintColor: UIColor(red: 0.5020, green: 0.1725, blue: 0.9255, alpha: 1), action: #selector(onReportsTapped))
+     private lazy var preMealItem = makeToolbarItem(title: NSLocalizedString("Pre-Meal Targets", comment: "The label of the pre-meal mode toggle button"), image: UIImage.preMealImage(selected: false), tintColor: .carbTintColor, action: #selector(premealButtonTapped(_:)))
+     private lazy var workoutItem = makeToolbarItem(title: NSLocalizedString("Workout Targets", comment: "The label of the workout mode toggle button"), image: UIImage.workoutImage(selected: false), tintColor: .glucoseTintColor, action: #selector(toggleWorkoutMode(_:)))
++    // Combine pre-meal and workout targets into one menu so all five primary
++    // dashboard actions remain visible on narrow iPhones.
++    private lazy var targetsItem: UIBarButtonItem = {
++        let item = UIBarButtonItem(image: UIImage(systemName: "target"), style: .plain, target: nil, action: nil)
++        item.title = NSLocalizedString("Targets", comment: "Dashboard target-mode menu title")
++        item.tintColor = .glucoseTintColor
++        item.accessibilityLabel = NSLocalizedString("Pre-meal and workout targets", comment: "Dashboard targets menu accessibility label")
++        return item
++    }()
+ 
+     private func makeToolbarItem(title: String, image: UIImage?, tintColor: UIColor, action: Selector) -> UIBarButtonItem {
+         let item = UIBarButtonItem(image: image, style: .plain, target: self, action: action)
+@@ -294,17 +303,19 @@
+         }
+ 
+         if #available(iOS 26, *) {
+-            toolbarItems = [carbsItem, preMealItem, bolusItem, workoutItem, reportsItem, settingsItem]
++            // Short labels avoid Liquid Glass width pressure while preserving
++            // visible Meal, Bolus, TIR and Settings actions.
++            carbsItem.title = NSLocalizedString("Meal", comment: "Compact add-meal toolbar title")
++            reportsItem.title = NSLocalizedString("TIR", comment: "Compact report toolbar title")
++            toolbarItems = [carbsItem, targetsItem, bolusItem, reportsItem, settingsItem]
+         } else {
+             toolbarItems = [
+                 carbsItem,
+                 flexibleSpace(),
+-                preMealItem,
++                targetsItem,
+                 flexibleSpace(),
+                 bolusItem,
+                 flexibleSpace(),
+-                workoutItem,
+-                flexibleSpace(),
+                 reportsItem,
+                 flexibleSpace(),
+                 settingsItem
+@@ -312,11 +323,10 @@
+         }
+ #if compiler(>=6.4)
+         if #available(iOS 27, *) {
+-            for item in [carbsItem, preMealItem, bolusItem, workoutItem, reportsItem, settingsItem] {
++            for item in [carbsItem, targetsItem, bolusItem, reportsItem, settingsItem] {
+                 item.isPaddingRemoved = true
++                item.visibilityPriority = .high
+             }
+-            reportsItem.visibilityPriority = .high
+-            settingsItem.visibilityPriority = .high
+         }
+ #endif
+     }
+@@ -331,8 +341,32 @@
+         updateToggleItem(preMealItem, image: UIImage.preMealImage(selected: preMealSelected), selected: preMealSelected, isEnabled: preMealModeAllowed)
+         let workoutSelected = workoutMode == true && workoutModeAllowed
+         updateToggleItem(workoutItem, image: UIImage.workoutImage(selected: workoutSelected), selected: workoutSelected, isEnabled: workoutModeAllowed)
++        updateTargetsMenu(preMealSelected: preMealSelected, workoutSelected: workoutSelected)
+     }
+ 
++    private func updateTargetsMenu(preMealSelected: Bool, workoutSelected: Bool) {
++        targetsItem.isEnabled = preMealModeAllowed || workoutModeAllowed
++        let preMealAction = UIAction(
++            title: NSLocalizedString("Pre-Meal Targets", comment: "Targets menu pre-meal mode"),
++            image: UIImage.preMealImage(selected: preMealSelected),
++            attributes: preMealModeAllowed ? [] : [.disabled],
++            state: preMealSelected ? .on : .off
++        ) { [weak self] _ in
++            guard let self else { return }
++            self.premealButtonTapped(self.preMealItem)
++        }
++        let workoutAction = UIAction(
++            title: NSLocalizedString("Workout Targets", comment: "Targets menu workout mode"),
++            image: UIImage.workoutImage(selected: workoutSelected),
++            attributes: workoutModeAllowed ? [] : [.disabled],
++            state: workoutSelected ? .on : .off
++        ) { [weak self] _ in
++            guard let self else { return }
++            self.toggleWorkoutMode(self.workoutItem)
++        }
++        targetsItem.menu = UIMenu(children: [preMealAction, workoutAction])
++    }
++
+     private func updateToggleItem(_ item: UIBarButtonItem, image: UIImage?, selected: Bool, isEnabled: Bool) {
+         item.image = image
+         item.isEnabled = isEnabled
