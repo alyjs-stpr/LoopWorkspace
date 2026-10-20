@@ -92,12 +92,15 @@ jobs:
           # Build 20: one combined calculator with user-confirmed carb equivalent.
           git -C Loop apply --check ../customizations/LoKeyBuild20UnifiedMealCalculator.patch
           git -C Loop apply ../customizations/LoKeyBuild20UnifiedMealCalculator.patch
+          # Build 21: record a meal once, only after native Loop CarbStore succeeds.
+          git -C Loop apply --check ../customizations/LoKeyBuild21ConfirmedMealCapture.patch
+          git -C Loop apply ../customizations/LoKeyBuild21ConfirmedMealCapture.patch
       - name: Parse modified Swift files
         shell: bash
         run: |
           set -euo pipefail
           command -v swiftc
-          swiftc -frontend -parse "Loop/Loop Widget Extension/Timeline/StatusWidgetTimelineProvider.swift" "Loop/Loop Widget Extension/Components/GlucoseView.swift" "Loop/Loop/View Controllers/StatusTableViewController.swift" "Loop/LoopUI/Views/StatusBarHUDView.swift" "Loop/Loop/Views/SettingsView.swift" "Loop/Loop/Views/CarbEntryView.swift" "Loop/Loop/Managers/LoopDataManager.swift" "Loop/Loop/Managers/Missed Meal Detection/MealDetectionManager.swift" "Loop/LoopTests/Managers/MealDetectionManagerTests.swift" "LoopKit/LoopKitUI/View Controllers/ChartsManager.swift" "LoopKit/LoopKitUI/Charts/DoseChart.swift"
+          swiftc -frontend -parse "Loop/Loop Widget Extension/Timeline/StatusWidgetTimelineProvider.swift" "Loop/Loop Widget Extension/Components/GlucoseView.swift" "Loop/Loop/View Controllers/StatusTableViewController.swift" "Loop/LoopUI/Views/StatusBarHUDView.swift" "Loop/Loop/Views/SettingsView.swift" "Loop/Loop/Views/CarbEntryView.swift" "Loop/Loop/View Models/BolusEntryViewModel.swift" "Loop/Loop/Managers/LoopDataManager.swift" "Loop/Loop/Managers/Missed Meal Detection/MealDetectionManager.swift" "Loop/LoopTests/Managers/MealDetectionManagerTests.swift" "LoopKit/LoopKitUI/View Controllers/ChartsManager.swift" "LoopKit/LoopKitUI/Charts/DoseChart.swift"
       - name: Execute source-derived missed-meal notification timing checks
         shell: bash
         run: |
@@ -144,7 +147,7 @@ jobs:
           grep -Fq 'baselineProtein = p?.count == 4' "$file"
           grep -Fq 'loopCarbsRecorded' "$file"
           grep -Fq 'possibleDelayedRise' "$file"
-          grep -Fq 'Saving your meal observation does not create a Loop carb entry or deliver insulin.' "$file"
+          grep -Fq 'Meal details will be saved automatically only after Loop successfully saves the carb entry.' "$file"
           # Unified entry is UI-only: explicit carb copy, native Continue and bolus remain.
           grep -Fq 'LoKeyInlineMealEntry(' "$file"
           grep -Fq 'Label("Use calculated amount in Loop"' "$file"
@@ -158,6 +161,14 @@ jobs:
           grep -Fq 'testRecentlyLoggedMealDoesNotTriggerDuplicateMissedMealAlert' "Loop/LoopTests/Managers/MealDetectionManagerTests.swift"
           grep -Fq 'testUnloggedMealStillTriggersMissedMealAlert' "Loop/LoopTests/Managers/MealDetectionManagerTests.swift"
           grep -Fq 'loopCarbsRecorded: nil' "$file"
+          grep -Fq 'viewModel.lokeyOnCarbEntrySaved = ' "$file"
+          grep -Fq 'adaptiveMeals.add(observation)' "$file"
+          grep -Fq 'pendingObservation = nil' "$file"
+          grep -Fq 'lokeyOnCarbEntrySaved?(storedCarbEntry)' "Loop/Loop/View Models/BolusEntryViewModel.swift"
+          if grep -Fq 'Button("Save meal observation")' "$file"; then
+            echo '::error::Duplicate manual meal-save action remains'
+            exit 1
+          fi
           if grep -Fq 'private struct LoKeyMealTrackingView: View' "$file"; then
             echo '::error::Duplicate meal-entry screen has not been removed'
             exit 1
@@ -172,6 +183,7 @@ jobs:
             grep -Fq 'LoKeyBuild18ReportsUX.patch' "$workflow"
             grep -Fq 'LoKeyBuild19WidgetTimeoutRecovery.patch' "$workflow"
             grep -Fq 'LoKeyBuild20UnifiedMealCalculator.patch' "$workflow"
+            grep -Fq 'LoKeyBuild21ConfirmedMealCapture.patch' "$workflow"
             if grep -Fq 'LoKeyBuild18MealUX.patch' "$workflow"; then
               echo "::error::The unreviewed protein-equivalent carb transfer is not release-approved."
               exit 1
@@ -223,6 +235,8 @@ jobs:
           grep -Fq 'let total = carbs + protein * data.proteinFactor' Loop/Loop/Views/CarbEntryView.swift
           grep -Fq 'Label("Use calculated amount in Loop"' Loop/Loop/Views/CarbEntryView.swift
           grep -Fq 'lastAppliedEquivalent = calculated' Loop/Loop/Views/CarbEntryView.swift
+          grep -Fq 'viewModel.lokeyOnCarbEntrySaved =' Loop/Loop/Views/CarbEntryView.swift
+          grep -Fq 'self.lokeyOnCarbEntrySaved?(storedCarbEntry)' "Loop/Loop/View Models/BolusEntryViewModel.swift"
           grep -Fq 'Loop carbs (review or edit)' Loop/Loop/Views/CarbEntryView.swift
           grep -Fq 'Button(action: viewModel.continueToBolus)' Loop/Loop/Views/CarbEntryView.swift
           # Exactly one meal entry component appears inside the native mainCard.
@@ -330,6 +344,9 @@ jobs:
           # Build 20: one combined calculator with user-confirmed carb equivalent.
           git -C Loop apply --check ../customizations/LoKeyBuild20UnifiedMealCalculator.patch
           git -C Loop apply ../customizations/LoKeyBuild20UnifiedMealCalculator.patch
+          # Build 21: record a meal once, only after native Loop CarbStore succeeds.
+          git -C Loop apply --check ../customizations/LoKeyBuild21ConfirmedMealCapture.patch
+          git -C Loop apply ../customizations/LoKeyBuild21ConfirmedMealCapture.patch
           git -C NightscoutService apply --check ../customizations/LoKeyT1PalNightscout.patch
           git -C NightscoutService apply ../customizations/LoKeyT1PalNightscout.patch
       # This is a source compilation smoke test, not an installable app package.
