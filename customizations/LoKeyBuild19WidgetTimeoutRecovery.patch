@@ -51,7 +51,7 @@ diff --git a/Loop Widget Extension/Timeline/StatusWidgetTimelineProvider.swift b
      static let stalenessAge = TimeInterval(minutes: 6)
  
      lazy var cacheStore = PersistenceController.controllerInAppGroupDirectory()
-@@ -91,31 +127,29 @@
+@@ -91,47 +127,37 @@
      }
      
      func update(completion: @escaping (StatusWidgetTimelimeEntry) -> Void) {
@@ -96,7 +96,8 @@ diff --git a/Loop Widget Extension/Timeline/StatusWidgetTimelineProvider.swift b
              guard let defaults = self.defaults,
                    let context = defaults.statusExtensionContext,
                    let contextUpdatedAt = context.createdAt,
-@@ -123,15 +157,7 @@
+-                  let unit = await healthStore.cachedPreferredUnits(for: .bloodGlucose)
++                  let unit = await self.healthStore.cachedPreferredUnits(for: .bloodGlucose)
              else {
                  // Always finish the snapshot/timeline callback. Otherwise iOS
                  // can show a permanently blank or spinning widget.
