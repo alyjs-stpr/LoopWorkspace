@@ -1,0 +1,147 @@
+diff --git a/Loop/Views/CarbEntryView.swift b/Loop/Views/CarbEntryView.swift
+--- a/Loop/Views/CarbEntryView.swift
++++ b/Loop/Views/CarbEntryView.swift
+@@ -146,6 +146,19 @@
+     private var bolusView: some View {
+         if let viewModel = viewModel.bolusViewModel {
+             BolusEntryView(viewModel: viewModel)
++                .onAppear {
++                    // Attach after the native bolus review appears. Successful
++                    // CarbStore persistence—not Continue—triggers the record.
++                    viewModel.lokeyOnCarbEntrySaved = { [adaptiveMeals] stored in
++                        DispatchQueue.main.async {
++                            guard var observation = adaptiveMeals.pendingObservation else { return }
++                            observation.loopCarbsRecorded = stored.quantity.doubleValue(for: .gram())
++                            observation.loopCarbEntryID = stored.uuid?.uuidString
++                            adaptiveMeals.add(observation)
++                            adaptiveMeals.pendingObservation = nil
++                        }
++                    }
++                }
+                 .environmentObject(displayGlucosePreference)
+                 .environment(\.dismissAction, dismiss)
+         }
+@@ -364,6 +377,8 @@
+     var actualCarbs: Double?
+     var actualProtein: Double?
+     var loopCarbsRecorded: Double?
++    // Stable HealthKit UUID when one is available, for local deduplication.
++    var loopCarbEntryID: String? = nil
+     var proteinFactor: Double
+     var possibleDelayedRise: Bool
+     var note: String
+@@ -387,6 +402,8 @@
+     @Published var proteinFactor: Double {
+         didSet { UserDefaults.standard.set(proteinFactor, forKey: Self.factorKey) }
+     }
++    // Only an in-memory pending draft: canceled carb entries are never recorded.
++    @Published var pendingObservation: LoKeyMealObservation?
+ 
+     init() {
+         let defaults = UserDefaults.standard
+@@ -405,7 +422,11 @@
+         return 1
+     }
+ 
++    func add(_ entry: LoKeyMealObservation) {
++        if let id = entry.loopCarbEntryID,
++           history.contains(where: { $0.loopCarbEntryID == id }) { return }
++        history.insert(entry, at: 0)
++    }
+-    func add(_ entry: LoKeyMealObservation) { history.insert(entry, at: 0) }
+     func delete(_ ids: Set<UUID>) { history.removeAll { ids.contains($0.id) } }
+ 
+     private func persist<T: Encodable>(_ value: T, key: String) {
+@@ -594,7 +615,6 @@
+     @State private var possibleDelayedRise = false
+     @State private var note = ""
+     @State private var lastAppliedEquivalent: Double?
+-    @State private var didSave = false
+     @FocusState private var focusedMealInput: MealInput?
+ 
+     private enum MealInput: Hashable {
+@@ -750,18 +770,7 @@
+             TextField("Meal notes (optional)", text: $note)
+                 .focused($focusedMealInput, equals: .note)
+ 
++            Text("Meal details will be saved automatically only after Loop successfully saves the carb entry. Canceling will not record the meal.")
+-            Button("Save meal observation") {
+-                saveObservation()
+-            }
+-            .disabled(!canSave)
+-
+-            if didSave {
+-                Label("Observation saved locally", systemImage: "checkmark.circle")
+-                    .font(.footnote)
+-                    .foregroundColor(.green)
+-            }
+-
+-            Text("Saving your meal observation does not create a Loop carb entry or deliver insulin.")
+                 .font(.caption)
+                 .foregroundColor(.secondary)
+         }
+@@ -773,28 +782,31 @@
+                     .font(.headline)
+             }
+         }
++        .onAppear { updatePendingObservation() }
++        .onChange(of: meal) { _ in updatePendingObservation() }
++        .onChange(of: actualCarbsText) { _ in updatePendingObservation() }
++        .onChange(of: actualProteinText) { _ in updatePendingObservation() }
++        .onChange(of: possibleDelayedRise) { _ in updatePendingObservation() }
++        .onChange(of: note) { _ in updatePendingObservation() }
++        .onChange(of: loopDate) { _ in updatePendingObservation() }
++        .onChange(of: data.proteinFactor) { _ in updatePendingObservation() }
+     }
+ 
++    private func updatePendingObservation() {
++        // A missing nutrient stays nil; never invent grams for training.
++        let carbs = valid(measuredCarbs) ? measuredCarbs : nil
++        let protein = valid(measuredProtein) ? measuredProtein : nil
++        data.pendingObservation = LoKeyMealObservation(
+-    private func saveObservation() {
+-        guard let carbs = measuredCarbs, let protein = measuredProtein, canSave else { return }
+-        // The observed meal may be saved before Loop's native carb and bolus
+-        // confirmations. Don't claim that copied/proposed carbs were logged.
+-        data.add(LoKeyMealObservation(
+             date: loopDate,
+             meal: meal,
++            carbCategory: carbs.map { data.classify($0, baseline: data.baselineCarbs[meal.rawValue]) } ?? 1,
++            proteinCategory: protein.map { data.classify($0, baseline: data.baselineProtein[meal.rawValue]) } ?? 1,
+-            carbCategory: data.classify(carbs, baseline: data.baselineCarbs[meal.rawValue]),
+-            proteinCategory: data.classify(protein, baseline: data.baselineProtein[meal.rawValue]),
+             actualCarbs: carbs,
+             actualProtein: protein,
+             loopCarbsRecorded: nil,
+             proteinFactor: data.proteinFactor,
+             possibleDelayedRise: possibleDelayedRise,
+             note: note.trimmingCharacters(in: .whitespacesAndNewlines)
++        )
+-        ))
+-        didSave = true
+-        actualCarbsText = ""
+-        actualProteinText = ""
+-        possibleDelayedRise = false
+-        note = ""
+     }
+ }
+diff --git a/Loop/View Models/BolusEntryViewModel.swift b/Loop/View Models/BolusEntryViewModel.swift
+--- a/Loop/View Models/BolusEntryViewModel.swift
++++ b/Loop/View Models/BolusEntryViewModel.swift
+@@ -112,6 +112,8 @@
+     let originalCarbEntry: StoredCarbEntry?
+     let potentialCarbEntry: NewCarbEntry?
+     let selectedCarbAbsorptionTimeEmoji: String?
++    // Optional observation hook; never changes the CarbStore or insulin dosing.
++    var lokeyOnCarbEntrySaved: ((StoredCarbEntry) -> Void)?
+ 
+     @Published var recommendedBolus: HKQuantity?
+     var recommendedBolusAmount: Double? {
+@@ -407,6 +409,7 @@
+             }
+             if let storedCarbEntry = await saveCarbEntry(carbEntry, replacingEntry: originalCarbEntry) {
+                 self.dosingDecision.carbEntry = storedCarbEntry
++                self.lokeyOnCarbEntrySaved?(storedCarbEntry)
+                 self.analyticsServicesManager?.didAddCarbs(source: "Phone", amount: storedCarbEntry.quantity.doubleValue(for: .gram()))
+             } else {
+                 self.presentAlert(.carbEntryPersistenceFailure)
