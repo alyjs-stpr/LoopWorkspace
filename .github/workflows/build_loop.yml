@@ -272,6 +272,9 @@ jobs:
           # Widget-only recovery: keep timeline completion non-blocking with fallback.
           git -C Loop apply --check ../customizations/LoKeyBuild19WidgetTimeoutRecovery.patch
           git -C Loop apply ../customizations/LoKeyBuild19WidgetTimeoutRecovery.patch
+          # Build 20: one combined calculator with user-confirmed carb equivalent.
+          git -C Loop apply --check ../customizations/LoKeyBuild20UnifiedMealCalculator.patch
+          git -C Loop apply ../customizations/LoKeyBuild20UnifiedMealCalculator.patch
           echo "LoKey final dashboard polish applied."
           echo "LoKey T1D rounded chart cards and shared Now markers applied."
 
