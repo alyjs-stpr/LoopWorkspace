@@ -89,6 +89,9 @@ jobs:
           # Widget-only recovery: keep timeline completion non-blocking with fallback.
           git -C Loop apply --check ../customizations/LoKeyBuild19WidgetTimeoutRecovery.patch
           git -C Loop apply ../customizations/LoKeyBuild19WidgetTimeoutRecovery.patch
+          # Build 20: one combined calculator with user-confirmed carb equivalent.
+          git -C Loop apply --check ../customizations/LoKeyBuild20UnifiedMealCalculator.patch
+          git -C Loop apply ../customizations/LoKeyBuild20UnifiedMealCalculator.patch
       - name: Parse modified Swift files
         shell: bash
         run: |
@@ -141,11 +144,13 @@ jobs:
           grep -Fq 'baselineProtein = p?.count == 4' "$file"
           grep -Fq 'loopCarbsRecorded' "$file"
           grep -Fq 'possibleDelayedRise' "$file"
-          grep -Fq 'Saving an observation is not a carb entry or a bolus.' "$file"
+          grep -Fq 'Saving your meal observation does not create a Loop carb entry or deliver insulin.' "$file"
           # Unified entry is UI-only: explicit carb copy, native Continue and bolus remain.
           grep -Fq 'LoKeyInlineMealEntry(' "$file"
-          grep -Fq 'Button("Confirm carb copy")' "$file"
-          grep -Fq 'loopCarbs = HKQuantity(unit: .gram(), doubleValue: grams).doubleValue(for: loopCarbUnit)' "$file"
+          grep -Fq 'Label("Use calculated amount in Loop"' "$file"
+          grep -Fq 'Slider(value: $data.proteinFactor, in: 0...1, step: 0.05)' "$file"
+          grep -Fq 'let total = carbs + protein * data.proteinFactor' "$file"
+          grep -Fq 'loopCarbs = HKQuantity(unit: .gram(), doubleValue: calculated).doubleValue(for: loopCarbUnit)' "$file"
           grep -Fq 'Button(action: viewModel.continueToBolus)' "$file"
           grep -Fq 'BolusEntryView(viewModel: viewModel)' "$file"
           grep -Fq 'loggedCarbStartTimes: carbEntries.map' "Loop/Loop/Managers/LoopDataManager.swift"
@@ -166,6 +171,7 @@ jobs:
             grep -Fq 'LoKeyBuild18KeyboardOnly.patch' "$workflow"
             grep -Fq 'LoKeyBuild18ReportsUX.patch' "$workflow"
             grep -Fq 'LoKeyBuild19WidgetTimeoutRecovery.patch' "$workflow"
+            grep -Fq 'LoKeyBuild20UnifiedMealCalculator.patch' "$workflow"
             if grep -Fq 'LoKeyBuild18MealUX.patch' "$workflow"; then
               echo "::error::The unreviewed protein-equivalent carb transfer is not release-approved."
               exit 1
@@ -214,10 +220,15 @@ jobs:
           grep -Fq 'Button("Done")' customizations/LoKeyBuild18KeyboardOnly.patch
           grep -Fq 'targetsItem.menu = UIMenu' customizations/LoKeyBuild18ToolbarLayout.patch
           grep -Fq 'pickerStyle(.menu)' customizations/LoKeyBuild18ReportsUX.patch
-          grep -Fq 'Copy actual carbs into Loop field' Loop/Loop/Views/CarbEntryView.swift
-          grep -Fq 'Button("Confirm carb copy")' Loop/Loop/Views/CarbEntryView.swift
-          if grep -Fq 'proposedLoopCarbs' Loop/Loop/Views/CarbEntryView.swift; then
-            echo '::error::Experimental protein-equivalent dosing UI must not be included'
+          grep -Fq 'let total = carbs + protein * data.proteinFactor' Loop/Loop/Views/CarbEntryView.swift
+          grep -Fq 'Label("Use calculated amount in Loop"' Loop/Loop/Views/CarbEntryView.swift
+          grep -Fq 'lastAppliedEquivalent = calculated' Loop/Loop/Views/CarbEntryView.swift
+          grep -Fq 'Loop carbs (review or edit)' Loop/Loop/Views/CarbEntryView.swift
+          grep -Fq 'Button(action: viewModel.continueToBolus)' Loop/Loop/Views/CarbEntryView.swift
+          # Exactly one meal entry component appears inside the native mainCard.
+          [ "$(grep -Fc 'LoKeyInlineMealEntry(' Loop/Loop/Views/CarbEntryView.swift)" -eq 1 ]
+          if grep -Fq 'showCopyConfirmation' Loop/Loop/Views/CarbEntryView.swift; then
+            echo '::error::Duplicate calculator confirmation remains'
             exit 1
           fi
 
@@ -316,6 +327,9 @@ jobs:
           # Widget-only recovery: keep timeline completion non-blocking with fallback.
           git -C Loop apply --check ../customizations/LoKeyBuild19WidgetTimeoutRecovery.patch
           git -C Loop apply ../customizations/LoKeyBuild19WidgetTimeoutRecovery.patch
+          # Build 20: one combined calculator with user-confirmed carb equivalent.
+          git -C Loop apply --check ../customizations/LoKeyBuild20UnifiedMealCalculator.patch
+          git -C Loop apply ../customizations/LoKeyBuild20UnifiedMealCalculator.patch
           git -C NightscoutService apply --check ../customizations/LoKeyT1PalNightscout.patch
           git -C NightscoutService apply ../customizations/LoKeyT1PalNightscout.patch
       # This is a source compilation smoke test, not an installable app package.
