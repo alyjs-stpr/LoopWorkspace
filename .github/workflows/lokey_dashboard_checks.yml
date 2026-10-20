@@ -86,6 +86,9 @@ jobs:
           git -C Loop apply ../customizations/LoKeyBuild18KeyboardOnly.patch
           git -C Loop apply --check ../customizations/LoKeyBuild18ReportsUX.patch
           git -C Loop apply ../customizations/LoKeyBuild18ReportsUX.patch
+          # Widget-only recovery: keep timeline completion non-blocking with fallback.
+          git -C Loop apply --check ../customizations/LoKeyBuild19WidgetTimeoutRecovery.patch
+          git -C Loop apply ../customizations/LoKeyBuild19WidgetTimeoutRecovery.patch
       - name: Parse modified Swift files
         shell: bash
         run: |
@@ -162,6 +165,7 @@ jobs:
             grep -Fq 'LoKeyBuild18ToolbarLayout.patch' "$workflow"
             grep -Fq 'LoKeyBuild18KeyboardOnly.patch' "$workflow"
             grep -Fq 'LoKeyBuild18ReportsUX.patch' "$workflow"
+            grep -Fq 'LoKeyBuild19WidgetTimeoutRecovery.patch' "$workflow"
             if grep -Fq 'LoKeyBuild18MealUX.patch' "$workflow"; then
               echo "::error::The unreviewed protein-equivalent carb transfer is not release-approved."
               exit 1
@@ -214,6 +218,15 @@ jobs:
           grep -Fq 'Button("Confirm carb copy")' Loop/Loop/Views/CarbEntryView.swift
           if grep -Fq 'proposedLoopCarbs' Loop/Loop/Views/CarbEntryView.swift; then
             echo '::error::Experimental protein-equivalent dosing UI must not be included'
+            exit 1
+          fi
+
+          # Widget update should never synchronously wait for glucose cache.
+          grep -Fq 'private final class EntryCompletion' customizations/LoKeyBuild19WidgetTimeoutRecovery.patch
+          grep -Fq 'delivery.finish(Self.unavailableEntry())' customizations/LoKeyBuild19WidgetTimeoutRecovery.patch
+          grep -Fq 'asyncAfter(deadline: .now() + 4)' customizations/LoKeyBuild19WidgetTimeoutRecovery.patch
+          if grep -Fq 'group.wait()' Loop/'Loop Widget Extension'/Timeline/StatusWidgetTimelineProvider.swift; then
+            echo '::error::Blocking widget cache wait remains'
             exit 1
           fi
 
@@ -300,6 +313,9 @@ jobs:
           git -C Loop apply ../customizations/LoKeyBuild18KeyboardOnly.patch
           git -C Loop apply --check ../customizations/LoKeyBuild18ReportsUX.patch
           git -C Loop apply ../customizations/LoKeyBuild18ReportsUX.patch
+          # Widget-only recovery: keep timeline completion non-blocking with fallback.
+          git -C Loop apply --check ../customizations/LoKeyBuild19WidgetTimeoutRecovery.patch
+          git -C Loop apply ../customizations/LoKeyBuild19WidgetTimeoutRecovery.patch
           git -C NightscoutService apply --check ../customizations/LoKeyT1PalNightscout.patch
           git -C NightscoutService apply ../customizations/LoKeyT1PalNightscout.patch
       # This is a source compilation smoke test, not an installable app package.

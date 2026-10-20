@@ -1,0 +1,126 @@
+diff --git a/Loop Widget Extension/Timeline/StatusWidgetTimelineProvider.swift b/Loop Widget Extension/Timeline/StatusWidgetTimelineProvider.swift
+--- a/Loop Widget Extension/Timeline/StatusWidgetTimelineProvider.swift
++++ b/Loop Widget Extension/Timeline/StatusWidgetTimelineProvider.swift
+@@ -6,6 +6,7 @@
+ //  Copyright © 2023 LoopKit Authors. All rights reserved.
+ //
+ 
++import Foundation
+ import HealthKit
+ import LoopCore
+ import LoopKit
+@@ -19,6 +20,41 @@
+ 
+     private let log = OSLog(category: "LoopWidgets")
+ 
++    // WidgetKit can stop drawing the extension if a provider never calls
++    // completion. Guard all paths and avoid completing a request twice when
++    // the cache is slow and a timeout fallback has already been delivered.
++    private final class EntryCompletion: @unchecked Sendable {
++        private let lock = NSLock()
++        private var delivered = false
++        private let handler: (StatusWidgetTimelimeEntry) -> Void
++
++        init(_ handler: @escaping (StatusWidgetTimelimeEntry) -> Void) {
++            self.handler = handler
++        }
++
++        func finish(_ entry: StatusWidgetTimelimeEntry) {
++            lock.lock()
++            let shouldDeliver = !delivered
++            delivered = true
++            lock.unlock()
++            if shouldDeliver {
++                handler(entry)
++            }
++        }
++    }
++
++    private static func unavailableEntry() -> StatusWidgetTimelimeEntry {
++        StatusWidgetTimelimeEntry(
++            date: Date(), contextUpdatedAt: .distantPast,
++            lastLoopCompleted: nil, closeLoop: false,
++            currentGlucose: nil, glucoseFetchedAt: nil,
++            delta: nil, unit: nil, sensor: nil, pumpHighlight: nil,
++            netBasal: nil, eventualGlucose: nil,
++            preMealPresetAllowed: false, preMealPresetActive: false,
++            customPresetActive: false
++        )
++    }
++
+     static let stalenessAge = TimeInterval(minutes: 6)
+ 
+     lazy var cacheStore = PersistenceController.controllerInAppGroupDirectory()
+@@ -91,47 +127,37 @@
+     }
+     
+     func update(completion: @escaping (StatusWidgetTimelimeEntry) -> Void) {
+-        let group = DispatchGroup()
+-
+-        var glucose: [StoredGlucoseSample] = []
++        let delivery = EntryCompletion(completion)
++        // The old DispatchGroup.wait() blocked the widget provider during
++        // cache reads, sometimes until WidgetKit stopped rendering the view.
++        // Keep the read asynchronous and return a visible empty-state entry
++        // within the extension time budget if the store cannot respond.
++        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 4) {
++            delivery.finish(Self.unavailableEntry())
++        }
+ 
+-        // Preserve a recent cached BG for stale-but-labelled display if iOS
+-        // delays a widget refresh. Never present a cached value as fresh.
++        // Preserve recent cached BG for explicitly stale display.
+         let startDate = Date(timeIntervalSinceNow: -.minutes(45))
+-
+-        group.enter()
+         glucoseStore.getGlucoseSamples(start: startDate) { (result) in
++            let finalGlucose: [StoredGlucoseSample]
+             switch result {
+             case .failure:
+                 self.log.error("Failed to fetch glucose after %{public}@", String(describing: startDate))
+-                glucose = []
++                finalGlucose = []
+             case .success(let samples):
+                 self.log.default("Fetched glucose: last = %{public}@, %{public}@", String(describing: samples.last?.startDate), String(describing: samples.last?.quantity))
+-                glucose = samples
++                finalGlucose = samples
+             }
+-            group.leave()
+-        }
+-        group.wait()
+ 
+-        let finalGlucose = glucose
+-
+-        Task { @MainActor in
++            Task { @MainActor in
+             guard let defaults = self.defaults,
+                   let context = defaults.statusExtensionContext,
+                   let contextUpdatedAt = context.createdAt,
+-                  let unit = await healthStore.cachedPreferredUnits(for: .bloodGlucose)
++                  let unit = await self.healthStore.cachedPreferredUnits(for: .bloodGlucose)
+             else {
+                 // Always finish the snapshot/timeline callback. Otherwise iOS
+                 // can show a permanently blank or spinning widget.
+-                completion(StatusWidgetTimelimeEntry(
+-                    date: Date(), contextUpdatedAt: .distantPast,
+-                    lastLoopCompleted: nil, closeLoop: false,
+-                    currentGlucose: nil, glucoseFetchedAt: nil,
+-                    delta: nil, unit: nil, sensor: nil, pumpHighlight: nil,
+-                    netBasal: nil, eventualGlucose: nil,
+-                    preMealPresetAllowed: false, preMealPresetActive: false,
+-                    customPresetActive: false
+-                ))
++                delivery.finish(Self.unavailableEntry())
+                 return
+             }
+ 
+@@ -190,7 +216,8 @@
+             self.log.default("StatusWidgetTimelimeEntry = %{public}@", String(describing: entry))
+             self.log.default("pumpHighlight = %{public}@", String(describing: entry.pumpHighlight))
+ 
+-            completion(entry)
++            delivery.finish(entry)
++            }
+         }
+     }
+ }

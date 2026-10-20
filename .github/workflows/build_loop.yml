@@ -269,6 +269,9 @@ jobs:
           git -C Loop apply ../customizations/LoKeyBuild18KeyboardOnly.patch
           git -C Loop apply --check ../customizations/LoKeyBuild18ReportsUX.patch
           git -C Loop apply ../customizations/LoKeyBuild18ReportsUX.patch
+          # Widget-only recovery: keep timeline completion non-blocking with fallback.
+          git -C Loop apply --check ../customizations/LoKeyBuild19WidgetTimeoutRecovery.patch
+          git -C Loop apply ../customizations/LoKeyBuild19WidgetTimeoutRecovery.patch
           echo "LoKey final dashboard polish applied."
           echo "LoKey T1D rounded chart cards and shared Now markers applied."
 
