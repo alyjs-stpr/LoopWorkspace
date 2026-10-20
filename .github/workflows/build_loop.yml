@@ -275,6 +275,9 @@ jobs:
           # Build 20: one combined calculator with user-confirmed carb equivalent.
           git -C Loop apply --check ../customizations/LoKeyBuild20UnifiedMealCalculator.patch
           git -C Loop apply ../customizations/LoKeyBuild20UnifiedMealCalculator.patch
+          # Build 21: record a meal once, only after native Loop CarbStore succeeds.
+          git -C Loop apply --check ../customizations/LoKeyBuild21ConfirmedMealCapture.patch
+          git -C Loop apply ../customizations/LoKeyBuild21ConfirmedMealCapture.patch
           echo "LoKey final dashboard polish applied."
           echo "LoKey T1D rounded chart cards and shared Now markers applied."
 
