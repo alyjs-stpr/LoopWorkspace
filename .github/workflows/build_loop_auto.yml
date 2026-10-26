@@ -319,6 +319,11 @@ jobs:
           # Compact interactive park control center, separate from Loop dosing.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyParkControls.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyParkControls.patch
+          # Read-only adaptive shadow on successful normal Loop cycles.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyAdaptiveShadowCapture.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyAdaptiveShadowCapture.patch
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyAdaptiveShadowUI.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyAdaptiveShadowUI.patch
           echo "LoKey final dashboard polish applied."
           echo "LoKey T1D rounded chart cards and shared Now markers applied."
 
