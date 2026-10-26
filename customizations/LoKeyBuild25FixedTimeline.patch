@@ -25,6 +25,10 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +            let fraction = currentPlotFraction == nil ? nowFraction : currentPlotFraction?()
 +            guard let nowFraction = fraction, nowFraction.isFinite else { return }
 +            let plotWidth = max(0, bounds.width - plotLeadingInset - plotTrailingInset)
+@@ -228,1 +228,2 @@
+-    private var lokeyForecastHours = 3
++    // Fixed dashboard horizon: the previous selector could leave the Now overlay stale.
++    private var lokeyForecastHours = 6
 @@ -295,16 +295,6 @@
 -        // A refreshed cell can be configured before ChartsManager rebuilds its
 -        // x-axis tick values. Never hide the Now marker during that transition.
@@ -48,10 +52,12 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +        marker.currentPlotFraction = { [weak self] in
 +            self?.charts.plotFraction(for: Date())
 +        }
-@@ -228,1 +228,2 @@
--    private var lokeyForecastHours = 3
-+    // Fixed dashboard horizon: the previous selector could leave the Now overlay stale.
-+    private let lokeyForecastHours = 6
+@@ -311,1 +311,1 @@
+-        topConstraint?.constant = isGlucose ? 77 : 0
++        topConstraint?.constant = isGlucose ? 46 : 0
+@@ -335,1 +335,1 @@
+-        caption.text = "Forecast · " + (statusCharts.glucose.glucoseUnit == .milligramsPerDeciliter ? "mg/dL" : "mmol/L")
++        caption.text = "Past 1h · Next 6h · " + (statusCharts.glucose.glucoseUnit == .milligramsPerDeciliter ? "mg/dL" : "mmol/L")
 @@ -370,18 +370,3 @@
 -        let selector = UISegmentedControl(items: ["1h", "3h", "6h"])
 -        selector.selectedSegmentIndex = [1, 3, 6].firstIndex(of: lokeyForecastHours) ?? 1
@@ -74,15 +80,9 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +        // One fixed, shared timeline for every chart. No selector can leave
 +        // an older axis displayed while a newer prediction refreshes.
 +        let controls = UIStackView(arrangedSubviews: [predictions])
-@@ -311,1 +311,1 @@
--        topConstraint?.constant = isGlucose ? 77 : 0
-+        topConstraint?.constant = isGlucose ? 46 : 0
 @@ -385,1 +385,1 @@
 -            controls.heightAnchor.constraint(equalToConstant: 65)
 +            controls.heightAnchor.constraint(equalToConstant: 34)
-@@ -335,1 +335,1 @@
--        caption.text = "Forecast · " + (statusCharts.glucose.glucoseUnit == .milligramsPerDeciliter ? "mg/dL" : "mmol/L")
-+        caption.text = "Past 1h · Next 6h · " + (statusCharts.glucose.glucoseUnit == .milligramsPerDeciliter ? "mg/dL" : "mmol/L")
 @@ -468,2 +468,1 @@
 -        let savedForecast = UserDefaults.standard.integer(forKey: "LoKeyDashboardForecastHoursV1")
 -        lokeyForecastHours = [1, 3, 6].contains(savedForecast) ? savedForecast : 3
