@@ -157,7 +157,7 @@ jobs:
           grep -Fq 'baselineProtein = p?.count == 4' "$file"
           grep -Fq 'loopCarbsRecorded' "$file"
           grep -Fq 'possibleDelayedRise' "$file"
-          grep -Fq 'Meal details will be saved automatically only after Loop successfully saves the carb entry.' "$file"
+          grep -Fq 'Meal details are recorded only after Loop saves carbs. Cancel discards the entry.' "$file"
           # Unified entry is UI-only: explicit carb copy, native Continue and bolus remain.
           grep -Fq 'LoKeyInlineMealEntry(' "$file"
           grep -Fq 'Label("Use calculated amount in Loop"' "$file"
