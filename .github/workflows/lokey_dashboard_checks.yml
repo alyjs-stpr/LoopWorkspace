@@ -41,6 +41,9 @@ jobs:
           git -C Loop apply ../customizations/LoKeyChartColors.patch
           git -C LoopKit apply --check ../customizations/LoKeyAxisReadability.patch
           git -C LoopKit apply ../customizations/LoKeyAxisReadability.patch
+          # Exact chart-axis endpoints; read-only presentation fix.
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild26ExactAxisBounds.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild26ExactAxisBounds.patch
           git -C Loop apply --check ../customizations/LoKeyReports.patch
           git -C Loop apply ../customizations/LoKeyReports.patch
           git -C Loop apply --check ../customizations/LoKeyTIRShortcut.patch
@@ -308,6 +311,7 @@ jobs:
 
           for workflow in .github/workflows/build_loop.yml .github/workflows/build_loop_auto.yml; do
             grep -Fq 'LoKeyAxisReadability.patch' "$workflow"
+            grep -Fq 'LoKeyBuild26ExactAxisBounds.patch' "$workflow"
             grep -Fq 'LoKeyReports.patch' "$workflow"
             grep -Fq 'LoKeyDashboardInsights.patch' "$workflow"
             grep -Fq 'LoKeyDashboardPolish.patch' "$workflow"
@@ -348,6 +352,9 @@ jobs:
           git -C LoopKit apply ../customizations/LoKeyFoodEmojis.patch
           git -C LoopKit apply --check ../customizations/LoKeyAxisReadability.patch
           git -C LoopKit apply ../customizations/LoKeyAxisReadability.patch
+          # Exact chart-axis endpoints; read-only presentation fix.
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild26ExactAxisBounds.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild26ExactAxisBounds.patch
           git -C Loop apply --check ../customizations/LoKeyReports.patch
           git -C Loop apply ../customizations/LoKeyReports.patch
           git -C Loop apply --check ../customizations/LoKeyTIRShortcut.patch
