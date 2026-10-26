@@ -1,57 +1,84 @@
-# LoKey Adaptive Controller — Experimental Foundation
+# LoKey Adaptive — Read-Only Live Shadow Pilot
 
-This is the **first implementation of the experimental decision policy**, not a
-live insulin-dosing release. It is deliberately outside the signed LoKey app's
-pump-command path. It does **not** link to OmnipodKit, request a bolus, adjust
-basal, or modify Loop settings.
+This feature is an **opt-in, native iOS observation system**. It observes
+successfully completed normal Loop cycles and records evaluations from the
+same Swift shadow policy used by the standalone replay program.
 
-## What works now
+**It cannot administer insulin or change Loop settings.** Normal Loop remains
+the sole insulin controller. This PR stays separate from Build 23 and PR #13.
 
-- Deterministic evaluation of actual or recorded Loop-style glucose prediction
-  snapshots against the user's selected Theme Park target range.
-- A candidate *shadow* target within that selected range, with priority given
-  to predicted lows when both low and high excursions appear in the forecast.
-  **A shadow target does not affect real insulin delivery.**
-- Fail-closed handling of stale CGM readings, stale Loop calculations,
-  incomplete forecasts, unreconciled dose history, uncertain pump delivery,
-  and unknown IOB.
-- A test-only ownership/handoff model that preserves pending-delivery and
-  reconciliation gates instead of assuming the handoff is automatically safe.
-- Replay of newline-delimited JSON snapshots against this exact Swift policy.
+## On-phone behavior (after this PR is validated, merged, and built)
 
-## Run tests
+1. Open **Theme Park Mode → Adaptive Shadow → Record live shadow decisions**.
+2. When enabled, each normal Loop completion can trigger a read-only snapshot,
+   including when Loop runs in the background. iOS does **not** guarantee a
+   certain background recording frequency.
+3. Snapshots contain current CGM reading, native Loop glucose predictions,
+   recorded IOB and COB, native recommended automatic bolus (if available),
+   and DoseStore-reported programmed and *delivered* insulin entries.
+4. The identical tested Swift policy evaluates a hypothetical target
+   preference within your currently active park target. If inactive, stale,
+   or uncertain, it records the reason instead of an eligible preference.
+5. Open **Export Shadow Records** to share the recorded JSONL files for replay
+   and outcome analysis. Export is **user initiated only**.
 
-From the repository root on a machine with Swift installed:
+The switch defaults to **OFF** and is independent of actual Theme Park Mode.
+Once explicitly turned ON, recording continues on completed normal Loop
+cycles **even outside the active park target session** until turned OFF.
+Actual insulin delivery and temporary target overrides remain Loop-owned.
+
+## Local handling of sensitive data
+
+Records are kept locally in Application Support, protected after first unlock,
+excluded from system backups, and removed after 14 days. No shadow records
+are uploaded automatically. Files are **sensitive medical data**; treat an
+export like a medical record and share only intentionally. There is no cloud
+synchronization, model training, or automatic adjustment of therapy settings.
+
+## Run the exact policy and retrospective analysis off-device
 
     swift test --package-path AdaptiveController
 
-Run recorded snapshots (only input explicitly provided by the user):
+Replay real shadow-record files:
 
-    swift run --package-path AdaptiveController lokey-adaptive-replay < snapshots.jsonl
+    swift run --package-path AdaptiveController lokey-adaptive-replay < export.jsonl
 
-The JSON schema is the public \`LoKeyAdaptive.Snapshot\` Codable type in
-\`Sources/LoKeyAdaptiveCore/Controller.swift\`, with ISO-8601 timestamps.
+Evaluate actual later CGM readings versus **normal Loop's original forecast**:
 
-## Milestones required before consideration for a live controller
+    swift run --package-path AdaptiveController lokey-adaptive-replay --outcomes < export.jsonl
 
-1. Create an audited, read-only bridge from native Loop glucose predictions and
-   **DoseStore** IOB into Snapshot; confirm numerical units, timing, and
-   provenance. Never reconstruct IOB from a UI string.
-2. Define an actual adaptive insulin policy in consultation with appropriate
-   safety expertise; no arbitrary increases or hidden changes to insulin delivery.
-3. Establish replay fixtures from consented historical readings and deliverability
-   events; separately compare real versus counterfactual predictions.
-4. Test a simulated pump end to end, including retries, delayed acknowledgments,
-   stale CGM data, disconnects, changes to effective targets, app restarts,
-   and simultaneous controller requests.
-5. Demonstrate atomic handoff with a **single** pump-command owner and
-   preserved, reconciled dose history.
-6. Independently review failure-mode coverage and test evidence before live use.
+The `--outcomes` report measures forecast errors at 30, 60, 120 and 180
+minutes **only where a subsequent real CGM reading exists**. It does not
+claim to observe or measure what would have happened if the shadow target
+had controlled insulin instead.
 
-## Explicit non-goals of this PR
+## Current safeguards and limits
 
-- It **does not** authorize or issue live insulin dosing.
-- It **does not** affect the already deployed Theme Park UI or native Loop
-  bolus/automatic dosing logic.
-- Passing these unit tests is necessary engineering evidence; it does not
-  demonstrate clinical safety or qualify a controller for live use.
+- Native capture runs from Loop's **LoopCompleted** event, not the dashboard.
+  A successfully completed Loop cycle must occur for each record.
+- Missing, stale or invalid data, delivery uncertainty, or IOB disagreement
+  block eligible adaptive recommendations.
+- Recent pump data and a successful DoseStore read are a **limited proxy**
+  for reconciliation; not proof that all delivery commands were executed.
+  This proxy is strictly observation-only and must never authorize dosing.
+- Every observation captures native requested/programmed and confirmed
+  delivered insulin separately. An unconfirmed programmed dose is **not**
+  treated as delivered insulin.
+- The policy is kept byte-for-byte identical in its native iOS copy and
+  its Swift package; CI checks this before accepting any app integration.
+- Normal Loop therapy behavior must not change, even if shadow recording
+  fails, freezes, or is disabled.
+
+## Next work before any live experimental controller
+
+- Validate recorded streams for completeness, especially overnight and
+  app restarts; explicitly track missed cycles and data quality.
+- Add clinically and technically appropriate glucose-response modeling,
+  training/hold-out separation, calibration checks and drift detection.
+- Build an end-to-end simulated pump and verify pending-command handling,
+  IOB reconciliation, scheduling conflicts, target expiration and failover.
+- Review failure modes and independent evidence before considering live
+  automatic insulin-delivery integration.
+
+Passing Swift tests and simulator compilation **does not validate the
+experimental policy as safe to administer insulin.**
