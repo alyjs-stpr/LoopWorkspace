@@ -95,12 +95,22 @@ jobs:
           # Build 21: record a meal once, only after native Loop CarbStore succeeds.
           git -C Loop apply --check ../customizations/LoKeyBuild21ConfirmedMealCapture.patch
           git -C Loop apply ../customizations/LoKeyBuild21ConfirmedMealCapture.patch
+          # Theme Park Mode: independent temporary correction target and
+          # native carb-save options. Existing insulin prediction stays unchanged.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyThemeParkMode.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyThemeParkMode.patch
+          # Forecast selector: one hour of history plus the next 1 / 3 / 6 hours.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyForecastWindows.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyForecastWindows.patch
+          # Simplify meal entry and suggest the meal type using its timestamp.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyMealEntryPolish.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyMealEntryPolish.patch
       - name: Parse modified Swift files
         shell: bash
         run: |
           set -euo pipefail
           command -v swiftc
-          swiftc -frontend -parse "Loop/Loop Widget Extension/Timeline/StatusWidgetTimelineProvider.swift" "Loop/Loop Widget Extension/Components/GlucoseView.swift" "Loop/Loop/View Controllers/StatusTableViewController.swift" "Loop/LoopUI/Views/StatusBarHUDView.swift" "Loop/Loop/Views/SettingsView.swift" "Loop/Loop/Views/CarbEntryView.swift" "Loop/Loop/View Models/BolusEntryViewModel.swift" "Loop/Loop/Managers/LoopDataManager.swift" "Loop/Loop/Managers/Missed Meal Detection/MealDetectionManager.swift" "Loop/LoopTests/Managers/MealDetectionManagerTests.swift" "LoopKit/LoopKitUI/View Controllers/ChartsManager.swift" "LoopKit/LoopKitUI/Charts/DoseChart.swift"
+          swiftc -frontend -parse "Loop/Loop Widget Extension/Timeline/StatusWidgetTimelineProvider.swift" "Loop/Loop Widget Extension/Components/GlucoseView.swift" "Loop/Loop/View Controllers/StatusTableViewController.swift" "Loop/LoopUI/Views/StatusBarHUDView.swift" "Loop/Loop/Views/SettingsView.swift" "Loop/Loop/Views/CarbEntryView.swift" "Loop/Loop/Views/BolusEntryView.swift" "Loop/Loop/View Models/BolusEntryViewModel.swift" "Loop/Loop/Managers/LoopDataManager.swift" "Loop/Loop/Managers/Missed Meal Detection/MealDetectionManager.swift" "Loop/LoopTests/Managers/MealDetectionManagerTests.swift" "LoopKit/LoopKitUI/View Controllers/ChartsManager.swift" "LoopKit/LoopKitUI/Charts/DoseChart.swift"
       - name: Execute source-derived missed-meal notification timing checks
         shell: bash
         run: |
@@ -118,7 +128,7 @@ jobs:
           grep -q 'case dose' "$FILE"
           grep -q 'case cob' "$FILE"
           grep -q 'case metrics' "$FILE"
-          grep -q 'lokeyHistoryChanged' "$FILE"
+          grep -q 'lokeyForecastChanged' "$FILE"
           grep -q 'LoKeyNowOverlayView' "$FILE"
           grep -q 'reportsItem' "$FILE"
           grep -q 'LoKeyCGMTIRStatistics' "Loop/Loop/Views/SettingsView.swift"
@@ -127,7 +137,7 @@ jobs:
           grep -q 'tickHours' "LoopKit/LoopKitUI/View Controllers/ChartsManager.swift"
           grep -q 'bolusPlanned' "$FILE"
           grep -q 'lokeyInstallStatusBarScrim' "$FILE"
-          grep -q 'LoKeyDashboardHistoryHours' "$FILE"
+          grep -q 'LoKeyDashboardForecastHoursV1' "$FILE"
           grep -q 'useSparseTimeAxisLabels' "$FILE"
           grep -q 'plotLeadingInset' "$FILE"
           grep -q 'lokeyGlucoseDeltaTimestamp' "$FILE"
@@ -147,7 +157,7 @@ jobs:
           grep -Fq 'baselineProtein = p?.count == 4' "$file"
           grep -Fq 'loopCarbsRecorded' "$file"
           grep -Fq 'possibleDelayedRise' "$file"
-          grep -Fq 'Meal details will be saved automatically only after Loop successfully saves the carb entry.' "$file"
+          grep -Fq 'Meal details are recorded only after Loop saves carbs. Cancel discards the entry.' "$file"
           # Unified entry is UI-only: explicit carb copy, native Continue and bolus remain.
           grep -Fq 'LoKeyInlineMealEntry(' "$file"
           grep -Fq 'Label("Use calculated amount in Loop"' "$file"
@@ -165,6 +175,15 @@ jobs:
           grep -Fq 'adaptiveMeals.add(observation)' "$file"
           grep -Fq 'pendingObservation = nil' "$file"
           grep -Fq 'lokeyOnCarbEntrySaved?(storedCarbEntry)' "Loop/Loop/View Models/BolusEntryViewModel.swift"
+          grep -Fq 'private var activeParkOverride: TemporaryScheduleOverride?' "Loop/Loop/View Controllers/StatusTableViewController.swift"
+          grep -Fq 'LoKeyThemeParkView(' "Loop/Loop/View Controllers/StatusTableViewController.swift"
+          grep -Fq 'loKeySaveWithoutBolus()' "Loop/Loop/View Models/BolusEntryViewModel.swift"
+          grep -Fq 'Button("Save Without Bolusing")' "Loop/Loop/Views/BolusEntryView.swift"
+          grep -Fq 'lokeyForecastHours = 3' "Loop/Loop/View Controllers/StatusTableViewController.swift"
+          grep -Fq 'chartEndDate = anchor.addingTimeInterval(TimeInterval(hours: Double(lokeyForecastHours)))' "Loop/Loop/View Controllers/StatusTableViewController.swift"
+          grep -Fq 'LoKeyMealKind = .suggested(for: Date())' "Loop/Loop/Views/CarbEntryView.swift"
+          grep -Fq 'DisclosureGroup("Optional meal details")' "Loop/Loop/Views/CarbEntryView.swift"
+          grep -Fq 'mealWasManuallyChosen' "Loop/Loop/Views/CarbEntryView.swift"
           if grep -Fq 'Button("Save meal observation")' "$file"; then
             echo '::error::Duplicate manual meal-save action remains'
             exit 1
@@ -347,6 +366,13 @@ jobs:
           # Build 21: record a meal once, only after native Loop CarbStore succeeds.
           git -C Loop apply --check ../customizations/LoKeyBuild21ConfirmedMealCapture.patch
           git -C Loop apply ../customizations/LoKeyBuild21ConfirmedMealCapture.patch
+          # Match the preflight's new LoKey patch set in the unsigned Swift build.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyThemeParkMode.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyThemeParkMode.patch
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyForecastWindows.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyForecastWindows.patch
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyMealEntryPolish.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyMealEntryPolish.patch
           git -C NightscoutService apply --check ../customizations/LoKeyT1PalNightscout.patch
           git -C NightscoutService apply ../customizations/LoKeyT1PalNightscout.patch
       # This is a source compilation smoke test, not an installable app package.

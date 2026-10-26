@@ -1,0 +1,76 @@
+diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View Controllers/StatusTableViewController.swift
+--- a/Loop/View Controllers/StatusTableViewController.swift
++++ b/Loop/View Controllers/StatusTableViewController.swift
+@@ -176,1 +176,1 @@
+-    private var lokeyHistoryHours = 3
++    private var lokeyForecastHours = 3
+@@ -193,11 +193,11 @@
+-    @objc private func lokeyHistoryChanged(_ sender: UISegmentedControl) {
+-        let allowed = [1, 3, 6]
+-        guard allowed.indices.contains(sender.selectedSegmentIndex) else { return }
+-        let hours = allowed[sender.selectedSegmentIndex]
+-        guard hours != lokeyHistoryHours else { return }
+-        lokeyHistoryHours = hours
+-        UserDefaults.standard.set(hours, forKey: "LoKeyDashboardHistoryHours")
+-        refreshContext.formUnion(RefreshContext.all)
+-        updateChartDateRange()
+-        reloadData(animated: false)
+-    }
++    @objc private func lokeyForecastChanged(_ sender: UISegmentedControl) {
++        let allowed = [1, 3, 6]
++        guard allowed.indices.contains(sender.selectedSegmentIndex) else { return }
++        let hours = allowed[sender.selectedSegmentIndex]
++        guard hours != lokeyForecastHours else { return }
++        lokeyForecastHours = hours
++        UserDefaults.standard.set(hours, forKey: "LoKeyDashboardForecastHoursV1")
++        refreshContext.formUnion(RefreshContext.all)
++        updateChartDateRange()
++        reloadData(animated: false)
++    }
+@@ -273,1 +273,1 @@
+-        selector.selectedSegmentIndex = [1, 3, 6].firstIndex(of: lokeyHistoryHours) ?? 1
++        selector.selectedSegmentIndex = [1, 3, 6].firstIndex(of: lokeyForecastHours) ?? 1
+@@ -285,3 +285,3 @@
+-        selector.accessibilityLabel = "Glucose chart history"
+-        selector.accessibilityHint = "Select the number of past hours shown in all four charts."
+-        selector.addTarget(self, action: #selector(lokeyHistoryChanged(_:)), for: .valueChanged)
++        selector.accessibilityLabel = "Glucose forecast window"
++        selector.accessibilityHint = "Keep one hour of history and show the next 1, 3, or 6 hours on all charts."
++        selector.addTarget(self, action: #selector(lokeyForecastChanged(_:)), for: .valueChanged)
+@@ -316,2 +316,2 @@
+-        let savedHistory = UserDefaults.standard.integer(forKey: "LoKeyDashboardHistoryHours")
+-        lokeyHistoryHours = [1, 3, 6].contains(savedHistory) ? savedHistory : 3
++        let savedForecast = UserDefaults.standard.integer(forKey: "LoKeyDashboardForecastHoursV1")
++        lokeyForecastHours = [1, 3, 6].contains(savedForecast) ? savedForecast : 3
+@@ -720,17 +720,14 @@
+-        // How far back should we show data? Use the screen size as a guide.
+-        let availableWidth = (refreshContext.newSize ?? tableView.bounds.size).width - charts.fixedHorizontalMargin
+-
+-        // The history selector intentionally changes the past window; Loop's
+-        // complete predicted horizon is retained to the right of Now.
+-        let historyHours = Double(lokeyHistoryHours)
+-        let futureHours = ceil(deviceManager.doseStore.longestEffectDuration.hours)
+-        let totalHours = historyHours + futureHours
+-
+-        let date = Date(timeIntervalSinceNow: -TimeInterval(hours: historyHours))
+-        let chartStartDate = Calendar.current.nextDate(after: date, matching: DateComponents(minute: 0), matchingPolicy: .strict, direction: .backward) ?? date
+-        if charts.startDate != chartStartDate {
+-            refreshContext.formUnion(RefreshContext.all)
+-        }
+-        charts.startDate = chartStartDate
+-        charts.maxEndDate = chartStartDate.addingTimeInterval(.hours(totalHours))
+-        charts.updateEndDate(charts.maxEndDate)
++        // Shared chart axis: one hour of actual history and the selected
++        // forward display horizon (1, 3 or 6 hours).
++        // Minute anchoring avoids a full axis rebuild for every CGM refresh;
++        // the most recent history window differs by less than one minute.
++        // Loop's glucose/insulin prediction calculations are not modified.
++        let anchor = Date(timeIntervalSince1970: floor(Date().timeIntervalSince1970 / 60) * 60)
++        let chartStartDate = anchor.addingTimeInterval(-TimeInterval(hours: 1))
++        let chartEndDate = anchor.addingTimeInterval(TimeInterval(hours: Double(lokeyForecastHours)))
++        if charts.startDate != chartStartDate {
++            refreshContext.formUnion(RefreshContext.all)
++        }
++        charts.startDate = chartStartDate
++        charts.maxEndDate = chartEndDate
++        charts.updateEndDate(chartEndDate)
