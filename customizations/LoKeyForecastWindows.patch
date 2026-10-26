@@ -67,7 +67,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +        // Loop's glucose/insulin prediction calculations are not modified.
 +        let anchor = Date(timeIntervalSince1970: floor(Date().timeIntervalSince1970 / 60) * 60)
 +        let chartStartDate = anchor.addingTimeInterval(-TimeInterval(hours: 1))
-+        let chartEndDate = anchor.addingTimeInterval(TimeInterval(hours: lokeyForecastHours))
++        let chartEndDate = anchor.addingTimeInterval(TimeInterval(hours: Double(lokeyForecastHours)))
 +        if charts.startDate != chartStartDate {
 +            refreshContext.formUnion(RefreshContext.all)
 +        }
