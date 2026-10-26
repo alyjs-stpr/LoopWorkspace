@@ -95,12 +95,16 @@ jobs:
           # Build 21: record a meal once, only after native Loop CarbStore succeeds.
           git -C Loop apply --check ../customizations/LoKeyBuild21ConfirmedMealCapture.patch
           git -C Loop apply ../customizations/LoKeyBuild21ConfirmedMealCapture.patch
+          # Theme Park Mode: independent temporary correction target and
+          # native carb-save options. Existing insulin prediction stays unchanged.
+          git -C Loop apply --check ../customizations/LoKeyThemeParkMode.patch
+          git -C Loop apply ../customizations/LoKeyThemeParkMode.patch
       - name: Parse modified Swift files
         shell: bash
         run: |
           set -euo pipefail
           command -v swiftc
-          swiftc -frontend -parse "Loop/Loop Widget Extension/Timeline/StatusWidgetTimelineProvider.swift" "Loop/Loop Widget Extension/Components/GlucoseView.swift" "Loop/Loop/View Controllers/StatusTableViewController.swift" "Loop/LoopUI/Views/StatusBarHUDView.swift" "Loop/Loop/Views/SettingsView.swift" "Loop/Loop/Views/CarbEntryView.swift" "Loop/Loop/View Models/BolusEntryViewModel.swift" "Loop/Loop/Managers/LoopDataManager.swift" "Loop/Loop/Managers/Missed Meal Detection/MealDetectionManager.swift" "Loop/LoopTests/Managers/MealDetectionManagerTests.swift" "LoopKit/LoopKitUI/View Controllers/ChartsManager.swift" "LoopKit/LoopKitUI/Charts/DoseChart.swift"
+          swiftc -frontend -parse "Loop/Loop Widget Extension/Timeline/StatusWidgetTimelineProvider.swift" "Loop/Loop Widget Extension/Components/GlucoseView.swift" "Loop/Loop/View Controllers/StatusTableViewController.swift" "Loop/LoopUI/Views/StatusBarHUDView.swift" "Loop/Loop/Views/SettingsView.swift" "Loop/Loop/Views/CarbEntryView.swift" "Loop/Loop/Views/BolusEntryView.swift" "Loop/Loop/View Models/BolusEntryViewModel.swift" "Loop/Loop/Managers/LoopDataManager.swift" "Loop/Loop/Managers/Missed Meal Detection/MealDetectionManager.swift" "Loop/LoopTests/Managers/MealDetectionManagerTests.swift" "LoopKit/LoopKitUI/View Controllers/ChartsManager.swift" "LoopKit/LoopKitUI/Charts/DoseChart.swift"
       - name: Execute source-derived missed-meal notification timing checks
         shell: bash
         run: |
@@ -165,6 +169,10 @@ jobs:
           grep -Fq 'adaptiveMeals.add(observation)' "$file"
           grep -Fq 'pendingObservation = nil' "$file"
           grep -Fq 'lokeyOnCarbEntrySaved?(storedCarbEntry)' "Loop/Loop/View Models/BolusEntryViewModel.swift"
+          grep -Fq 'private var activeParkOverride: TemporaryScheduleOverride?' "Loop/Loop/View Controllers/StatusTableViewController.swift"
+          grep -Fq 'LoKeyThemeParkView(' "Loop/Loop/View Controllers/StatusTableViewController.swift"
+          grep -Fq 'loKeySaveWithoutBolus()' "Loop/Loop/View Models/BolusEntryViewModel.swift"
+          grep -Fq 'Button("Save Without Bolusing")' "Loop/Loop/Views/BolusEntryView.swift"
           if grep -Fq 'Button("Save meal observation")' "$file"; then
             echo '::error::Duplicate manual meal-save action remains'
             exit 1
