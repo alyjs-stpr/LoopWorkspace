@@ -105,6 +105,9 @@ jobs:
           # Simplify meal entry and suggest the meal type using its timestamp.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyMealEntryPolish.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyMealEntryPolish.patch
+          # UI-only: keep the Now overlay visible before generated chart ticks exist.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyNowMarkerStability.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyNowMarkerStability.patch
       - name: Parse modified Swift files
         shell: bash
         run: |
@@ -286,6 +289,7 @@ jobs:
             grep -Fq 'LoKeyDashboardInsights.patch' "$workflow"
             grep -Fq 'LoKeyDashboardPolish.patch' "$workflow"
             grep -Fq 'LoKeyDashboardFinalPass.patch' "$workflow"
+            grep -Fq 'LoKeyNowMarkerStability.patch' "$workflow"
             grep -Fq 'LoKeyDashboardCleanupLoop.patch' "$workflow"
             grep -Fq 'LoKeyDashboardCleanupLoopKit.patch' "$workflow"
           done
@@ -373,6 +377,9 @@ jobs:
           git -C Loop apply --unidiff-zero ../customizations/LoKeyForecastWindows.patch
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyMealEntryPolish.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyMealEntryPolish.patch
+          # UI-only: keep the Now overlay visible before generated chart ticks exist.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyNowMarkerStability.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyNowMarkerStability.patch
           git -C NightscoutService apply --check ../customizations/LoKeyT1PalNightscout.patch
           git -C NightscoutService apply ../customizations/LoKeyT1PalNightscout.patch
       # This is a source compilation smoke test, not an installable app package.
