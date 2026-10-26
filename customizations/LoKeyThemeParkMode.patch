@@ -55,7 +55,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +                        .font(.caption).foregroundColor(.secondary)
 +                }
 +                Section {
-+                    Button(active ? "Update Park Mode" : "Start Park Mode") {
++                    Button(active ? "Update Theme Park Targets" : "Start Theme Park Mode") {
 +                        guard let (a, b) = validRange else { return }
 +                        start(a, b, until)
 +                        dismiss()
@@ -70,7 +70,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +                        .font(.footnote).foregroundColor(.secondary)
 +                }
 +            }
-+            .navigationTitle("🎢 Theme Park Mode")
++            .navigationTitle("🎢 Theme Park Targets")
 +            .navigationBarTitleDisplayMode(.inline)
 +            .toolbar { ToolbarItem(placement: .navigationBarTrailing) { Button("Done") { dismiss() } } }
 +        }
@@ -94,7 +94,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 -        targetsItem.menu = UIMenu(children: [preMealAction, workoutAction])
 +        let activePark = activeParkOverride
 +        let parkAction = UIAction(
-+            title: activePark.map { "🎢 Theme Park · until " + DateFormatter.localizedString(from: $0.scheduledEndDate, dateStyle: .none, timeStyle: .short) } ?? "🎢 Theme Park Mode",
++            title: activePark.map { "🎢 Theme Park Targets · until " + DateFormatter.localizedString(from: $0.scheduledEndDate, dateStyle: .none, timeStyle: .short) } ?? "🎢 Theme Park Targets",
 +            image: UIImage(systemName: "ticket"),
 +            attributes: onboardingManager.isComplete ? [] : [.disabled],
 +            state: activePark == nil ? .off : .on
