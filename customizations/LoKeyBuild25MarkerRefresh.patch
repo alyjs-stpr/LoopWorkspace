@@ -1,0 +1,16 @@
+diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View Controllers/StatusTableViewController.swift
+--- a/Loop/View Controllers/StatusTableViewController.swift
++++ b/Loop/View Controllers/StatusTableViewController.swift
+@@ -1108,3 +1108,9 @@
+-            if let cell = self.lokeyGlucoseCell {
+-                self.lokeyStyleChartCell(cell, isGlucose: true)
+-            }
++            if let cell = self.lokeyGlucoseCell {
++                self.lokeyStyleChartCell(cell, isGlucose: true)
++            }
++            // A reused chart cell can retain a drawable Now overlay across
++            // refreshes. Repaint visible overlays after the chart data changes
++            // so they use the latest X-axis ticks instead of a cached position.
++            for visibleCell in self.tableView.visibleCells {
++                (visibleCell.contentView.viewWithTag(87204) as? LoKeyNowOverlayView)?.setNeedsDisplay()
++            }

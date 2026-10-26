@@ -1,0 +1,92 @@
+diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View Controllers/StatusTableViewController.swift
+--- a/Loop/View Controllers/StatusTableViewController.swift
++++ b/Loop/View Controllers/StatusTableViewController.swift
+@@ -178,3 +178,12 @@
+-        var nowFraction: CGFloat? {
+-            didSet { setNeedsDisplay() }
+-        }
++        var nowFraction: CGFloat? {
++            didSet { setNeedsDisplay() }
++        }
++        // Resolve the marker against the chart's *current rendered tick axis*,
++        // rather than freezing an x-coordinate before a refreshed chart renders.
++        var currentPlotFraction: (() -> CGFloat?)? {
++            didSet { setNeedsDisplay() }
++        }
++        override func layoutSubviews() {
++            super.layoutSubviews()
++            setNeedsDisplay()
++        }
+@@ -209,2 +209,5 @@
+-            guard let nowFraction else { return }
+-            let plotWidth = max(0, bounds.width - plotLeadingInset - plotTrailingInset)
++            // When the chart's ticks are rebuilding, omit the marker rather
++            // than display a misleading line at an outdated time.
++            let fraction = currentPlotFraction == nil ? nowFraction : currentPlotFraction?()
++            guard let nowFraction = fraction, nowFraction.isFinite else { return }
++            let plotWidth = max(0, bounds.width - plotLeadingInset - plotTrailingInset)
+@@ -228,1 +228,2 @@
+-    private var lokeyForecastHours = 3
++    // Fixed dashboard horizon: the previous selector could leave the Now overlay stale.
++    private var lokeyForecastHours = 6
+@@ -295,16 +295,6 @@
+-        // A refreshed cell can be configured before ChartsManager rebuilds its
+-        // x-axis tick values. Never hide the Now marker during that transition.
+-        // Once tick values exist, use plotFraction for accurate chart alignment.
+-        let markerDate = Date()
+-        if let fraction = charts.plotFraction(for: markerDate), fraction.isFinite {
+-            marker.nowFraction = fraction
+-        } else {
+-            // Purely presentational fallback; does not touch prediction/dosing.
+-            let chartDuration = charts.displayedEndDate.timeIntervalSince(charts.startDate)
+-            let position = markerDate.timeIntervalSince(charts.startDate)
+-            if chartDuration.isFinite && chartDuration > 0 && position.isFinite {
+-                marker.nowFraction = CGFloat(position / chartDuration)
+-            } else {
+-                marker.nowFraction = nil
+-            }
+-        }
++        // The marker must use the same axis as the plotted data, even on the
++        // first chart layout after launch. Recalculate every redraw.
++        marker.nowFraction = nil
++        marker.currentPlotFraction = { [weak self] in
++            self?.charts.plotFraction(for: Date())
++        }
+@@ -311,1 +311,1 @@
+-        topConstraint?.constant = isGlucose ? 77 : 0
++        topConstraint?.constant = isGlucose ? 46 : 0
+@@ -335,1 +335,1 @@
+-        caption.text = "Forecast · " + (statusCharts.glucose.glucoseUnit == .milligramsPerDeciliter ? "mg/dL" : "mmol/L")
++        caption.text = "Past 1h · Next 6h · " + (statusCharts.glucose.glucoseUnit == .milligramsPerDeciliter ? "mg/dL" : "mmol/L")
+@@ -370,18 +370,3 @@
+-        let selector = UISegmentedControl(items: ["1h", "3h", "6h"])
+-        selector.selectedSegmentIndex = [1, 3, 6].firstIndex(of: lokeyForecastHours) ?? 1
+-        // Keep the active history range immediately obvious in both light and dark mode.
+-        selector.backgroundColor = .tertiarySystemFill
+-        selector.selectedSegmentTintColor = UIColor(red: 0.48, green: 0.16, blue: 0.84, alpha: 1)
+-        selector.setTitleTextAttributes([
+-            .foregroundColor: UIColor.white,
+-            .font: UIFont.boldSystemFont(ofSize: 15)
+-        ], for: .selected)
+-        selector.setTitleTextAttributes([
+-            .foregroundColor: UIColor.secondaryLabel,
+-            .font: UIFont.systemFont(ofSize: 15, weight: .medium)
+-        ], for: .normal)
+-        selector.accessibilityLabel = "Glucose forecast window"
+-        selector.accessibilityHint = "Keep one hour of history and show the next 1, 3, or 6 hours on all charts."
+-        selector.addTarget(self, action: #selector(lokeyForecastChanged(_:)), for: .valueChanged)
+-
+-        let controls = UIStackView(arrangedSubviews: [predictions, selector])
++        // One fixed, shared timeline for every chart. No selector can leave
++        // an older axis displayed while a newer prediction refreshes.
++        let controls = UIStackView(arrangedSubviews: [predictions])
+@@ -385,1 +385,1 @@
+-            controls.heightAnchor.constraint(equalToConstant: 65)
++            controls.heightAnchor.constraint(equalToConstant: 34)
+@@ -468,2 +468,1 @@
+-        let savedForecast = UserDefaults.standard.integer(forKey: "LoKeyDashboardForecastHoursV1")
+-        lokeyForecastHours = [1, 3, 6].contains(savedForecast) ? savedForecast : 3
++        // Always use the fixed display horizon; ignore old selector settings.
+@@ -770,1 +770,1 @@
+-        let chartEndDate = anchor.addingTimeInterval(TimeInterval(hours: Double(lokeyForecastHours)))
++        let chartEndDate = anchor.addingTimeInterval(TimeInterval(hours: 6))

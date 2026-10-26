@@ -114,6 +114,13 @@ jobs:
           # Build 24 UI-only cleanup: one-tap Meal button remains canonical.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild24BolusKeyboardAndParkMealCleanup.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild24BolusKeyboardAndParkMealCleanup.patch
+          # Build 25: view-only fixed chart timeline and independent last-bolus history.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild25FixedTimeline.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild25FixedTimeline.patch
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild25LastBolusSummary.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild25LastBolusSummary.patch
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild25MarkerRefresh.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild25MarkerRefresh.patch
       - name: Parse modified Swift files
         shell: bash
         run: |
@@ -191,8 +198,15 @@ jobs:
           grep -Fq 'LoKeyThemeParkView(' "Loop/Loop/View Controllers/StatusTableViewController.swift"
           grep -Fq 'loKeySaveWithoutBolus()' "Loop/Loop/View Models/BolusEntryViewModel.swift"
           grep -Fq 'Button("Save Without Bolusing")' "Loop/Loop/Views/BolusEntryView.swift"
-          grep -Fq 'lokeyForecastHours = 3' "Loop/Loop/View Controllers/StatusTableViewController.swift"
-          grep -Fq 'chartEndDate = anchor.addingTimeInterval(TimeInterval(hours: Double(lokeyForecastHours)))' "Loop/Loop/View Controllers/StatusTableViewController.swift"
+          grep -Fq 'lokeyForecastHours = 6' "Loop/Loop/View Controllers/StatusTableViewController.swift"
+          grep -Fq 'chartEndDate = anchor.addingTimeInterval(TimeInterval(hours: 6))' "Loop/Loop/View Controllers/StatusTableViewController.swift"
+          grep -Fq 'UIStackView(arrangedSubviews: [predictions])' "Loop/Loop/View Controllers/StatusTableViewController.swift"
+          grep -Fq 'currentPlotFraction' "Loop/Loop/View Controllers/StatusTableViewController.swift"
+          grep -Fq 'latestBolusSummaryDoses' "Loop/Loop/View Controllers/StatusTableViewController.swift"
+          if grep -Fq 'UISegmentedControl(items: ["1h", "3h", "6h"])' "Loop/Loop/View Controllers/StatusTableViewController.swift"; then
+            echo "::error::The removed forecast selector is still present."
+            exit 1
+          fi
           grep -Fq 'LoKeyMealKind = .suggested(for: Date())' "Loop/Loop/Views/CarbEntryView.swift"
           grep -Fq 'DisclosureGroup("Optional meal details")' "Loop/Loop/Views/CarbEntryView.swift"
           grep -Fq 'mealWasManuallyChosen' "Loop/Loop/Views/CarbEntryView.swift"
@@ -301,6 +315,9 @@ jobs:
             grep -Fq 'LoKeyNowMarkerStability.patch' "$workflow"
             grep -Fq 'LoKeyParkControls.patch' "$workflow"
             grep -Fq 'LoKeyBuild24BolusKeyboardAndParkMealCleanup.patch' "$workflow"
+            grep -Fq 'LoKeyBuild25FixedTimeline.patch' "$workflow"
+            grep -Fq 'LoKeyBuild25LastBolusSummary.patch' "$workflow"
+            grep -Fq 'LoKeyBuild25MarkerRefresh.patch' "$workflow"
             grep -Fq 'LoKeyDashboardCleanupLoop.patch' "$workflow"
             grep -Fq 'LoKeyDashboardCleanupLoopKit.patch' "$workflow"
           done
@@ -397,6 +414,13 @@ jobs:
           # Build 24 UI-only cleanup: one-tap Meal button remains canonical.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild24BolusKeyboardAndParkMealCleanup.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild24BolusKeyboardAndParkMealCleanup.patch
+          # Build 25: view-only fixed chart timeline and independent last-bolus history.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild25FixedTimeline.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild25FixedTimeline.patch
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild25LastBolusSummary.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild25LastBolusSummary.patch
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild25MarkerRefresh.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild25MarkerRefresh.patch
           git -C NightscoutService apply --check ../customizations/LoKeyT1PalNightscout.patch
           git -C NightscoutService apply ../customizations/LoKeyT1PalNightscout.patch
       # This is a source compilation smoke test, not an installable app package.
