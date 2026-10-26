@@ -161,9 +161,9 @@ public enum LoKeyAdaptive {
 
             guard forecast.allSatisfy({
                 $0.glucoseMgDl.isFinite && (35...600).contains($0.glucoseMgDl)
-            }), zip(forecast, forecast.dropFirst()).allSatisfy({
-                $0.timestamp < $1.timestamp &&
-                $1.timestamp.timeIntervalSince($0.timestamp) <= 15 * 60
+            }), zip(forecast, forecast.dropFirst()).allSatisfy({ pair in
+                pair.0.timestamp < pair.1.timestamp &&
+                pair.1.timestamp.timeIntervalSince(pair.0.timestamp) <= 15 * 60
             }) else { return blocked(.invalidForecast) }
 
             let values = forecast.map(\.glucoseMgDl)
