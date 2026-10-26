@@ -116,6 +116,7 @@ jobs:
           git -C Loop apply --unidiff-zero ../customizations/LoKeyAdaptiveShadowCapture.patch
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyAdaptiveShadowUI.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyAdaptiveShadowUI.patch
+          python3 Scripts/verify_adaptive_shadow_core.py
       - name: Parse modified Swift files
         shell: bash
         run: |
@@ -402,6 +403,7 @@ jobs:
           git -C Loop apply --unidiff-zero ../customizations/LoKeyAdaptiveShadowCapture.patch
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyAdaptiveShadowUI.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyAdaptiveShadowUI.patch
+          python3 Scripts/verify_adaptive_shadow_core.py
           git -C NightscoutService apply --check ../customizations/LoKeyT1PalNightscout.patch
           git -C NightscoutService apply ../customizations/LoKeyT1PalNightscout.patch
       # This is a source compilation smoke test, not an installable app package.
