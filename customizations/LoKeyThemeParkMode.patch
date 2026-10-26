@@ -209,3 +209,8 @@ diff --git a/Loop/Views/BolusEntryView.swift b/Loop/Views/BolusEntryView.swift
 +                    .font(.caption).foregroundColor(.secondary)
 +                    .padding([.horizontal, .bottom])
 +            }
+@@ -368,2 +368,2 @@
+-                case .saveAndDeliver:
+-                    return Text("Save Carbs & Deliver", comment: "Button text to save carbs and/or manual glucose entry and deliver a bolus")
++                case .saveAndDeliver:
++                    return viewModel.loKeyParkModeActive ? Text("Save & Bolus") : Text("Save Carbs & Deliver", comment: "Button text to save carbs and/or manual glucose entry and deliver a bolus")
