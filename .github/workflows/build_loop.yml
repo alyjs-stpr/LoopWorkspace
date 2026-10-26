@@ -297,6 +297,11 @@ jobs:
           # Build 24 UI-only cleanup: one-tap Meal button remains canonical.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild24BolusKeyboardAndParkMealCleanup.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild24BolusKeyboardAndParkMealCleanup.patch
+          # Build 25: view-only fixed chart timeline and independent last-bolus history.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild25FixedTimeline.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild25FixedTimeline.patch
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild25LastBolusSummary.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild25LastBolusSummary.patch
           echo "LoKey final dashboard polish applied."
           echo "LoKey T1D rounded chart cards and shared Now markers applied."
 
