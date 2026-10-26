@@ -111,6 +111,11 @@ jobs:
           # Compact interactive park control center, separate from Loop dosing.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyParkControls.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyParkControls.patch
+          # Read-only adaptive shadow on successful normal Loop cycles.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyAdaptiveShadowCapture.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyAdaptiveShadowCapture.patch
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyAdaptiveShadowUI.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyAdaptiveShadowUI.patch
       - name: Parse modified Swift files
         shell: bash
         run: |
@@ -297,6 +302,8 @@ jobs:
             grep -Fq 'LoKeyDashboardFinalPass.patch' "$workflow"
             grep -Fq 'LoKeyNowMarkerStability.patch' "$workflow"
             grep -Fq 'LoKeyParkControls.patch' "$workflow"
+            grep -Fq 'LoKeyAdaptiveShadowCapture.patch' "$workflow"
+            grep -Fq 'LoKeyAdaptiveShadowUI.patch' "$workflow"
             grep -Fq 'LoKeyDashboardCleanupLoop.patch' "$workflow"
             grep -Fq 'LoKeyDashboardCleanupLoopKit.patch' "$workflow"
           done
@@ -390,6 +397,11 @@ jobs:
           # Compact interactive park control center, separate from Loop dosing.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyParkControls.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyParkControls.patch
+          # Read-only adaptive shadow on successful normal Loop cycles.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyAdaptiveShadowCapture.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyAdaptiveShadowCapture.patch
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyAdaptiveShadowUI.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyAdaptiveShadowUI.patch
           git -C NightscoutService apply --check ../customizations/LoKeyT1PalNightscout.patch
           git -C NightscoutService apply ../customizations/LoKeyT1PalNightscout.patch
       # This is a source compilation smoke test, not an installable app package.
