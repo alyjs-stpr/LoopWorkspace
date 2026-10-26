@@ -180,7 +180,7 @@ jobs:
           grep -Fq 'loKeySaveWithoutBolus()' "Loop/Loop/View Models/BolusEntryViewModel.swift"
           grep -Fq 'Button("Save Without Bolusing")' "Loop/Loop/Views/BolusEntryView.swift"
           grep -Fq 'lokeyForecastHours = 3' "Loop/Loop/View Controllers/StatusTableViewController.swift"
-          grep -Fq 'chartEndDate = anchor.addingTimeInterval(TimeInterval(hours: lokeyForecastHours))' "Loop/Loop/View Controllers/StatusTableViewController.swift"
+          grep -Fq 'chartEndDate = anchor.addingTimeInterval(TimeInterval(hours: Double(lokeyForecastHours)))' "Loop/Loop/View Controllers/StatusTableViewController.swift"
           grep -Fq 'LoKeyMealKind = .suggested(for: Date())' "Loop/Loop/Views/CarbEntryView.swift"
           grep -Fq 'DisclosureGroup("Optional meal details")' "Loop/Loop/Views/CarbEntryView.swift"
           grep -Fq 'mealWasManuallyChosen' "Loop/Loop/Views/CarbEntryView.swift"
