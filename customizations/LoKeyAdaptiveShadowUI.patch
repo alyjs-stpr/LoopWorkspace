@@ -1,0 +1,78 @@
+diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View Controllers/StatusTableViewController.swift
+--- a/Loop/View Controllers/StatusTableViewController.swift
++++ b/Loop/View Controllers/StatusTableViewController.swift
+@@ -36,2 +36,3 @@
+-    @State private var confirmEnd = false
+-    let active: Bool
++    @State private var confirmEnd = false
++    @AppStorage("LoKeyAdaptiveShadowEnabledV1") private var shadowEnabled = false
++    let active: Bool
+@@ -46,3 +46,4 @@
+-    let announceMeal: () -> Void
+-
+-    init(active: Bool, paused: Bool
++    let announceMeal: () -> Void
++    let shareShadow: () -> Void
++
++    init(active: Bool, paused: Bool
+@@ -52,1 +52,2 @@
+-         announceMeal: @escaping () -> Void) {
++         announceMeal: @escaping () -> Void,
++         shareShadow: @escaping () -> Void) {
+@@ -62,2 +62,3 @@
+-        self.announceMeal = announceMeal
+-        _low = State
++        self.announceMeal = announceMeal
++        self.shareShadow = shareShadow
++        _low = State
+@@ -135,2 +135,8 @@
+-                Section {
+-                    Text("Pausing targets does not suspend insulin. Announced meals still affect Loop predictions and can trigger automatic insulin.")
++                Section(header: Text("Adaptive Shadow · observation only")) {
++                    Toggle("Record live shadow decisions", isOn: $shadowEnabled)
++                    Text("Normal Loop remains responsible for every insulin command. Shadow records stay on this phone until you choose to share them.")
++                        .font(.footnote).foregroundColor(.secondary)
++                    Button("Export Shadow Records") { shareShadow() }
++                }
++                Section {
++                    Text("Pausing targets does not suspend insulin. Announced meals still affect Loop predictions and can trigger automatic insulin.")
+@@ -1601,2 +1601,19 @@
+-    @objc private func presentParkMode() {
+-        let item = activeParkOverride
++    @objc private func loKeyExportAdaptiveShadow() {
++        let files = deviceManager.loKeyAdaptiveShadowFilesForExport()
++        guard !files.isEmpty else {
++            let alert = UIAlertController(
++                title: "No shadow records yet",
++                message: "Turn on Adaptive Shadow and allow Loop to complete a cycle, then try again.",
++                preferredStyle: .alert
++            )
++            alert.addAction(UIAlertAction(title: "OK", style: .default))
++            present(alert, animated: true)
++            return
++        }
++        let sheet = UIActivityViewController(activityItems: files, applicationActivities: nil)
++        sheet.popoverPresentationController?.sourceView = view
++        present(sheet, animated: true)
++    }
++
++    @objc private func presentParkMode() {
++        let item = activeParkOverride
+@@ -1665,6 +1665,11 @@
+-            announceMeal: { [weak self] in
+-                self?.dismiss(animated: true) { [weak self] in
+-                    self?.userTappedAddCarbs()
+-                }
+-            })
+-        present(UIHostingController(rootView: panel), animated: true)
++            announceMeal: { [weak self] in
++                self?.dismiss(animated: true) { [weak self] in
++                    self?.userTappedAddCarbs()
++                }
++            },
++            shareShadow: { [weak self] in
++                self?.dismiss(animated: true) { [weak self] in
++                    self?.loKeyExportAdaptiveShadow()
++                }
++            })
++        present(UIHostingController(rootView: panel), animated: true)
