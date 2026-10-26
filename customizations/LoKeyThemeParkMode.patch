@@ -101,10 +101,14 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +}
 +
 +final class StatusTableViewController: LoopChartsTableViewController {
-@@ -167,1 +167,2 @@
+@@ -165,5 +165,6 @@
+         navigationController?.setToolbarHidden(false, animated: animated)
+         
 -        updateToolbarItems()
 +        updateToolbarItems()
 +        updateParkDashboardHeader()
+ 
+         alertPermissionsChecker.checkNow()
 @@ -289,1 +289,99 @@
 -    private func setupToolbarItems() {
 +    // Distinct park-day dashboard. All glucose charts, pump status, and safety
