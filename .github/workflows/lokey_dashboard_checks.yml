@@ -119,6 +119,8 @@ jobs:
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild25FixedTimeline.patch
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild25LastBolusSummary.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild25LastBolusSummary.patch
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild25MarkerRefresh.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild25MarkerRefresh.patch
       - name: Parse modified Swift files
         shell: bash
         run: |
@@ -198,6 +200,13 @@ jobs:
           grep -Fq 'Button("Save Without Bolusing")' "Loop/Loop/Views/BolusEntryView.swift"
           grep -Fq 'lokeyForecastHours = 6' "Loop/Loop/View Controllers/StatusTableViewController.swift"
           grep -Fq 'chartEndDate = anchor.addingTimeInterval(TimeInterval(hours: 6))' "Loop/Loop/View Controllers/StatusTableViewController.swift"
+          grep -Fq 'UIStackView(arrangedSubviews: [predictions])' "Loop/Loop/View Controllers/StatusTableViewController.swift"
+          grep -Fq 'currentPlotFraction' "Loop/Loop/View Controllers/StatusTableViewController.swift"
+          grep -Fq 'latestBolusSummaryDoses' "Loop/Loop/View Controllers/StatusTableViewController.swift"
+          if grep -Fq 'UISegmentedControl(items: ["1h", "3h", "6h"])' "Loop/Loop/View Controllers/StatusTableViewController.swift"; then
+            echo "::error::The removed forecast selector is still present."
+            exit 1
+          fi
           grep -Fq 'LoKeyMealKind = .suggested(for: Date())' "Loop/Loop/Views/CarbEntryView.swift"
           grep -Fq 'DisclosureGroup("Optional meal details")' "Loop/Loop/Views/CarbEntryView.swift"
           grep -Fq 'mealWasManuallyChosen' "Loop/Loop/Views/CarbEntryView.swift"
@@ -308,6 +317,7 @@ jobs:
             grep -Fq 'LoKeyBuild24BolusKeyboardAndParkMealCleanup.patch' "$workflow"
             grep -Fq 'LoKeyBuild25FixedTimeline.patch' "$workflow"
             grep -Fq 'LoKeyBuild25LastBolusSummary.patch' "$workflow"
+            grep -Fq 'LoKeyBuild25MarkerRefresh.patch' "$workflow"
             grep -Fq 'LoKeyDashboardCleanupLoop.patch' "$workflow"
             grep -Fq 'LoKeyDashboardCleanupLoopKit.patch' "$workflow"
           done
@@ -409,6 +419,8 @@ jobs:
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild25FixedTimeline.patch
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild25LastBolusSummary.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild25LastBolusSummary.patch
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild25MarkerRefresh.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild25MarkerRefresh.patch
           git -C NightscoutService apply --check ../customizations/LoKeyT1PalNightscout.patch
           git -C NightscoutService apply ../customizations/LoKeyT1PalNightscout.patch
       # This is a source compilation smoke test, not an installable app package.
