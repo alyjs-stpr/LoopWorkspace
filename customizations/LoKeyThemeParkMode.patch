@@ -1,0 +1,211 @@
+diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View Controllers/StatusTableViewController.swift
+--- a/Loop/View Controllers/StatusTableViewController.swift
++++ b/Loop/View Controllers/StatusTableViewController.swift
+@@ -30,1 +30,75 @@
+-final class StatusTableViewController: LoopChartsTableViewController {
++private struct LoKeyThemeParkView: View {
++    @Environment(\.dismiss) private var dismiss
++    @State private var low: String
++    @State private var high: String
++    @State private var until: Date
++    let active: Bool
++    let minAllowed: Double
++    let start: (Double, Double, Date) -> Void
++    let stop: () -> Void
++
++    init(active: Bool, minAllowed: Double, low: Double?, high: Double?, until: Date?,
++         start: @escaping (Double, Double, Date) -> Void, stop: @escaping () -> Void) {
++        self.active = active
++        self.minAllowed = minAllowed
++        self.start = start
++        self.stop = stop
++        _low = State(initialValue: low.map { String(Int($0)) } ?? "")
++        _high = State(initialValue: high.map { String(Int($0)) } ?? "")
++        _until = State(initialValue: until ?? Date().addingTimeInterval(8 * 3600))
++    }
++
++    private var validRange: (Double, Double)? {
++        guard let a = Double(low), let b = Double(high),
++              a.isFinite, b.isFinite, a >= minAllowed, b <= 250, a <= b else { return nil }
++        return (a, b)
++    }
++
++    var body: some View {
++        NavigationView {
++            Form {
++                Section(header: Text("Park glucose target (mg/dL)")) {
++                    HStack {
++                        Text("Minimum")
++                        Spacer()
++                        TextField("Required", text: $low).keyboardType(.decimalPad).multilineTextAlignment(.trailing)
++                    }
++                    HStack {
++                        Text("Maximum")
++                        Spacer()
++                        TextField("Required", text: $high).keyboardType(.decimalPad).multilineTextAlignment(.trailing)
++                    }
++                    Text("Allowed: \(Int(ceil(minAllowed)))–250 mg/dL. Separate from Workout Mode.")
++                        .font(.caption).foregroundColor(.secondary)
++                }
++                Section(header: Text("Park hours")) {
++                    DatePicker("Expected end", selection: $until,
++                               in: Date().addingTimeInterval(15 * 60)...Date().addingTimeInterval(24 * 3600),
++                               displayedComponents: [.date, .hourAndMinute])
++                    Text("The Loop target override expires at this time, even if the app is closed.")
++                        .font(.caption).foregroundColor(.secondary)
++                }
++                Section {
++                    Button(active ? "Update Park Mode" : "Start Park Mode") {
++                        guard let (a, b) = validRange else { return }
++                        start(a, b, until)
++                        dismiss()
++                    }
++                    .disabled(validRange == nil || until <= Date().addingTimeInterval(14 * 60))
++                    if active {
++                        Button("End Early", role: .destructive) { stop(); dismiss() }
++                    }
++                }
++                Section {
++                    Text("Announced meals influence Loop predictions and may trigger automatic insulin delivery even without a manual bolus. A higher target does not suspend insulin.")
++                        .font(.footnote).foregroundColor(.secondary)
++                }
++            }
++            .navigationTitle("🎢 Theme Park Mode")
++            .navigationBarTitleDisplayMode(.inline)
++            .toolbar { ToolbarItem(placement: .navigationBarTrailing) { Button("Done") { dismiss() } } }
++        }
++    }
++}
++
++final class StatusTableViewController: LoopChartsTableViewController {
+@@ -360,1 +360,1 @@
+-        targetsItem.isEnabled = preMealModeAllowed || workoutModeAllowed
++        targetsItem.isEnabled = preMealModeAllowed || workoutModeAllowed || onboardingManager.isComplete
+@@ -380,1 +380,8 @@
+-        targetsItem.menu = UIMenu(children: [preMealAction, workoutAction])
++        let activePark = activeParkOverride
++        let parkAction = UIAction(
++            title: activePark.map { "🎢 Theme Park · until " + DateFormatter.localizedString(from: $0.scheduledEndDate, dateStyle: .none, timeStyle: .short) } ?? "🎢 Theme Park Mode",
++            image: UIImage(systemName: "ticket"),
++            attributes: onboardingManager.isComplete ? [] : [.disabled],
++            state: activePark == nil ? .off : .on
++        ) { [weak self] _ in self?.presentParkMode() }
++        targetsItem.menu = UIMenu(children: [preMealAction, workoutAction, parkAction])
+@@ -1575,3 +1575,51 @@
+-    @IBAction func toggleWorkoutMode(_ sender: UIBarButtonItem) {
+-        presentCustomPresets(confirm: false)
+-    }
++    @IBAction func toggleWorkoutMode(_ sender: UIBarButtonItem) {
++        presentCustomPresets(confirm: false)
++    }
++
++    private static let parkID = UUID(uuidString: "B2717255-F306-4B52-93DC-D416A93E4BE5")!
++
++    private var activeParkOverride: TemporaryScheduleOverride? {
++        guard let item = deviceManager.loopManager.settings.scheduleOverride,
++              item.isActive(at: Date()),
++              case .preset(let preset) = item.context,
++              preset.id == Self.parkID else { return nil }
++        return item
++    }
++
++    @objc private func presentParkMode() {
++        let item = activeParkOverride
++        let prefs = UserDefaults.standard
++        let suspend = deviceManager.loopManager.settings.suspendThreshold?.quantity.doubleValue(for: .milligramsPerDeciliter) ?? 0
++        let minAllowed = max(Guardrail.correctionRange.absoluteBounds.lowerBound.doubleValue(for: .milligramsPerDeciliter), suspend)
++        let panel = LoKeyThemeParkView(
++            active: item != nil, minAllowed: minAllowed,
++            low: item?.settings.targetRange?.lowerBound.doubleValue(for: .milligramsPerDeciliter) ?? (prefs.object(forKey: "LoKeyParkLowV1") as? Double),
++            high: item?.settings.targetRange?.upperBound.doubleValue(for: .milligramsPerDeciliter) ?? (prefs.object(forKey: "LoKeyParkHighV1") as? Double),
++            until: item?.scheduledEndDate,
++            start: { [weak self] a, b, end in
++                guard let self else { return }
++                let now = Date()
++                let seconds = end.timeIntervalSince(now)
++                guard seconds >= 15 * 60, seconds <= 24 * 3600,
++                      a >= minAllowed, b <= 250, a <= b else { return }
++                let settings = TemporaryScheduleOverrideSettings(
++                    unit: .milligramsPerDeciliter, targetRange: DoubleRange(minValue: a, maxValue: b))
++                let preset = TemporaryScheduleOverridePreset(
++                    id: Self.parkID, symbol: "🎢", name: "Theme Park",
++                    settings: settings, duration: .finite(seconds))
++                prefs.set(a, forKey: "LoKeyParkLowV1")
++                prefs.set(b, forKey: "LoKeyParkHighV1")
++                self.deviceManager.loopManager.mutateSettings { settings in
++                    settings.scheduleOverride = preset.createOverride(enactTrigger: .local, beginningAt: now)
++                }
++            },
++            stop: { [weak self] in
++                guard let self, self.activeParkOverride != nil else { return }
++                self.deviceManager.loopManager.mutateSettings { settings in
++                    guard case .preset(let preset)? = settings.scheduleOverride?.context,
++                          preset.id == Self.parkID else { return }
++                    settings.clearOverride()
++                }
++            })
++        present(UIHostingController(rootView: panel), animated: true)
++    }
+diff --git a/Loop/View Models/BolusEntryViewModel.swift b/Loop/View Models/BolusEntryViewModel.swift
+--- a/Loop/View Models/BolusEntryViewModel.swift
++++ b/Loop/View Models/BolusEntryViewModel.swift
+@@ -112,1 +112,6 @@
+-    @Published var scheduleOverride: TemporaryScheduleOverride?
++    @Published var scheduleOverride: TemporaryScheduleOverride?
++    var loKeyParkModeActive: Bool {
++        guard let item = scheduleOverride, item.isActive(at: Date()),
++              case .preset(let preset) = item.context else { return false }
++        return preset.id == UUID(uuidString: "B2717255-F306-4B52-93DC-D416A93E4BE5")
++    }
+@@ -322,9 +322,18 @@
+-    func didPressActionButton() async -> Bool {
+-        enacting = true
+-        if await saveAndDeliver() {
+-            return true
+-        } else {
+-            enacting = false
+-            return false
+-        }
+-    }
++    func didPressActionButton() async -> Bool {
++        enacting = true
++        if await saveAndDeliver() {
++            return true
++        } else {
++            enacting = false
++            return false
++        }
++    }
++
++    // No immediate manual bolus; native carb persistence still informs Loop.
++    func loKeySaveWithoutBolus() async -> Bool {
++        guard loKeyParkModeActive, potentialCarbEntry != nil, !enacting else { return false }
++        enacting = true
++        if await saveAndDeliver(withoutBolus: true) { return true }
++        enacting = false
++        return false
++    }
+@@ -333,1 +333,1 @@
+-    func saveAndDeliver() async -> Bool {
++    func saveAndDeliver(withoutBolus: Bool = false) async -> Bool {
+@@ -343,1 +343,1 @@
+-        let amountToDeliver = delegate.roundBolusVolume(units: enteredBolusAmount)
++        let amountToDeliver = withoutBolus ? 0 : delegate.roundBolusVolume(units: enteredBolusAmount)
+diff --git a/Loop/Views/BolusEntryView.swift b/Loop/Views/BolusEntryView.swift
+--- a/Loop/Views/BolusEntryView.swift
++++ b/Loop/Views/BolusEntryView.swift
+@@ -302,1 +302,13 @@
+-            actionButton
++            actionButton
++            if viewModel.loKeyParkModeActive && viewModel.potentialCarbEntry != nil &&
++               viewModel.actionButtonAction == .saveAndDeliver {
++                Button("Save Without Bolusing") {
++                    Task { if await viewModel.loKeySaveWithoutBolus() { dismiss() } }
++                }
++                .buttonStyle(ActionButtonStyle(.secondary))
++                .disabled(viewModel.enacting)
++                .padding([.horizontal, .bottom])
++                Text("This saves the meal to Loop, but skips the immediate bolus. Automatic insulin remains active.")
++                    .font(.caption).foregroundColor(.secondary)
++                    .padding([.horizontal, .bottom])
++            }
