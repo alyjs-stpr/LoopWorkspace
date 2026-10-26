@@ -1,0 +1,568 @@
+diff --git a/Loop/Managers/DeviceDataManager.swift b/Loop/Managers/DeviceDataManager.swift
+--- a/Loop/Managers/DeviceDataManager.swift
++++ b/Loop/Managers/DeviceDataManager.swift
+@@ -240,1 +240,5 @@
+-    private(set) var loopManager: LoopDataManager!
++    private(set) var loopManager: LoopDataManager!
++
++    // Read-only shadow-mode observation, never an insulin controller.
++    private let loKeyAdaptiveShadowRecorder = LoKeyAdaptiveShadowRecorder()
++    private var loKeyAdaptiveShadowObserver: NSObjectProtocol?
+@@ -440,1 +440,7 @@
+-        loopManager.delegate = self
++        loopManager.delegate = self
++
++        loKeyAdaptiveShadowObserver = NotificationCenter.default.addObserver(
++            forName: .LoopCompleted, object: loopManager, queue: .main
++        ) { [weak self] _ in
++            self?.loKeyCaptureAdaptiveShadow()
++        }
+@@ -479,1 +479,7 @@
+-    var availablePumpManagers: [PumpManagerDescriptor] {
++    deinit {
++        if let observer = loKeyAdaptiveShadowObserver {
++            NotificationCenter.default.removeObserver(observer)
++        }
++    }
++
++    var availablePumpManagers: [PumpManagerDescriptor] {
+@@ -1781,3 +1781,536 @@
+-extension DeviceDataManager {
+-    var detectedSystemTimeOffset: TimeInterval { trustedTimeChecker.detectedSystemTimeOffset }
+-}
++extension DeviceDataManager {
++    var detectedSystemTimeOffset: TimeInterval { trustedTimeChecker.detectedSystemTimeOffset }
++}
++
++/// Experimental target-selection policy, not a pump dosing algorithm.
++/// This package is deliberately independent of Loop's insulin-delivery path.
++/// It accepts snapshots, produces auditable *hypothetical* target decisions,
++/// and cannot request a bolus, temp basal, or change to Loop settings.
++public enum LoKeyAdaptive {
++    public struct TargetRange: Codable, Equatable, Sendable {
++        public let lowMgDl: Double
++        public let highMgDl: Double
++
++        public init(lowMgDl: Double, highMgDl: Double) {
++            self.lowMgDl = lowMgDl
++            self.highMgDl = highMgDl
++        }
++
++        public var isValid: Bool {
++            lowMgDl.isFinite && highMgDl.isFinite
++                && lowMgDl >= 55 && highMgDl <= 250 && lowMgDl <= highMgDl
++        }
++    }
++
++    public struct Reading: Codable, Equatable, Sendable {
++        public let timestamp: Date
++        public let glucoseMgDl: Double
++
++        public init(timestamp: Date, glucoseMgDl: Double) {
++            self.timestamp = timestamp
++            self.glucoseMgDl = glucoseMgDl
++        }
++    }
++
++    public enum DeliveryCertainty: String, Codable, Sendable {
++        case confirmed
++        case uncertain
++        case pumpDisconnected
++    }
++
++    public struct DoseEvent: Codable, Sendable {
++        public let timestamp: Date
++        public let type: String
++        /// Confirmed delivered units if available from Loop's DoseStore.
++        public let deliveredUnits: Double?
++        /// Requested/programmed units. Do not treat as confirmed delivery.
++        public let programmedUnits: Double
++
++        public init(timestamp: Date, type: String, deliveredUnits: Double?,
++                    programmedUnits: Double) {
++            self.timestamp = timestamp
++            self.type = type
++            self.deliveredUnits = deliveredUnits
++            self.programmedUnits = programmedUnits
++        }
++    }
++
++    public struct Snapshot: Codable, Sendable {
++        public let observedAt: Date
++        public let parkModeActive: Bool
++        public let automaticDosingEnabled: Bool
++        public let target: TargetRange
++        public let latestGlucose: Reading?
++        public let loopCompletedAt: Date?
++        /// Loop's own predictions; do not create glucose predictions here.
++        public let predictedGlucose: [Reading]
++        /// An observed value from Loop's existing DoseStore, never reset on switching modes.
++        public let recordedIOBUnits: Double?
++        public let insulinHistoryReconciled: Bool
++        public let deliveryCertainty: DeliveryCertainty
++        /// These read-only values enable retrospective assessment of actual
++        /// meals and doses, not alternative-dose counterfactuals.
++        public let carbsOnBoardGrams: Double?
++        public let recommendedAutomaticBolusUnits: Double?
++        public let recordedDoseEvents: [DoseEvent]
++
++        public init(
++            observedAt: Date,
++            parkModeActive: Bool,
++            automaticDosingEnabled: Bool,
++            target: TargetRange,
++            latestGlucose: Reading?,
++            loopCompletedAt: Date?,
++            predictedGlucose: [Reading],
++            recordedIOBUnits: Double?,
++            insulinHistoryReconciled: Bool,
++            deliveryCertainty: DeliveryCertainty,
++            carbsOnBoardGrams: Double? = nil,
++            recommendedAutomaticBolusUnits: Double? = nil,
++            recordedDoseEvents: [DoseEvent] = []
++        ) {
++            self.observedAt = observedAt
++            self.parkModeActive = parkModeActive
++            self.automaticDosingEnabled = automaticDosingEnabled
++            self.target = target
++            self.latestGlucose = latestGlucose
++            self.loopCompletedAt = loopCompletedAt
++            self.predictedGlucose = predictedGlucose
++            self.recordedIOBUnits = recordedIOBUnits
++            self.insulinHistoryReconciled = insulinHistoryReconciled
++            self.deliveryCertainty = deliveryCertainty
++            self.carbsOnBoardGrams = carbsOnBoardGrams
++            self.recommendedAutomaticBolusUnits = recommendedAutomaticBolusUnits
++            self.recordedDoseEvents = recordedDoseEvents
++        }
++    }
++
++    public enum TargetBias: String, Codable, Sendable {
++        case center
++        case towardUpperBound
++        case towardLowerBound
++        case unavailable
++    }
++
++    public enum Blocker: String, Codable, Sendable {
++        case inactiveParkMode
++        case automaticDosingOff
++        case invalidTarget
++        case staleOrMissingCGM
++        case staleOrMissingLoop
++        case insulinHistoryUnreconciled
++        case uncertainDelivery
++        case missingOrInvalidIOB
++        case insufficientForecast
++        case invalidForecast
++    }
++
++    public struct Evaluation: Codable, Sendable {
++        public let observedAt: Date
++        public let bias: TargetBias
++        /// Hypothetical target only. This is NEVER written to Loop settings.
++        public let shadowTargetMgDl: Double?
++        public let blocker: Blocker?
++        public let firstPredictedOutOfRangeMinutes: Double?
++        public let predictionMinimumMgDl: Double?
++        public let predictionMaximumMgDl: Double?
++        public let recordedIOBUnits: Double?
++
++        public var eligible: Bool { blocker == nil }
++    }
++
++    public struct Controller {
++        public init() {}
++
++        public func evaluate(_ snapshot: Snapshot) -> Evaluation {
++            func blocked(_ reason: Blocker) -> Evaluation {
++                Evaluation(
++                    observedAt: snapshot.observedAt,
++                    bias: .unavailable,
++                    shadowTargetMgDl: nil,
++                    blocker: reason,
++                    firstPredictedOutOfRangeMinutes: nil,
++                    predictionMinimumMgDl: nil,
++                    predictionMaximumMgDl: nil,
++                    recordedIOBUnits: snapshot.recordedIOBUnits
++                )
++            }
++
++            guard snapshot.parkModeActive else { return blocked(.inactiveParkMode) }
++            guard snapshot.automaticDosingEnabled else { return blocked(.automaticDosingOff) }
++            guard snapshot.target.isValid else { return blocked(.invalidTarget) }
++            guard let glucose = snapshot.latestGlucose,
++                  glucose.glucoseMgDl.isFinite,
++                  (35...600).contains(glucose.glucoseMgDl),
++                  snapshot.observedAt.timeIntervalSince(glucose.timestamp) >= -60,
++                  snapshot.observedAt.timeIntervalSince(glucose.timestamp) <= 10 * 60
++            else { return blocked(.staleOrMissingCGM) }
++
++            guard let lastLoop = snapshot.loopCompletedAt,
++                  snapshot.observedAt.timeIntervalSince(lastLoop) >= -60,
++                  snapshot.observedAt.timeIntervalSince(lastLoop) <= 10 * 60
++            else { return blocked(.staleOrMissingLoop) }
++
++            guard snapshot.insulinHistoryReconciled else { return blocked(.insulinHistoryUnreconciled) }
++            guard snapshot.deliveryCertainty == .confirmed else { return blocked(.uncertainDelivery) }
++            guard let iob = snapshot.recordedIOBUnits,
++                  iob.isFinite, iob >= 0 else { return blocked(.missingOrInvalidIOB) }
++
++            // Only examine the next hour. Missing predictions cannot be treated
++            // as evidence that glucose is safely within the requested range.
++            let forecast = snapshot.predictedGlucose
++                .filter { $0.timestamp >= snapshot.observedAt
++                            && $0.timestamp <= snapshot.observedAt.addingTimeInterval(60 * 60) }
++                .sorted { $0.timestamp < $1.timestamp }
++
++            guard forecast.count >= 2,
++                  let first = forecast.first, let last = forecast.last,
++                  first.timestamp.timeIntervalSince(snapshot.observedAt) <= 15 * 60,
++                  last.timestamp.timeIntervalSince(snapshot.observedAt) >= 30 * 60
++            else { return blocked(.insufficientForecast) }
++
++            guard forecast.allSatisfy({
++                $0.glucoseMgDl.isFinite && (35...600).contains($0.glucoseMgDl)
++            }), zip(forecast, forecast.dropFirst()).allSatisfy({ pair in
++                pair.0.timestamp < pair.1.timestamp &&
++                pair.1.timestamp.timeIntervalSince(pair.0.timestamp) <= 15 * 60
++            }) else { return blocked(.invalidForecast) }
++
++            let values = forecast.map(\.glucoseMgDl)
++            let minGlucose = min(glucose.glucoseMgDl, values.min()!)
++            let maxGlucose = max(glucose.glucoseMgDl, values.max()!)
++            let firstExit = forecast.first {
++                $0.glucoseMgDl < snapshot.target.lowMgDl
++                    || $0.glucoseMgDl > snapshot.target.highMgDl
++            }
++            let firstExitMinutes = firstExit.map {
++                $0.timestamp.timeIntervalSince(snapshot.observedAt) / 60
++            }
++
++            // Experimental preference ordering: predicted lows always outrank
++            // predicted highs. No insulin amount is calculated or authorized.
++            let bias: TargetBias
++            let shadowTarget: Double
++            if minGlucose < snapshot.target.lowMgDl {
++                bias = .towardUpperBound
++                shadowTarget = snapshot.target.highMgDl
++            } else if maxGlucose > snapshot.target.highMgDl {
++                bias = .towardLowerBound
++                shadowTarget = snapshot.target.lowMgDl
++            } else {
++                bias = .center
++                shadowTarget = (snapshot.target.lowMgDl + snapshot.target.highMgDl) / 2
++            }
++
++            return Evaluation(
++                observedAt: snapshot.observedAt,
++                bias: bias,
++                shadowTargetMgDl: shadowTarget,
++                blocker: nil,
++                firstPredictedOutOfRangeMinutes: firstExitMinutes,
++                predictionMinimumMgDl: minGlucose,
++                predictionMaximumMgDl: maxGlucose,
++                recordedIOBUnits: iob
++            )
++        }
++    }
++
++    /// Pure state representation for testing ownership and handoffs. It does not
++    /// change Loop's actual owner or make any insulin delivery request.
++    public enum Owner: String, Codable, Sendable {
++        case normalLoop
++        case experimentalPark
++    }
++
++    public struct HandoffState: Codable, Sendable {
++        public private(set) var owner: Owner
++        public var pendingPumpCommand: Bool
++        public var doseHistoryReconciled: Bool
++
++        public init(
++            owner: Owner = .normalLoop,
++            pendingPumpCommand: Bool = false,
++            doseHistoryReconciled: Bool = true
++        ) {
++            self.owner = owner
++            self.pendingPumpCommand = pendingPumpCommand
++            self.doseHistoryReconciled = doseHistoryReconciled
++        }
++
++        public var mayIssueAnotherCommand: Bool {
++            !pendingPumpCommand && doseHistoryReconciled
++        }
++
++        @discardableResult
++        public mutating func requestParkControl() -> Bool {
++            guard mayIssueAnotherCommand else { return false }
++            owner = .experimentalPark
++            return true
++        }
++
++        /// Returning to normal is always allowed, but pending/unreconciled
++        /// delivery still blocks *new* commands in this model.
++        public mutating func returnToNormalLoop() {
++            owner = .normalLoop
++        }
++    }
++}
++
++extension LoKeyAdaptive {
++    /// Auditable record of a completed Loop cycle. A shadow recommendation is
++    /// never an actual dose or a directly observable counterfactual result.
++    public struct RecordedCycle: Codable, Sendable {
++        public let schemaVersion: Int
++        public let snapshot: Snapshot
++        public let evaluation: Evaluation
++
++        public init(snapshot: Snapshot, evaluation: Evaluation) {
++            schemaVersion = 1
++            self.snapshot = snapshot
++            self.evaluation = evaluation
++        }
++    }
++
++    public struct ForecastOutcome: Codable, Sendable {
++        public let sourceTimestamp: Date
++        public let horizonMinutes: Int
++        public let predictedMgDl: Double
++        public let observedMgDl: Double
++        public let errorMgDl: Double
++        public let absoluteErrorMgDl: Double
++        public let sourceBias: TargetBias
++        public let sourceWasEligible: Bool
++    }
++
++    public struct Report: Codable, Sendable {
++        public let cycleCount: Int
++        public let eligibleCount: Int
++        public let blockedCount: Int
++        public let outcomes: [ForecastOutcome]
++
++        public func meanAbsoluteError(horizonMinutes: Int) -> Double? {
++            let selected = outcomes.filter { $0.horizonMinutes == horizonMinutes }
++            guard !selected.isEmpty else { return nil }
++            return selected.map(\.absoluteErrorMgDl).reduce(0, +) / Double(selected.count)
++        }
++    }
++
++    public struct OutcomeAnalyzer {
++        public init() {}
++
++        public func analyze(_ cycles: [RecordedCycle]) -> Report {
++            let sorted = cycles.sorted { $0.snapshot.observedAt < $1.snapshot.observedAt }
++            // Later CGM readings are actual outcomes from *normal Loop's* delivery,
++            // not outcomes of the alternative shadow policy.
++            let glucose = sorted.compactMap(\.snapshot.latestGlucose)
++                .filter { $0.glucoseMgDl.isFinite && (35...600).contains($0.glucoseMgDl) }
++            var outcomes: [ForecastOutcome] = []
++
++            for cycle in sorted {
++                let source = cycle.snapshot
++                for horizon in [30, 60, 120, 180] {
++                    let dueAt = source.observedAt.addingTimeInterval(TimeInterval(horizon * 60))
++                    guard let predicted = source.predictedGlucose
++                        .filter({ $0.glucoseMgDl.isFinite && abs($0.timestamp.timeIntervalSince(dueAt)) <= 4 * 60 })
++                        .min(by: { abs($0.timestamp.timeIntervalSince(dueAt)) < abs($1.timestamp.timeIntervalSince(dueAt)) }),
++                          let actual = glucose
++                        .filter({ abs($0.timestamp.timeIntervalSince(dueAt)) <= 4 * 60 && $0.timestamp > source.observedAt })
++                        .min(by: { abs($0.timestamp.timeIntervalSince(dueAt)) < abs($1.timestamp.timeIntervalSince(dueAt)) })
++                    else { continue }
++                    let error = actual.glucoseMgDl - predicted.glucoseMgDl
++                    outcomes.append(ForecastOutcome(
++                        sourceTimestamp: source.observedAt,
++                        horizonMinutes: horizon,
++                        predictedMgDl: predicted.glucoseMgDl,
++                        observedMgDl: actual.glucoseMgDl,
++                        errorMgDl: error,
++                        absoluteErrorMgDl: abs(error),
++                        sourceBias: cycle.evaluation.bias,
++                        sourceWasEligible: cycle.evaluation.eligible
++                    ))
++                }
++            }
++            return Report(
++                cycleCount: sorted.count,
++                eligibleCount: sorted.filter(\.evaluation.eligible).count,
++                blockedCount: sorted.filter { !$0.evaluation.eligible }.count,
++                outcomes: outcomes
++            )
++        }
++    }
++}
++
++
++// Native background-capable, READ-ONLY shadow recorder. Does not touch
++// schedule overrides, dosing recommendations, or any PumpManager command.
++private final class LoKeyAdaptiveShadowRecorder {
++    private let queue = DispatchQueue(label: "com.lokey.adaptive.shadow.files", qos: .utility)
++    private let fileManager = FileManager.default
++    private let folderName = "LoKeyAdaptiveShadow"
++
++    private func folder() -> URL? {
++        guard let base = fileManager.urls(for: .applicationSupportDirectory,
++                                          in: .userDomainMask).first else { return nil }
++        var folder = base.appendingPathComponent(folderName, isDirectory: true)
++        do {
++            try fileManager.createDirectory(at: folder, withIntermediateDirectories: true)
++            var resources = URLResourceValues()
++            resources.isExcludedFromBackup = true
++            try? folder.setResourceValues(resources)
++            return folder
++        } catch { return nil }
++    }
++
++    func record(_ snapshot: LoKeyAdaptive.Snapshot) {
++        let result = LoKeyAdaptive.Controller().evaluate(snapshot)
++        let cycle = LoKeyAdaptive.RecordedCycle(snapshot: snapshot, evaluation: result)
++        queue.async { [self] in
++            guard let folder = folder() else { return }
++            let formatter = DateFormatter()
++            formatter.dateFormat = "yyyy-MM-dd"
++            formatter.timeZone = TimeZone(secondsFromGMT: 0)
++            formatter.locale = Locale(identifier: "en_US_POSIX")
++            let filename = "adaptive-shadow-" + formatter.string(from: snapshot.observedAt) + ".jsonl"
++            let url = folder.appendingPathComponent(filename)
++            let encoder = JSONEncoder()
++            encoder.dateEncodingStrategy = .iso8601
++            encoder.outputFormatting = [.sortedKeys]
++            encoder.nonConformingFloatEncodingStrategy =
++                .convertToString(positiveInfinity: "Infinity",
++                                 negativeInfinity: "-Infinity", nan: "NaN")
++            guard var encoded = try? encoder.encode(cycle) else { return }
++            encoded.append(0x0A)
++            if !fileManager.fileExists(atPath: url.path) {
++                _ = fileManager.createFile(
++                    atPath: url.path, contents: nil,
++                    attributes: [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication]
++                )
++            }
++            if let handle = try? FileHandle(forWritingTo: url) {
++                handle.seekToEndOfFile()
++                handle.write(encoded)
++                handle.closeFile()
++            }
++            // Local-only, excluded from backup, and bounded to the last 14 days.
++            if let files = try? fileManager.contentsOfDirectory(
++                at: folder, includingPropertiesForKeys: [.contentModificationDateKey]
++            ) {
++                let oldestAllowed = Date().addingTimeInterval(-14 * 24 * 3600)
++                for file in files where file.lastPathComponent.hasPrefix("adaptive-shadow-")
++                    && file.pathExtension == "jsonl" {
++                    if let values = try? file.resourceValues(forKeys: [.contentModificationDateKey]),
++                       let modified = values.contentModificationDate, modified < oldestAllowed {
++                        try? fileManager.removeItem(at: file)
++                    }
++                }
++            }
++        }
++    }
++
++    func filesForSharing() -> [URL] {
++        queue.sync {
++            guard let folder = folder(),
++                  let urls = try? fileManager.contentsOfDirectory(
++                    at: folder, includingPropertiesForKeys: nil
++                  ) else { return [] }
++            return urls.filter {
++                $0.lastPathComponent.hasPrefix("adaptive-shadow-") && $0.pathExtension == "jsonl"
++            }.sorted(by: { $0.lastPathComponent < $1.lastPathComponent })
++        }
++    }
++}
++
++extension DeviceDataManager {
++    func loKeyAdaptiveShadowFilesForExport() -> [URL] {
++        loKeyAdaptiveShadowRecorder.filesForSharing()
++    }
++
++    // LoopCompleted is emitted for successful normal Loop cycles, including
++    // background cycles. iOS does not guarantee continued background execution.
++    fileprivate func loKeyCaptureAdaptiveShadow() {
++        guard UserDefaults.standard.bool(forKey: "LoKeyAdaptiveShadowEnabledV1") else { return }
++        let at = Date()
++        let latest = glucoseStore.latestGlucose
++        let glucose = latest.map {
++            LoKeyAdaptive.Reading(timestamp: $0.startDate,
++                                  glucoseMgDl: $0.quantity.doubleValue(for: .milligramsPerDeciliter))
++        }
++        let pumpAvailable = pumpManager != nil
++        let deliveryUncertain = pumpManager?.status.deliveryIsUncertain ?? true
++        let certainty: LoKeyAdaptive.DeliveryCertainty =
++            !pumpAvailable ? .pumpDisconnected : (deliveryUncertain ? .uncertain : .confirmed)
++        let automaticEnabled = automaticDosingStatus.automaticDosingEnabled
++        // Recent pump reconciliation data is only a *proxy* for reliable data.
++        // It does not establish delivery certainty and is NEVER used to authorize dosing.
++        let recentPumpData: Bool
++        if let lastPumpData = doseStore.lastAddedPumpData {
++            recentPumpData = at.timeIntervalSince(lastPumpData) >= 0
++                && at.timeIntervalSince(lastPumpData) <= 20 * 60
++        } else {
++            recentPumpData = false
++        }
++        loopManager.getLoopState { [weak self] manager, state in
++            guard let self else { return }
++            let parkID = UUID(uuidString: "B2717255-F306-4B52-93DC-D416A93E4BE5")!
++            let override = manager.settings.scheduleOverride
++            let parkActive: Bool
++            if let override, override.isActive(at: at),
++               case .preset(let preset) = override.context {
++                parkActive = preset.id == parkID
++            } else {
++                parkActive = false
++            }
++            let range = parkActive ? override?.settings.targetRange : nil
++            let low = range?.lowerBound.doubleValue(for: .milligramsPerDeciliter) ?? 0
++            let high = range?.upperBound.doubleValue(for: .milligramsPerDeciliter) ?? 0
++            let predictions = (state.predictedGlucoseIncludingPendingInsulin ?? []).map {
++                LoKeyAdaptive.Reading(timestamp: $0.startDate,
++                                      glucoseMgDl: $0.quantity.doubleValue(for: .milligramsPerDeciliter))
++            }
++            let iob = state.insulinOnBoard?.value
++            let cob = state.carbsOnBoard?.quantity.doubleValue(for: .gram())
++            let recommendedBolus = state.recommendedAutomaticDose?.recommendation.bolusUnits
++            let lastSuccess = state.error == nil ? manager.lastLoopCompleted : nil
++            self.doseStore.getNormalizedDoseEntries(
++                start: at.addingTimeInterval(-3 * 3600), end: at
++            ) { [weak self] response in
++                guard let self else { return }
++                let nativeEvents: [DoseEntry]
++                let dosesLoaded: Bool
++                switch response {
++                case .success(let entries):
++                    nativeEvents = entries
++                    dosesLoaded = true
++                case .failure:
++                    nativeEvents = []
++                    dosesLoaded = false
++                }
++                let doseEvents = nativeEvents.map {
++                    LoKeyAdaptive.DoseEvent(
++                        timestamp: $0.startDate,
++                        type: String(describing: $0.type),
++                        deliveredUnits: $0.deliveredUnits,
++                        programmedUnits: $0.programmedUnits
++                    )
++                }
++                let snapshot = LoKeyAdaptive.Snapshot(
++                    observedAt: at,
++                    parkModeActive: parkActive,
++                    automaticDosingEnabled: automaticEnabled,
++                    target: .init(lowMgDl: low, highMgDl: high),
++                    latestGlucose: glucose,
++                    loopCompletedAt: lastSuccess,
++                    predictedGlucose: predictions,
++                    recordedIOBUnits: iob,
++                    insulinHistoryReconciled: recentPumpData && dosesLoaded && !deliveryUncertain,
++                    deliveryCertainty: certainty,
++                    carbsOnBoardGrams: cob,
++                    recommendedAutomaticBolusUnits: recommendedBolus,
++                    recordedDoseEvents: doseEvents
++                )
++                self.loKeyAdaptiveShadowRecorder.record(snapshot)
++            }
++        }
++    }
++}
++
