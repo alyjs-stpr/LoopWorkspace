@@ -1,0 +1,99 @@
+diff --git a/Loop/Views/CarbEntryView.swift b/Loop/Views/CarbEntryView.swift
+--- a/Loop/Views/CarbEntryView.swift
++++ b/Loop/Views/CarbEntryView.swift
+@@ -352,2 +352,10 @@
+-    case breakfast, lunch, dinner, snack
+-    var id: Int { rawValue }
++    case breakfast, lunch, dinner, snack
++    static func suggested(for date: Date) -> LoKeyMealKind {
++        switch Calendar.current.component(.hour, from: date) {
++        case 5..<11: return .breakfast
++        case 11..<16: return .lunch
++        case 16..<22: return .dinner
++        default: return .snack
++        }
++    }
++    var id: Int { rawValue }
+@@ -613,1 +613,2 @@
+-    @State private var meal: LoKeyMealKind = .dinner
++    @State private var meal: LoKeyMealKind = .suggested(for: Date())
++    @State private var mealWasManuallyChosen = false
+@@ -654,5 +654,9 @@
+-            Picker("Meal", selection: $meal) {
+-                ForEach(LoKeyMealKind.allCases) { kind in
+-                    Text(kind.name).tag(kind)
+-                }
+-            }
++            Picker("Meal", selection: Binding(
++                get: { meal },
++                set: { meal = $0; mealWasManuallyChosen = true }
++            )) {
++                ForEach(LoKeyMealKind.allCases) { kind in
++                    Text(kind.name).tag(kind)
++                }
++            }
++            .pickerStyle(.menu)
+@@ -700,10 +700,15 @@
+-            HStack {
+-                Text("Protein factor")
+-                    .font(.subheadline)
+-                Spacer()
+-                Text("\(Int((data.proteinFactor * 100).rounded()))%")
+-                    .font(.subheadline)
+-                    .bold()
+-            }
+-            Slider(value: $data.proteinFactor, in: 0...1, step: 0.05)
+-                .accessibilityLabel("Protein carb-equivalent factor")
++            DisclosureGroup {
++                Slider(value: $data.proteinFactor, in: 0...1, step: 0.05)
++                    .accessibilityLabel("Protein carb-equivalent factor")
++                Text("This adjusts the personal carb-equivalent estimate; it is not an insulin dose.")
++                    .font(.caption)
++                    .foregroundColor(.secondary)
++            } label: {
++                HStack {
++                    Text("Protein factor")
++                    Spacer()
++                    Text("\(Int((data.proteinFactor * 100).rounded()))%")
++                        .foregroundColor(.secondary)
++                }
++                .font(.subheadline)
++            }
+@@ -746,1 +746,1 @@
+-                Text("Enter valid carbs and protein to calculate an equivalent (maximum 500 g).")
++                Text("Enter carbs and protein to calculate an estimate (up to 500 g).")
+@@ -766,7 +766,12 @@
+-            Text("Protein may affect glucose later. This personal equivalent is not a validated insulin dose. Loop uses one absorption time for the combined carb entry; review its normal prediction and bolus confirmation.")
+-                .font(.caption)
+-                .foregroundColor(.secondary)
+-
+-            Toggle("Possible delayed rise", isOn: $possibleDelayedRise)
+-            TextField("Meal notes (optional)", text: $note)
+-                .focused($focusedMealInput, equals: .note)
++            Text("Estimate only. Review Loop carbs and bolus before confirming.")
++                .font(.caption)
++                .foregroundColor(.secondary)
++
++            DisclosureGroup("Optional meal details") {
++                Toggle("Possible delayed rise", isOn: $possibleDelayedRise)
++                TextField("Meal notes (optional)", text: $note)
++                    .focused($focusedMealInput, equals: .note)
++                Text("Loop uses one absorption time for the combined carb entry.")
++                    .font(.caption)
++                    .foregroundColor(.secondary)
++            }
+@@ -801,1 +801,1 @@
+-            Text("Meal details will be saved automatically only after Loop successfully saves the carb entry. Canceling will not record the meal.")
++            Text("Meal details are recorded only after Loop saves carbs. Cancel discards the entry.")
+@@ -832,1 +832,4 @@
+-        .onAppear { updatePendingObservation() }
++        .onAppear {
++            if !mealWasManuallyChosen { meal = .suggested(for: loopDate) }
++            updatePendingObservation()
++        }
+@@ -842,1 +842,4 @@
+-        .onChange(of: loopDate) { _ in updatePendingObservation() }
++        .onChange(of: loopDate) { newDate in
++            if !mealWasManuallyChosen { meal = .suggested(for: newDate) }
++            updatePendingObservation()
++        }
