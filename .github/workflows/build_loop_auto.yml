@@ -303,6 +303,10 @@ jobs:
           # Build 21: record a meal once, only after native Loop CarbStore succeeds.
           git -C Loop apply --check ../customizations/LoKeyBuild21ConfirmedMealCapture.patch
           git -C Loop apply ../customizations/LoKeyBuild21ConfirmedMealCapture.patch
+          # Theme Park Mode: independent temporary correction target and
+          # native carb-save options. Existing insulin prediction stays unchanged.
+          git -C Loop apply --check ../customizations/LoKeyThemeParkMode.patch
+          git -C Loop apply ../customizations/LoKeyThemeParkMode.patch
           echo "LoKey final dashboard polish applied."
           echo "LoKey T1D rounded chart cards and shared Now markers applied."
 
