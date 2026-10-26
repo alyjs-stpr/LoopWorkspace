@@ -26,7 +26,7 @@ diff --git a/Loop/Managers/DeviceDataManager.swift b/Loop/Managers/DeviceDataMan
 +    }
 +
 +    var availablePumpManagers: [PumpManagerDescriptor] {
-@@ -1781,3 +1781,536 @@
+@@ -1781,3 +1781,532 @@
 -extension DeviceDataManager {
 -    var detectedSystemTimeOffset: TimeInterval { trustedTimeChecker.detectedSystemTimeOffset }
 -}
@@ -494,13 +494,9 @@ diff --git a/Loop/Managers/DeviceDataManager.swift b/Loop/Managers/DeviceDataMan
 +        let automaticEnabled = automaticDosingStatus.automaticDosingEnabled
 +        // Recent pump reconciliation data is only a *proxy* for reliable data.
 +        // It does not establish delivery certainty and is NEVER used to authorize dosing.
-+        let recentPumpData: Bool
-+        if let lastPumpData = doseStore.lastAddedPumpData {
-+            recentPumpData = at.timeIntervalSince(lastPumpData) >= 0
-+                && at.timeIntervalSince(lastPumpData) <= 20 * 60
-+        } else {
-+            recentPumpData = false
-+        }
++        let lastPumpData = doseStore.lastAddedPumpData
++        let recentPumpData = at.timeIntervalSince(lastPumpData) >= 0
++            && at.timeIntervalSince(lastPumpData) <= 20 * 60
 +        loopManager.getLoopState { [weak self] manager, state in
 +            guard let self else { return }
 +            let parkID = UUID(uuidString: "B2717255-F306-4B52-93DC-D416A93E4BE5")!
