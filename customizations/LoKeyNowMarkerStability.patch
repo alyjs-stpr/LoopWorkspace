@@ -1,0 +1,21 @@
+diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View Controllers/StatusTableViewController.swift
+--- a/Loop/View Controllers/StatusTableViewController.swift
++++ b/Loop/View Controllers/StatusTableViewController.swift
+@@ -288,1 +288,16 @@
+-        marker.nowFraction = charts.plotFraction(for: Date())
++        // A refreshed cell can be configured before ChartsManager rebuilds its
++        // x-axis tick values. Never hide the Now marker during that transition.
++        // Once tick values exist, use plotFraction for accurate chart alignment.
++        let markerDate = Date()
++        if let fraction = charts.plotFraction(for: markerDate), fraction.isFinite {
++            marker.nowFraction = fraction
++        } else {
++            // Purely presentational fallback; does not touch prediction/dosing.
++            let chartDuration = charts.displayedEndDate.timeIntervalSince(charts.startDate)
++            let position = markerDate.timeIntervalSince(charts.startDate)
++            if chartDuration.isFinite && chartDuration > 0 && position.isFinite {
++                marker.nowFraction = CGFloat(position / chartDuration)
++            } else {
++                marker.nowFraction = nil
++            }
++        }
