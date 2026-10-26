@@ -288,6 +288,12 @@ jobs:
           # Simplify meal entry and suggest the meal type using its timestamp.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyMealEntryPolish.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyMealEntryPolish.patch
+          # UI-only: keep the Now overlay visible before generated chart ticks exist.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyNowMarkerStability.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyNowMarkerStability.patch
+          # Compact interactive park control center, separate from Loop dosing.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyParkControls.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyParkControls.patch
           echo "LoKey final dashboard polish applied."
           echo "LoKey T1D rounded chart cards and shared Now markers applied."
 

@@ -105,6 +105,12 @@ jobs:
           # Simplify meal entry and suggest the meal type using its timestamp.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyMealEntryPolish.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyMealEntryPolish.patch
+          # UI-only: keep the Now overlay visible before generated chart ticks exist.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyNowMarkerStability.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyNowMarkerStability.patch
+          # Compact interactive park control center, separate from Loop dosing.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyParkControls.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyParkControls.patch
       - name: Parse modified Swift files
         shell: bash
         run: |
@@ -176,6 +182,9 @@ jobs:
           grep -Fq 'pendingObservation = nil' "$file"
           grep -Fq 'lokeyOnCarbEntrySaved?(storedCarbEntry)' "Loop/Loop/View Models/BolusEntryViewModel.swift"
           grep -Fq 'private var activeParkOverride: TemporaryScheduleOverride?' "Loop/Loop/View Controllers/StatusTableViewController.swift"
+          grep -Fq 'private var pausedParkSession:' "Loop/Loop/View Controllers/StatusTableViewController.swift"
+          grep -Fq 'Pause Park Targets' "Loop/Loop/View Controllers/StatusTableViewController.swift"
+          grep -Fq 'Normal Loop targets are active. Insulin delivery is not paused.' "Loop/Loop/View Controllers/StatusTableViewController.swift"
           grep -Fq 'LoKeyThemeParkView(' "Loop/Loop/View Controllers/StatusTableViewController.swift"
           grep -Fq 'loKeySaveWithoutBolus()' "Loop/Loop/View Models/BolusEntryViewModel.swift"
           grep -Fq 'Button("Save Without Bolusing")' "Loop/Loop/Views/BolusEntryView.swift"
@@ -286,6 +295,8 @@ jobs:
             grep -Fq 'LoKeyDashboardInsights.patch' "$workflow"
             grep -Fq 'LoKeyDashboardPolish.patch' "$workflow"
             grep -Fq 'LoKeyDashboardFinalPass.patch' "$workflow"
+            grep -Fq 'LoKeyNowMarkerStability.patch' "$workflow"
+            grep -Fq 'LoKeyParkControls.patch' "$workflow"
             grep -Fq 'LoKeyDashboardCleanupLoop.patch' "$workflow"
             grep -Fq 'LoKeyDashboardCleanupLoopKit.patch' "$workflow"
           done
@@ -373,6 +384,12 @@ jobs:
           git -C Loop apply --unidiff-zero ../customizations/LoKeyForecastWindows.patch
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyMealEntryPolish.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyMealEntryPolish.patch
+          # UI-only: keep the Now overlay visible before generated chart ticks exist.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyNowMarkerStability.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyNowMarkerStability.patch
+          # Compact interactive park control center, separate from Loop dosing.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyParkControls.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyParkControls.patch
           git -C NightscoutService apply --check ../customizations/LoKeyT1PalNightscout.patch
           git -C NightscoutService apply ../customizations/LoKeyT1PalNightscout.patch
       # This is a source compilation smoke test, not an installable app package.
