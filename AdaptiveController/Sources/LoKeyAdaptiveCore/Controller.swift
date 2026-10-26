@@ -36,6 +36,23 @@ public enum LoKeyAdaptive {
         case pumpDisconnected
     }
 
+    public struct DoseEvent: Codable, Sendable {
+        public let timestamp: Date
+        public let type: String
+        /// Confirmed delivered units if available from Loop's DoseStore.
+        public let deliveredUnits: Double?
+        /// Requested/programmed units. Do not treat as confirmed delivery.
+        public let programmedUnits: Double
+
+        public init(timestamp: Date, type: String, deliveredUnits: Double?,
+                    programmedUnits: Double) {
+            self.timestamp = timestamp
+            self.type = type
+            self.deliveredUnits = deliveredUnits
+            self.programmedUnits = programmedUnits
+        }
+    }
+
     public struct Snapshot: Codable, Sendable {
         public let observedAt: Date
         public let parkModeActive: Bool
@@ -49,6 +66,11 @@ public enum LoKeyAdaptive {
         public let recordedIOBUnits: Double?
         public let insulinHistoryReconciled: Bool
         public let deliveryCertainty: DeliveryCertainty
+        /// These read-only values enable retrospective assessment of actual
+        /// meals and doses, not alternative-dose counterfactuals.
+        public let carbsOnBoardGrams: Double?
+        public let recommendedAutomaticBolusUnits: Double?
+        public let recordedDoseEvents: [DoseEvent]
 
         public init(
             observedAt: Date,
@@ -60,7 +82,10 @@ public enum LoKeyAdaptive {
             predictedGlucose: [Reading],
             recordedIOBUnits: Double?,
             insulinHistoryReconciled: Bool,
-            deliveryCertainty: DeliveryCertainty
+            deliveryCertainty: DeliveryCertainty,
+            carbsOnBoardGrams: Double? = nil,
+            recommendedAutomaticBolusUnits: Double? = nil,
+            recordedDoseEvents: [DoseEvent] = []
         ) {
             self.observedAt = observedAt
             self.parkModeActive = parkModeActive
@@ -72,6 +97,9 @@ public enum LoKeyAdaptive {
             self.recordedIOBUnits = recordedIOBUnits
             self.insulinHistoryReconciled = insulinHistoryReconciled
             self.deliveryCertainty = deliveryCertainty
+            self.carbsOnBoardGrams = carbsOnBoardGrams
+            self.recommendedAutomaticBolusUnits = recommendedAutomaticBolusUnits
+            self.recordedDoseEvents = recordedDoseEvents
         }
     }
 
