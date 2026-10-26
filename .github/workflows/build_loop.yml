@@ -282,6 +282,12 @@ jobs:
           # native carb-save options. Existing insulin prediction stays unchanged.
           git -C Loop apply --check ../customizations/LoKeyThemeParkMode.patch
           git -C Loop apply ../customizations/LoKeyThemeParkMode.patch
+          # Forecast selector: one hour of history plus the next 1 / 3 / 6 hours.
+          git -C Loop apply --check ../customizations/LoKeyForecastWindows.patch
+          git -C Loop apply ../customizations/LoKeyForecastWindows.patch
+          # Simplify meal entry and suggest the meal type using its timestamp.
+          git -C Loop apply --check ../customizations/LoKeyMealEntryPolish.patch
+          git -C Loop apply ../customizations/LoKeyMealEntryPolish.patch
           echo "LoKey final dashboard polish applied."
           echo "LoKey T1D rounded chart cards and shared Now markers applied."
 
