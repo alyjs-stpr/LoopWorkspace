@@ -97,14 +97,14 @@ jobs:
           git -C Loop apply ../customizations/LoKeyBuild21ConfirmedMealCapture.patch
           # Theme Park Mode: independent temporary correction target and
           # native carb-save options. Existing insulin prediction stays unchanged.
-          git -C Loop apply --check ../customizations/LoKeyThemeParkMode.patch
-          git -C Loop apply ../customizations/LoKeyThemeParkMode.patch
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyThemeParkMode.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyThemeParkMode.patch
           # Forecast selector: one hour of history plus the next 1 / 3 / 6 hours.
-          git -C Loop apply --check ../customizations/LoKeyForecastWindows.patch
-          git -C Loop apply ../customizations/LoKeyForecastWindows.patch
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyForecastWindows.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyForecastWindows.patch
           # Simplify meal entry and suggest the meal type using its timestamp.
-          git -C Loop apply --check ../customizations/LoKeyMealEntryPolish.patch
-          git -C Loop apply ../customizations/LoKeyMealEntryPolish.patch
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyMealEntryPolish.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyMealEntryPolish.patch
       - name: Parse modified Swift files
         shell: bash
         run: |
@@ -366,6 +366,13 @@ jobs:
           # Build 21: record a meal once, only after native Loop CarbStore succeeds.
           git -C Loop apply --check ../customizations/LoKeyBuild21ConfirmedMealCapture.patch
           git -C Loop apply ../customizations/LoKeyBuild21ConfirmedMealCapture.patch
+          # Match the preflight's new LoKey patch set in the unsigned Swift build.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyThemeParkMode.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyThemeParkMode.patch
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyForecastWindows.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyForecastWindows.patch
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyMealEntryPolish.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyMealEntryPolish.patch
           git -C NightscoutService apply --check ../customizations/LoKeyT1PalNightscout.patch
           git -C NightscoutService apply ../customizations/LoKeyT1PalNightscout.patch
       # This is a source compilation smoke test, not an installable app package.
