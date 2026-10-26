@@ -1,7 +1,7 @@
 diff --git a/LoopKitUI/View Controllers/ChartsManager.swift b/LoopKitUI/View Controllers/ChartsManager.swift
 --- a/LoopKitUI/View Controllers/ChartsManager.swift
 +++ b/LoopKitUI/View Controllers/ChartsManager.swift
-@@ -217,4 +217,31 @@
+@@ -217,4 +217,28 @@
 -        xAxisValues.first?.hidden = true
 -        xAxisValues.last?.hidden = true
 -
