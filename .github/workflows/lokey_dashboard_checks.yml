@@ -160,6 +160,9 @@ jobs:
           # Build 33: Shadow submenu with on-device, read-only record dashboard.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild33ShadowDashboard.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild33ShadowDashboard.patch
+          # Build 35: live dashboard age, bolus and carbs refresh after Loop fetches.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild35LiveDashboardRefresh.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild35LiveDashboardRefresh.patch
           # Preserve pump-reported decimal reservoir precision below 50 U.
           # Above threshold remains 50+ U; no synthetic estimate.
           git -C OmnipodKit apply --check ../customizations/LoKeyBuild29PreciseReservoir.patch
@@ -203,6 +206,10 @@ jobs:
           grep -Fq 'return shouldShowHUD ? 1 : 0' "$FILE"
           grep -Fq 'withIdentifier: HUDViewTableViewCell.className' "$FILE"
           grep -Fq 'LoKeyQuickStatsCell.id' "$FILE"
+          # The new card must update after the asynchronous Loop snapshot completes.
+          grep -Fq 'self.loKeyQuickStatsCell?.update(' "$FILE"
+          grep -Fq 'self.loKeyRefreshHeader()' "$FILE"
+          grep -Fq 'loKeyQuickStatsCell = cell' "$FILE"
           if grep -Fq 'let hudRows = (0..<(loKeyPage == .dashboard ? 2 : 1)).map' "$FILE"; then
             echo '::error::Duplicated dashboard HUD row returned'
             exit 1
@@ -543,6 +550,9 @@ jobs:
           # Build 33: Shadow submenu with on-device, read-only record dashboard.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild33ShadowDashboard.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild33ShadowDashboard.patch
+          # Build 35: live dashboard age, bolus and carbs refresh after Loop fetches.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild35LiveDashboardRefresh.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild35LiveDashboardRefresh.patch
           # Preserve pump-reported decimal reservoir precision below 50 U.
           # Above threshold remains 50+ U; no synthetic estimate.
           git -C OmnipodKit apply --check ../customizations/LoKeyBuild29PreciseReservoir.patch

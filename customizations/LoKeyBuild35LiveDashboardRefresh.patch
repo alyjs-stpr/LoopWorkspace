@@ -1,0 +1,24 @@
+diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View Controllers/StatusTableViewController.swift
+--- a/Loop/View Controllers/StatusTableViewController.swift
++++ b/Loop/View Controllers/StatusTableViewController.swift
+@@ -193,1 +193,2 @@
+     private weak var loKeyAgeText: UILabel?
++    private weak var loKeyQuickStatsCell: LoKeyQuickStatsCell?
+@@ -1170,1 +1170,14 @@
+             self.lokeyMetricsCell?.configure(self.lokeySnapshot)
++            // Build 35: native Loop's HUD is live, but the Build 32 read-only
++            // dashboard cards were never refreshed after their initial dequeue.
++            // Keep these values synchronized with the completed Loop data fetch.
++            self.loKeyRefreshHeader()
++            if self.loKeyPage == .dashboard {
++                self.loKeyQuickStatsCell?.update(
++                    lastBolus: self.lokeySnapshot.lastBolus,
++                    carbs: self.lokeySnapshot.cob,
++                    targetsEnabled: [self.preMealModeAllowed && self.activeParkOverride == nil,
++                                     self.workoutModeAllowed && self.activeParkOverride == nil,
++                                     self.onboardingManager.isComplete]
++                )
++            }
+@@ -1710,1 +1720,2 @@
+                 let cell = tableView.dequeueReusableCell(withIdentifier: LoKeyQuickStatsCell.id, for: indexPath) as! LoKeyQuickStatsCell
++                loKeyQuickStatsCell = cell
