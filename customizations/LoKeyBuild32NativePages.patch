@@ -261,3 +261,84 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 @@ -1555,1 +1555,1 @@
 -            return ChartRow.allCases.count
 +            return loKeyPage == .dashboard ? 1 : (loKeyPage == .insulin ? 2 : 0)
+@@ -1360,5 +1360,20 @@
+-        case .hud:
+-            let cell = tableView.dequeueReusableCell(withIdentifier: HUDViewTableViewCell.className, for: indexPath) as! HUDViewTableViewCell
+-            hudView = cell.hudView
+-
+-            return cell
++        case .hud:
++            if loKeyPage == .dashboard {
++                let cell = tableView.dequeueReusableCell(withIdentifier: LoKeyGlucoseCard.id, for: indexPath) as! LoKeyGlucoseCard
++                let unit = statusCharts.glucose.glucoseUnit
++                let latest = deviceManager.glucoseStore.latestGlucose
++                let displayed = latest.map {
++                    String(format: unit == .milligramsPerDeciliter ? "%.0f" : "%.1f",
++                           $0.quantity.doubleValue(for: unit))
++                } ?? "—"
++                let unitText = unit == .milligramsPerDeciliter ? "mg/dL" : "mmol/L"
++                let warning = deviceManager.isGlucoseValueStale ? " · CGM stale" : ""
++                cell.update(glucose: displayed + " " + unitText,
++                            detail: lokeySnapshot.glucoseDelta + " · " + lokeySnapshot.glucoseAge + warning,
++                            iob: lokeySnapshot.iob)
++                return cell
++            }
++            let cell = tableView.dequeueReusableCell(withIdentifier: HUDViewTableViewCell.className, for: indexPath) as! HUDViewTableViewCell
++            hudView = cell.hudView
++
++            return cell
+@@ -1376,5 +1376,33 @@
+-        case .metrics:
+-            let cell = tableView.dequeueReusableCell(withIdentifier: LoKeyMetricsCell.reuseID, for: indexPath) as! LoKeyMetricsCell
+-            cell.configure(lokeySnapshot)
+-            lokeyMetricsCell = cell
+-            return cell
++        case .metrics:
++            if loKeyPage == .dashboard {
++                let cell = tableView.dequeueReusableCell(withIdentifier: LoKeyQuickStatsCell.id, for: indexPath) as! LoKeyQuickStatsCell
++                cell.update(lastBolus: lokeySnapshot.lastBolus, carbs: lokeySnapshot.cob,
++                            targetsEnabled: [preMealModeAllowed && activeParkOverride == nil,
++                                             workoutModeAllowed && activeParkOverride == nil,
++                                             onboardingManager.isComplete])
++                cell.onTarget = { [weak self] choice in
++                    guard let self else { return }
++                    switch choice {
++                    case 0: self.premealButtonTapped(self.preMealItem)
++                    case 1: self.toggleWorkoutMode(self.workoutItem)
++                    default: self.presentParkMode()
++                    }
++                }
++                return cell
++            }
++            if loKeyPage == .pod {
++                let cell = tableView.dequeueReusableCell(withIdentifier: LoKeyPodCard.id, for: indexPath) as! LoKeyPodCard
++                let raw = deviceManager.pumpManagerHUDProvider?.hudViewRawState ?? [:]
++                let units = raw["reservoirLevel"] as? Double
++                let remaining = units.map { $0 > 50 ? "50+ U" : String(format: "%.2f U", $0) } ?? "Unavailable"
++                let date = raw["lastStatusDate"] as? Date
++                let updated = date.map { DateFormatter.localizedString(from: $0, dateStyle: .none, timeStyle: .short) } ?? "Unknown"
++                cell.update(reservoir: remaining, updated: updated,
++                            pump: deviceManager.pumpManager == nil ? "Not configured" : "Configured",
++                            cgm: deviceManager.isGlucoseValueStale ? "Stale readings" : "Reading")
++                return cell
++            }
++            let cell = tableView.dequeueReusableCell(withIdentifier: LoKeyMetricsCell.reuseID, for: indexPath) as! LoKeyMetricsCell
++            cell.configure(lokeySnapshot)
++            lokeyMetricsCell = cell
++            return cell
+@@ -1410,3 +1410,3 @@
+-            lokeyStyleChartCell(cell, isGlucose: ChartRow(rawValue: indexPath.row) == .glucose)
+-
+-            switch ChartRow(rawValue: indexPath.row)! {
++            lokeyStyleChartCell(cell, isGlucose: loKeyChartRow(at: indexPath.row) == .glucose)
++
++            switch loKeyChartRow(at: indexPath.row) {
+@@ -1580,1 +1580,1 @@
+-            switch ChartRow(rawValue: indexPath.row)! {
++            switch loKeyChartRow(at: indexPath.row) {
+@@ -1610,1 +1610,1 @@
+-            switch ChartRow(rawValue: indexPath.row)! {
++            switch loKeyChartRow(at: indexPath.row) {
+@@ -1700,1 +1700,1 @@
+-            switch ChartRow(rawValue: indexPath.row)! {
++            switch loKeyChartRow(at: indexPath.row) {
