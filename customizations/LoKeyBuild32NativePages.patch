@@ -252,8 +252,8 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +        }
 +    }
 @@ -478,1 +478,5 @@
--        tableView.register(LoKeyMetricsCell.self, forReuseIdentifier: LoKeyMetricsCell.reuseID)
-+        tableView.register(LoKeyMetricsCell.self, forReuseIdentifier: LoKeyMetricsCell.reuseID)
+-        tableView.register(LoKeyMetricsCell.self, forCellReuseIdentifier: LoKeyMetricsCell.reuseID)
++        tableView.register(LoKeyMetricsCell.self, forCellReuseIdentifier: LoKeyMetricsCell.reuseID)
 +        tableView.register(LoKeyGlucoseCard.self, forCellReuseIdentifier: LoKeyGlucoseCard.id)
 +        tableView.register(LoKeyQuickStatsCell.self, forCellReuseIdentifier: LoKeyQuickStatsCell.id)
 +        tableView.register(LoKeyPodCard.self, forCellReuseIdentifier: LoKeyPodCard.id)
