@@ -360,6 +360,8 @@ jobs:
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild27BalancedHistory.patch
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild28StatusView.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild28StatusView.patch
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild32NativePages.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild32NativePages.patch
           # Central LoKey-specific settings hub (UI-only; shared Shadow opt-in key).
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeySettingsHub.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeySettingsHub.patch
