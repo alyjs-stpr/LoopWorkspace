@@ -5,6 +5,6 @@ diff --git a/LoopKitUI/Charts/IOBChart.swift b/LoopKitUI/Charts/IOBChart.swift
 -    static let chartUnit = HKUnit.internationalUnit()
 +    static let chartUnit = HKUnit.internationalUnit()
 +    public var loKeyVisualScale: LoKeyDisplayTimeScale?
-@@ -112,1 +112,1 @@
+@@ -112,1 +113,1 @@
 -x: ChartAxisValueDate(date: $0.startDate, formatter: dateFormatter),
 +x: loKeyChartDateValue($0.startDate, formatter: dateFormatter, scale: loKeyVisualScale),
