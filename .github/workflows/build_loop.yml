@@ -251,6 +251,10 @@ jobs:
           git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28GlucoseProjection.patch
           git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28PredictionsProjection.patch
           git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28PredictionsProjection.patch
+          # Build 29: connect observed CGM readings with a solid dashboard line.
+          # Leave future predictions dashed, and insulin/meal logic untouched.
+          git -C LoopKit apply --check ../customizations/LoKeyBuild29SolidGlucoseHistory.patch
+          git -C LoopKit apply ../customizations/LoKeyBuild29SolidGlucoseHistory.patch
           git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28TargetScheduleDates.patch
           git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28TargetScheduleDates.patch
           git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28IOBProjection.patch
