@@ -1,6 +1,17 @@
 diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View Controllers/StatusTableViewController.swift
 --- a/Loop/View Controllers/StatusTableViewController.swift
 +++ b/Loop/View Controllers/StatusTableViewController.swift
+@@ -1209,1 +1209,3 @@
+-        switch (hudWasVisible, hudIsVisible) {
++        // When the HUD appears/disappears, update both dashboard rows atomically.
++        let hudRows = (0..<(loKeyPage == .dashboard ? 2 : 1)).map { IndexPath(row: $0, section: Section.hud.rawValue) }
++        switch (hudWasVisible, hudIsVisible) {
+@@ -1213,1 +1213,1 @@
+-            tableView.insertRows(at: [IndexPath(row: 0, section: Section.hud.rawValue)], with: animated ? .top : .none)
++            tableView.insertRows(at: hudRows, with: animated ? .top : .none)
+@@ -1215,1 +1215,1 @@
+-            tableView.deleteRows(at: [IndexPath(row: 0, section: Section.hud.rawValue)], with: animated ? .top : .none)
++            tableView.deleteRows(at: hudRows, with: animated ? .top : .none)
 @@ -1315,1 +1315,1 @@
 -            return shouldShowHUD ? 1 : 0
 +            return shouldShowHUD ? (loKeyPage == .dashboard ? 2 : 1) : 0
