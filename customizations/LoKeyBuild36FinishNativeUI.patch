@@ -166,10 +166,10 @@ diff --git a/LoopUI/Views/StatusBarHUDView.swift b/LoopUI/Views/StatusBarHUDView
 +            lokeyDashboardStatusRow = statusRow
 +
 +            let glucose = cgmStatusHUD.glucoseValueHUD.glucoseLabel
-+            lokeyPreviousGlucoseFont = glucose.font
-+            glucose.font = .monospacedDigitSystemFont(ofSize: 48, weight: .bold)
-+            glucose.adjustsFontSizeToFitWidth = true
-+            glucose.minimumScaleFactor = 0.65
++            lokeyPreviousGlucoseFont = glucose?.font
++            glucose?.font = .monospacedDigitSystemFont(ofSize: 48, weight: .bold)
++            glucose?.adjustsFontSizeToFitWidth = true
++            glucose?.minimumScaleFactor = 0.65
 +        } else {
 +            guard let statusRow = lokeyDashboardStatusRow,
 +                  lokeyDashboardTiles.count == 3 else { return }
@@ -188,7 +188,7 @@ diff --git a/LoopUI/Views/StatusBarHUDView.swift b/LoopUI/Views/StatusBarHUDView
 +            containerView.spacing = adjustViewsForNarrowDisplay ? 4 : 6
 +            for tile in lokeyDashboardTiles { containerView.addArrangedSubview(tile) }
 +            if let previous = lokeyPreviousGlucoseFont {
-+                cgmStatusHUD.glucoseValueHUD.glucoseLabel.font = previous
++                cgmStatusHUD.glucoseValueHUD.glucoseLabel?.font = previous
 +            }
 +            lokeyDashboardStatusRow = nil
 +            lokeyDashboardTiles = []
