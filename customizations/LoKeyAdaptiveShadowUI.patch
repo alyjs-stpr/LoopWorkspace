@@ -1,0 +1,469 @@
+diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View Controllers/StatusTableViewController.swift
+--- a/Loop/View Controllers/StatusTableViewController.swift
++++ b/Loop/View Controllers/StatusTableViewController.swift
+@@ -30,122 +30,132 @@
+-private struct LoKeyThemeParkView: View {
+-    @Environment(\.dismiss) private var dismiss
+-    @State private var low: String
+-    @State private var high: String
+-    @State private var until: Date
+-    @State private var confirmPause = false
+-    @State private var confirmEnd = false
+-    let active: Bool
+-    let paused: Bool
+-    let canActivate: Bool
+-    let minAllowed: Double
+-    let start: (Double, Double, Date) -> Bool
+-    let pause: () -> Void
+-    let stop: () -> Void
+-    let announceMeal: () -> Void
+-
+-    init(active: Bool, paused: Bool, canActivate: Bool, minAllowed: Double,
+-         low: Double?, high: Double?, until: Date?,
+-         start: @escaping (Double, Double, Date) -> Bool,
+-         pause: @escaping () -> Void, stop: @escaping () -> Void,
+-         announceMeal: @escaping () -> Void) {
+-        self.active = active
+-        self.paused = paused
+-        self.canActivate = canActivate
+-        self.minAllowed = minAllowed
+-        self.start = start
+-        self.pause = pause
+-        self.stop = stop
+-        self.announceMeal = announceMeal
+-        _low = State(initialValue: low.map { String(Int($0)) } ?? "")
+-        _high = State(initialValue: high.map { String(Int($0)) } ?? "")
+-        _until = State(initialValue: until ?? Date().addingTimeInterval(8 * 3600))
+-    }
+-
+-    private var validRange: (Double, Double)? {
+-        guard let a = Double(low), let b = Double(high),
+-              a.isFinite, b.isFinite, a >= minAllowed, b <= 250, a <= b else { return nil }
+-        return (a, b)
+-    }
+-
+-    var body: some View {
+-        NavigationView {
+-            Form {
+-                Section {
+-                    HStack {
+-                        Label(active ? "Active" : (paused ? "Paused" : "Ready"),
+-                              systemImage: active ? "checkmark.circle.fill" : "pause.circle")
+-                            .font(.headline)
+-                        Spacer()
+-                        Text(until.formatted(date: .omitted, time: .shortened))
+-                            .foregroundColor(.secondary)
+-                    }
+-                    if paused {
+-                        Text("Normal Loop targets are active. Insulin delivery is not paused.")
+-                            .font(.footnote).foregroundColor(.secondary)
+-                    }
+-                }
+-                Section(header: Text("Park target · mg/dL")) {
+-                    HStack {
+-                        Text("Minimum")
+-                        Spacer()
+-                        TextField("Required", text: $low)
+-                            .keyboardType(.decimalPad).multilineTextAlignment(.trailing)
+-                    }
+-                    HStack {
+-                        Text("Maximum")
+-                        Spacer()
+-                        TextField("Required", text: $high)
+-                            .keyboardType(.decimalPad).multilineTextAlignment(.trailing)
+-                    }
+-                    Text("Allowed: \(Int(ceil(minAllowed)))–250 mg/dL.")
+-                        .font(.caption).foregroundColor(.secondary)
+-                }
+-                Section(header: Text("Park hours")) {
+-                    DatePicker("End time", selection: $until,
+-                               in: Date().addingTimeInterval(15 * 60)...Date().addingTimeInterval(24 * 3600),
+-                               displayedComponents: [.date, .hourAndMinute])
+-                }
+-                Section {
+-                    Button(active ? "Update Park Targets" : (paused ? "Resume Park Targets" : "Start Theme Park Mode")) {
+-                        guard let (a, b) = validRange else { return }
+-                        if start(a, b, until) { dismiss() }
+-                    }
+-                    .disabled(validRange == nil || !canActivate ||
+-                              until <= Date().addingTimeInterval(14 * 60))
+-                    if active {
+-                        Button("Pause Park Targets") { confirmPause = true }
+-                    }
+-                    Button("Announce Meal") { announceMeal() }
+-                    if active || paused {
+-                        Button("End Theme Park Mode", role: .destructive) { confirmEnd = true }
+-                    }
+-                }
+-                if !canActivate {
+-                    Section {
+-                        Text("Another temporary target is active. End it before starting or resuming Theme Park targets.")
+-                            .font(.footnote).foregroundColor(.secondary)
+-                    }
+-                }
+-                Section {
+-                    Text("Pausing targets does not suspend insulin. Announced meals still affect Loop predictions and can trigger automatic insulin.")
+-                        .font(.footnote).foregroundColor(.secondary)
+-                }
+-            }
+-            .navigationTitle("🎢 Theme Park")
+-            .navigationBarTitleDisplayMode(.inline)
+-            .toolbar {
+-                ToolbarItem(placement: .navigationBarTrailing) { Button("Done") { dismiss() } }
+-            }
+-            .confirmationDialog("Pause Theme Park targets?", isPresented: $confirmPause) {
+-                Button("Pause Targets") { pause(); dismiss() }
+-            } message: {
+-                Text("Loop will return to its normal target; insulin delivery continues.")
+-            }
+-            .confirmationDialog("End Theme Park Mode?", isPresented: $confirmEnd) {
+-                Button("End Theme Park Mode", role: .destructive) { stop(); dismiss() }
+-            } message: {
+-                Text("This ends the park session. It does not stop insulin delivery.")
+-            }
+-        }
+-    }
+-}
++private struct LoKeyThemeParkView: View {
++    @Environment(\.dismiss) private var dismiss
++    @State private var low: String
++    @State private var high: String
++    @State private var until: Date
++    @State private var confirmPause = false
++    @State private var confirmEnd = false
++    @AppStorage("LoKeyAdaptiveShadowEnabledV1") private var shadowEnabled = false
++    let active: Bool
++    let paused: Bool
++    let canActivate: Bool
++    let minAllowed: Double
++    let start: (Double, Double, Date) -> Bool
++    let pause: () -> Void
++    let stop: () -> Void
++    let announceMeal: () -> Void
++    let shareShadow: () -> Void
++
++    init(active: Bool, paused: Bool, canActivate: Bool, minAllowed: Double,
++         low: Double?, high: Double?, until: Date?,
++         start: @escaping (Double, Double, Date) -> Bool,
++         pause: @escaping () -> Void, stop: @escaping () -> Void,
++         announceMeal: @escaping () -> Void,
++         shareShadow: @escaping () -> Void) {
++        self.active = active
++        self.paused = paused
++        self.canActivate = canActivate
++        self.minAllowed = minAllowed
++        self.start = start
++        self.pause = pause
++        self.stop = stop
++        self.announceMeal = announceMeal
++        self.shareShadow = shareShadow
++        _low = State(initialValue: low.map { String(Int($0)) } ?? "")
++        _high = State(initialValue: high.map { String(Int($0)) } ?? "")
++        _until = State(initialValue: until ?? Date().addingTimeInterval(8 * 3600))
++    }
++
++    private var validRange: (Double, Double)? {
++        guard let a = Double(low), let b = Double(high),
++              a.isFinite, b.isFinite, a >= minAllowed, b <= 250, a <= b else { return nil }
++        return (a, b)
++    }
++
++    var body: some View {
++        NavigationView {
++            Form {
++                Section {
++                    HStack {
++                        Label(active ? "Active" : (paused ? "Paused" : "Ready"),
++                              systemImage: active ? "checkmark.circle.fill" : "pause.circle")
++                            .font(.headline)
++                        Spacer()
++                        Text(until.formatted(date: .omitted, time: .shortened))
++                            .foregroundColor(.secondary)
++                    }
++                    if paused {
++                        Text("Normal Loop targets are active. Insulin delivery is not paused.")
++                            .font(.footnote).foregroundColor(.secondary)
++                    }
++                }
++                Section(header: Text("Park target · mg/dL")) {
++                    HStack {
++                        Text("Minimum")
++                        Spacer()
++                        TextField("Required", text: $low)
++                            .keyboardType(.decimalPad).multilineTextAlignment(.trailing)
++                    }
++                    HStack {
++                        Text("Maximum")
++                        Spacer()
++                        TextField("Required", text: $high)
++                            .keyboardType(.decimalPad).multilineTextAlignment(.trailing)
++                    }
++                    Text("Allowed: \(Int(ceil(minAllowed)))–250 mg/dL.")
++                        .font(.caption).foregroundColor(.secondary)
++                }
++                Section(header: Text("Park hours")) {
++                    DatePicker("End time", selection: $until,
++                               in: Date().addingTimeInterval(15 * 60)...Date().addingTimeInterval(24 * 3600),
++                               displayedComponents: [.date, .hourAndMinute])
++                }
++                Section {
++                    Button(active ? "Update Park Targets" : (paused ? "Resume Park Targets" : "Start Theme Park Mode")) {
++                        guard let (a, b) = validRange else { return }
++                        if start(a, b, until) { dismiss() }
++                    }
++                    .disabled(validRange == nil || !canActivate ||
++                              until <= Date().addingTimeInterval(14 * 60))
++                    if active {
++                        Button("Pause Park Targets") { confirmPause = true }
++                    }
++                    Button("Announce Meal") { announceMeal() }
++                    if active || paused {
++                        Button("End Theme Park Mode", role: .destructive) { confirmEnd = true }
++                    }
++                }
++                if !canActivate {
++                    Section {
++                        Text("Another temporary target is active. End it before starting or resuming Theme Park targets.")
++                            .font(.footnote).foregroundColor(.secondary)
++                    }
++                }
++                Section(header: Text("Adaptive Shadow · observation only")) {
++                    Toggle("Record live shadow decisions", isOn: $shadowEnabled)
++                    Text("Normal Loop remains responsible for insulin delivery. Shadow records stay on this phone unless you choose to share them.")
++                        .font(.footnote).foregroundColor(.secondary)
++                    Button("Export Shadow Records") { shareShadow() }
++                }
++                Section {
++                    Text("Pausing targets does not suspend insulin. Announced meals still affect Loop predictions and can trigger automatic insulin.")
++                        .font(.footnote).foregroundColor(.secondary)
++                }
++            }
++            .navigationTitle("🎢 Theme Park")
++            .navigationBarTitleDisplayMode(.inline)
++            .toolbar {
++                ToolbarItem(placement: .navigationBarTrailing) { Button("Done") { dismiss() } }
++            }
++            .confirmationDialog("Pause Theme Park targets?", isPresented: $confirmPause) {
++                Button("Pause Targets") { pause(); dismiss() }
++            } message: {
++                Text("Loop will return to its normal target; insulin delivery continues.")
++            }
++            .confirmationDialog("End Theme Park Mode?", isPresented: $confirmEnd) {
++                Button("End Theme Park Mode", role: .destructive) { stop(); dismiss() }
++            } message: {
++                Text("This ends the park session. It does not stop insulin delivery.")
++            }
++        }
++    }
++}
+@@ -1575,94 +1575,116 @@
+-    private static let parkID = UUID(uuidString: "B2717255-F306-4B52-93DC-D416A93E4BE5")!
+-
+-    private var activeParkOverride: TemporaryScheduleOverride? {
+-        guard let item = deviceManager.loopManager.settings.scheduleOverride,
+-              item.isActive(at: Date()),
+-              case .preset(let preset) = item.context,
+-              preset.id == Self.parkID else { return nil }
+-        return item
+-    }
+-
+-    // Pausing removes only the park target override; the pump keeps operating.
+-    // A persisted expiry prevents a paused park session from extending forever.
+-    private var pausedParkSession: (low: Double, high: Double, end: Date)? {
+-        let prefs = UserDefaults.standard
+-        guard prefs.bool(forKey: "LoKeyParkPausedV1"),
+-              let end = prefs.object(forKey: "LoKeyParkEndV1") as? Date,
+-              end > Date(),
+-              let low = prefs.object(forKey: "LoKeyParkLowV1") as? Double,
+-              let high = prefs.object(forKey: "LoKeyParkHighV1") as? Double else { return nil }
+-        return (low, high, end)
+-    }
+-
+-    @objc private func presentParkMode() {
+-        let item = activeParkOverride
+-        let paused = pausedParkSession
+-        let prefs = UserDefaults.standard
+-        let currentOverride = deviceManager.loopManager.settings.scheduleOverride
+-        let otherOverrideActive = item == nil && (currentOverride?.isActive(at: Date()) ?? false)
+-        let suspend = deviceManager.loopManager.settings.suspendThreshold?.quantity.doubleValue(for: .milligramsPerDeciliter) ?? 0
+-        let minAllowed = max(Guardrail.correctionRange.absoluteBounds.lowerBound.doubleValue(for: .milligramsPerDeciliter), suspend)
+-        let panel = LoKeyThemeParkView(
+-            active: item != nil, paused: paused != nil, canActivate: !otherOverrideActive,
+-            minAllowed: minAllowed,
+-            low: item?.settings.targetRange?.lowerBound.doubleValue(for: .milligramsPerDeciliter)
+-                ?? paused?.low ?? (prefs.object(forKey: "LoKeyParkLowV1") as? Double),
+-            high: item?.settings.targetRange?.upperBound.doubleValue(for: .milligramsPerDeciliter)
+-                ?? paused?.high ?? (prefs.object(forKey: "LoKeyParkHighV1") as? Double),
+-            until: item?.scheduledEndDate ?? paused?.end,
+-            start: { [weak self] a, b, end in
+-                guard let self else { return false }
+-                let now = Date()
+-                let seconds = end.timeIntervalSince(now)
+-                let unrelatedActive = self.activeParkOverride == nil &&
+-                    (self.deviceManager.loopManager.settings.scheduleOverride?.isActive(at: now) ?? false)
+-                guard !unrelatedActive, seconds >= 15 * 60, seconds <= 24 * 3600,
+-                      a >= minAllowed, b <= 250, a <= b else { return false }
+-                let settings = TemporaryScheduleOverrideSettings(
+-                    unit: .milligramsPerDeciliter, targetRange: DoubleRange(minValue: a, maxValue: b))
+-                let preset = TemporaryScheduleOverridePreset(
+-                    id: Self.parkID, symbol: "🎢", name: "Theme Park",
+-                    settings: settings, duration: .finite(seconds))
+-                prefs.set(a, forKey: "LoKeyParkLowV1")
+-                prefs.set(b, forKey: "LoKeyParkHighV1")
+-                prefs.set(end, forKey: "LoKeyParkEndV1")
+-                prefs.set(false, forKey: "LoKeyParkPausedV1")
+-                self.deviceManager.loopManager.mutateSettings { settings in
+-                    settings.scheduleOverride = preset.createOverride(enactTrigger: .local, beginningAt: now)
+-                }
+-                self.updateParkDashboardHeader()
+-                return true
+-            },
+-            pause: { [weak self] in
+-                guard let self, let park = self.activeParkOverride,
+-                      let range = park.settings.targetRange else { return }
+-                prefs.set(range.lowerBound.doubleValue(for: .milligramsPerDeciliter), forKey: "LoKeyParkLowV1")
+-                prefs.set(range.upperBound.doubleValue(for: .milligramsPerDeciliter), forKey: "LoKeyParkHighV1")
+-                prefs.set(park.scheduledEndDate, forKey: "LoKeyParkEndV1")
+-                self.deviceManager.loopManager.mutateSettings { settings in
+-                    guard case .preset(let preset)? = settings.scheduleOverride?.context,
+-                          preset.id == Self.parkID else { return }
+-                    settings.clearOverride()
+-                }
+-                prefs.set(true, forKey: "LoKeyParkPausedV1")
+-                self.updateParkDashboardHeader()
+-            },
+-            stop: { [weak self] in
+-                guard let self else { return }
+-                prefs.set(false, forKey: "LoKeyParkPausedV1")
+-                if self.activeParkOverride != nil {
+-                    self.deviceManager.loopManager.mutateSettings { settings in
+-                        guard case .preset(let preset)? = settings.scheduleOverride?.context,
+-                              preset.id == Self.parkID else { return }
+-                        settings.clearOverride()
+-                    }
+-                }
+-                self.updateParkDashboardHeader()
+-            },
+-            announceMeal: { [weak self] in
+-                self?.dismiss(animated: true) { [weak self] in
+-                    self?.userTappedAddCarbs()
+-                }
+-            })
+-        present(UIHostingController(rootView: panel), animated: true)
+-    }
++    private static let parkID = UUID(uuidString: "B2717255-F306-4B52-93DC-D416A93E4BE5")!
++
++    private var activeParkOverride: TemporaryScheduleOverride? {
++        guard let item = deviceManager.loopManager.settings.scheduleOverride,
++              item.isActive(at: Date()),
++              case .preset(let preset) = item.context,
++              preset.id == Self.parkID else { return nil }
++        return item
++    }
++
++    // Pausing removes only the park target override; the pump keeps operating.
++    // A persisted expiry prevents a paused park session from extending forever.
++    private var pausedParkSession: (low: Double, high: Double, end: Date)? {
++        let prefs = UserDefaults.standard
++        guard prefs.bool(forKey: "LoKeyParkPausedV1"),
++              let end = prefs.object(forKey: "LoKeyParkEndV1") as? Date,
++              end > Date(),
++              let low = prefs.object(forKey: "LoKeyParkLowV1") as? Double,
++              let high = prefs.object(forKey: "LoKeyParkHighV1") as? Double else { return nil }
++        return (low, high, end)
++    }
++
++    @objc private func loKeyExportAdaptiveShadow() {
++        let files = deviceManager.loKeyAdaptiveShadowFilesForExport()
++        guard !files.isEmpty else {
++            let alert = UIAlertController(
++                title: "No shadow records yet",
++                message: "Turn on Adaptive Shadow and allow Loop to complete a cycle, then try again.",
++                preferredStyle: .alert
++            )
++            alert.addAction(UIAlertAction(title: "OK", style: .default))
++            present(alert, animated: true)
++            return
++        }
++        let sheet = UIActivityViewController(activityItems: files, applicationActivities: nil)
++        sheet.popoverPresentationController?.sourceView = view
++        present(sheet, animated: true)
++    }
++
++    @objc private func presentParkMode() {
++        let item = activeParkOverride
++        let paused = pausedParkSession
++        let prefs = UserDefaults.standard
++        let currentOverride = deviceManager.loopManager.settings.scheduleOverride
++        let otherOverrideActive = item == nil && (currentOverride?.isActive(at: Date()) ?? false)
++        let suspend = deviceManager.loopManager.settings.suspendThreshold?.quantity.doubleValue(for: .milligramsPerDeciliter) ?? 0
++        let minAllowed = max(Guardrail.correctionRange.absoluteBounds.lowerBound.doubleValue(for: .milligramsPerDeciliter), suspend)
++        let panel = LoKeyThemeParkView(
++            active: item != nil, paused: paused != nil, canActivate: !otherOverrideActive,
++            minAllowed: minAllowed,
++            low: item?.settings.targetRange?.lowerBound.doubleValue(for: .milligramsPerDeciliter)
++                ?? paused?.low ?? (prefs.object(forKey: "LoKeyParkLowV1") as? Double),
++            high: item?.settings.targetRange?.upperBound.doubleValue(for: .milligramsPerDeciliter)
++                ?? paused?.high ?? (prefs.object(forKey: "LoKeyParkHighV1") as? Double),
++            until: item?.scheduledEndDate ?? paused?.end,
++            start: { [weak self] a, b, end in
++                guard let self else { return false }
++                let now = Date()
++                let seconds = end.timeIntervalSince(now)
++                let unrelatedActive = self.activeParkOverride == nil &&
++                    (self.deviceManager.loopManager.settings.scheduleOverride?.isActive(at: now) ?? false)
++                guard !unrelatedActive, seconds >= 15 * 60, seconds <= 24 * 3600,
++                      a >= minAllowed, b <= 250, a <= b else { return false }
++                let settings = TemporaryScheduleOverrideSettings(
++                    unit: .milligramsPerDeciliter, targetRange: DoubleRange(minValue: a, maxValue: b))
++                let preset = TemporaryScheduleOverridePreset(
++                    id: Self.parkID, symbol: "🎢", name: "Theme Park",
++                    settings: settings, duration: .finite(seconds))
++                prefs.set(a, forKey: "LoKeyParkLowV1")
++                prefs.set(b, forKey: "LoKeyParkHighV1")
++                prefs.set(end, forKey: "LoKeyParkEndV1")
++                prefs.set(false, forKey: "LoKeyParkPausedV1")
++                self.deviceManager.loopManager.mutateSettings { settings in
++                    settings.scheduleOverride = preset.createOverride(enactTrigger: .local, beginningAt: now)
++                }
++                self.updateParkDashboardHeader()
++                return true
++            },
++            pause: { [weak self] in
++                guard let self, let park = self.activeParkOverride,
++                      let range = park.settings.targetRange else { return }
++                prefs.set(range.lowerBound.doubleValue(for: .milligramsPerDeciliter), forKey: "LoKeyParkLowV1")
++                prefs.set(range.upperBound.doubleValue(for: .milligramsPerDeciliter), forKey: "LoKeyParkHighV1")
++                prefs.set(park.scheduledEndDate, forKey: "LoKeyParkEndV1")
++                self.deviceManager.loopManager.mutateSettings { settings in
++                    guard case .preset(let preset)? = settings.scheduleOverride?.context,
++                          preset.id == Self.parkID else { return }
++                    settings.clearOverride()
++                }
++                prefs.set(true, forKey: "LoKeyParkPausedV1")
++                self.updateParkDashboardHeader()
++            },
++            stop: { [weak self] in
++                guard let self else { return }
++                prefs.set(false, forKey: "LoKeyParkPausedV1")
++                if self.activeParkOverride != nil {
++                    self.deviceManager.loopManager.mutateSettings { settings in
++                        guard case .preset(let preset)? = settings.scheduleOverride?.context,
++                              preset.id == Self.parkID else { return }
++                        settings.clearOverride()
++                    }
++                }
++                self.updateParkDashboardHeader()
++            },
++            announceMeal: { [weak self] in
++                self?.dismiss(animated: true) { [weak self] in
++                    self?.userTappedAddCarbs()
++                }
++            },
++            shareShadow: { [weak self] in
++                self?.dismiss(animated: true) { [weak self] in
++                    self?.loKeyExportAdaptiveShadow()
++                }
++            })
++        present(UIHostingController(rootView: panel), animated: true)
++    }

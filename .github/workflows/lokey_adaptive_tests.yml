@@ -1,0 +1,35 @@
+name: LoKey adaptive controller unit tests
+
+on:
+  pull_request:
+    paths:
+      - 'AdaptiveController/**'
+      - '.github/workflows/lokey_adaptive_tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  adaptive-core-tests:
+    name: Adaptive policy and handoff tests (no pump)
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Swift
+        uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: '6.0'
+      - name: Unit tests
+        run: swift test --package-path AdaptiveController
+      - name: Verify no pump command integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -REn '\b(enactBolus|enactTempBasal|deliverBolus|setTempBasal|mutateSettings)\b' AdaptiveController/Sources/; then
+            echo "::error::Experimental controller must not call a live insulin-delivery/settings API"
+            exit 1
+          fi

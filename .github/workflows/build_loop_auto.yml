@@ -336,6 +336,11 @@ jobs:
           # Compact interactive park control center, separate from Loop dosing.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyParkControls.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyParkControls.patch
+          # Adaptive Shadow: read-only evaluation before subsequent presentation cleanups.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyAdaptiveShadowCapture.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyAdaptiveShadowCapture.patch
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyAdaptiveShadowUI.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyAdaptiveShadowUI.patch
           # Build 24 UI-only cleanup: one-tap Meal button remains canonical.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild24BolusKeyboardAndParkMealCleanup.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild24BolusKeyboardAndParkMealCleanup.patch
