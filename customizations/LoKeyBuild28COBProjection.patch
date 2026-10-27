@@ -1,0 +1,10 @@
+diff --git a/LoopKitUI/Charts/COBChart.swift b/LoopKitUI/Charts/COBChart.swift
+--- a/LoopKitUI/Charts/COBChart.swift
++++ b/LoopKitUI/Charts/COBChart.swift
+@@ -14,1 +14,2 @@
+-public class COBChart: ChartProviding {
++public class COBChart: ChartProviding {
++    public var loKeyVisualScale: LoKeyDisplayTimeScale?
+@@ -100,1 +100,1 @@
+-x: ChartAxisValueDate(date: $0.startDate, formatter: dateFormatter),
++x: loKeyChartDateValue($0.startDate, formatter: dateFormatter, scale: loKeyVisualScale),
