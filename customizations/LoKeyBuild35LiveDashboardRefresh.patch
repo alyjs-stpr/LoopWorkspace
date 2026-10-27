@@ -4,7 +4,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 @@ -193,1 +193,2 @@
      private weak var loKeyAgeText: UILabel?
 +    private weak var loKeyQuickStatsCell: LoKeyQuickStatsCell?
-@@ -1170,1 +1170,12 @@
+@@ -1170,1 +1170,14 @@
              self.lokeyMetricsCell?.configure(self.lokeySnapshot)
 +            // Build 35: native Loop's HUD is live, but the Build 32 read-only
 +            // dashboard cards were never refreshed after their initial dequeue.
