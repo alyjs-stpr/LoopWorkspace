@@ -1,0 +1,12 @@
+diff --git a/LoopKitUI/Charts/PredictedGlucoseChart.swift b/LoopKitUI/Charts/PredictedGlucoseChart.swift
+--- a/LoopKitUI/Charts/PredictedGlucoseChart.swift
++++ b/LoopKitUI/Charts/PredictedGlucoseChart.swift
+@@ -144,1 +144,1 @@
+-chartPoints: $0.points,
++chartPoints: $0.points.map { loKeyVisualPoint($0, scale: loKeyVisualScale, formatter: DateFormatter(timeStyle: .short)) },
+@@ -155,1 +155,1 @@
+-chartPoints: preMealOverrideDurationPoints,
++chartPoints: preMealOverrideDurationPoints.map { loKeyVisualPoint($0, scale: loKeyVisualScale, formatter: DateFormatter(timeStyle: .short)) },
+@@ -159,1 +159,1 @@
+-chartPoints: targetOverrideDurationPoints,
++chartPoints: targetOverrideDurationPoints.map { loKeyVisualPoint($0, scale: loKeyVisualScale, formatter: DateFormatter(timeStyle: .short)) },
