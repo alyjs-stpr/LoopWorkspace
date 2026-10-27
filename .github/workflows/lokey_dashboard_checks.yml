@@ -155,6 +155,9 @@ jobs:
           # Central LoKey-specific settings hub (UI-only; shared Shadow opt-in key).
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeySettingsHub.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeySettingsHub.patch
+          # Build 33: separate Adaptive Shadow submenu and local read-only activity dashboard.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild33ShadowDashboard.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild33ShadowDashboard.patch
           # Preserve pump-reported decimal reservoir precision below 50 U.
           # Above threshold remains 50+ U; no synthetic estimate.
           git -C OmnipodKit apply --check ../customizations/LoKeyBuild29PreciseReservoir.patch
@@ -189,6 +192,11 @@ jobs:
           grep -q 'Time in range (custom)' "Loop/Loop/Views/SettingsView.swift"
           grep -q 'LoKeyTargetStatistics' "Loop/Loop/Views/SettingsView.swift"
           grep -Fq 'LoKeySettingsView(viewModel: viewModel)' "Loop/Loop/Views/SettingsView.swift"
+          grep -Fq 'NavigationLink(destination: LoKeyAdaptiveShadowSettingsView())' "Loop/Loop/Views/SettingsView.swift"
+          grep -Fq 'NavigationLink(destination: LoKeyShadowDashboardView())' "Loop/Loop/Views/SettingsView.swift"
+          grep -Fq 'Toggle("Record live shadow decisions", isOn: $shadowEnabled)' "Loop/Loop/Views/SettingsView.swift"
+          grep -Fq 'LoKeyShadowRecordReader.readRecent()' "Loop/Loop/Views/SettingsView.swift"
+          grep -Fq 'decoder.dateDecodingStrategy = .iso8601' "Loop/Loop/Views/SettingsView.swift"
           grep -Fq '@AppStorage("LoKeyAdaptiveShadowEnabledV1")' "Loop/Loop/Views/SettingsView.swift"
           grep -Fq 'Toggle("Record live shadow decisions", isOn: $shadowEnabled)' "Loop/Loop/Views/SettingsView.swift"
           grep -Fq 'Text("Reports")' "Loop/Loop/Views/SettingsView.swift"
@@ -518,6 +526,9 @@ jobs:
           # Central LoKey-specific settings hub (UI-only; shared Shadow opt-in key).
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeySettingsHub.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeySettingsHub.patch
+          # Build 33: separate Adaptive Shadow submenu and local read-only activity dashboard.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild33ShadowDashboard.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild33ShadowDashboard.patch
           # Preserve pump-reported decimal reservoir precision below 50 U.
           # Above threshold remains 50+ U; no synthetic estimate.
           git -C OmnipodKit apply --check ../customizations/LoKeyBuild29PreciseReservoir.patch

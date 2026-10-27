@@ -338,6 +338,9 @@ jobs:
           # Central LoKey-specific settings hub (UI-only; shared Shadow opt-in key).
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeySettingsHub.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeySettingsHub.patch
+          # Build 33: separate Adaptive Shadow submenu and local read-only activity dashboard.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild33ShadowDashboard.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild33ShadowDashboard.patch
           # Preserve pump-reported decimal reservoir precision below 50 U.
           # Above threshold remains 50+ U; no synthetic estimate.
           git -C OmnipodKit apply --check ../customizations/LoKeyBuild29PreciseReservoir.patch
