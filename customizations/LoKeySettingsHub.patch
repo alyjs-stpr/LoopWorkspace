@@ -4,7 +4,6 @@ diff --git a/Loop/Views/SettingsView.swift b/Loop/Views/SettingsView.swift
 @@ -91,1 +91,1 @@
 -                    loKeyReportsSection
 +                    loKeySettingsSection
-
 @@ -470,7 +470,7 @@
 -    private var loKeyReportsSection: some View {
 -        Section(header: SectionHeader(label: "LoKey T1D Reports")) {
@@ -20,7 +19,6 @@ diff --git a/Loop/Views/SettingsView.swift b/Loop/Views/SettingsView.swift
 +            }
 +        }
 +    }
-
 @@ -1152,1 +1152,60 @@
 -private struct LoKeyReportShareSheet: UIViewControllerRepresentable {
 +private struct LoKeySettingsView: View {
@@ -83,24 +81,19 @@ diff --git a/Loop/Views/SettingsView.swift b/Loop/Views/SettingsView.swift
 +
 +
 +private struct LoKeyReportShareSheet: UIViewControllerRepresentable {
-
 diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View Controllers/StatusTableViewController.swift
 --- a/Loop/View Controllers/StatusTableViewController.swift
 +++ b/Loop/View Controllers/StatusTableViewController.swift
 @@ -40,1 +40,0 @@
 -    @AppStorage("LoKeyAdaptiveShadowEnabledV1") private var shadowEnabled = false
-
 @@ -48,1 +48,0 @@
 -    let shareShadow: () -> Void
-
 @@ -55,2 +55,1 @@
 -         announceMeal: @escaping () -> Void,
 -         shareShadow: @escaping () -> Void) {
 +         announceMeal: @escaping () -> Void) {
-
 @@ -66,1 +66,0 @@
 -        self.shareShadow = shareShadow
-
 @@ -131,6 +131,0 @@
 -                Section(header: Text("Adaptive Shadow · observation only")) {
 -                    Toggle("Record live shadow decisions", isOn: $shadowEnabled)
@@ -108,7 +101,6 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 -                        .font(.footnote).foregroundColor(.secondary)
 -                    Button("Export Shadow Records") { shareShadow() }
 -                }
-
 @@ -1600,17 +1600,0 @@
 -    @objc private func loKeyExportAdaptiveShadow() {
 -        let files = deviceManager.loKeyAdaptiveShadowFilesForExport()
@@ -127,7 +119,6 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 -        present(sheet, animated: true)
 -    }
 -
-
 @@ -1690,5 +1690,1 @@
 -            shareShadow: { [weak self] in
 -                self?.dismiss(animated: true) { [weak self] in
