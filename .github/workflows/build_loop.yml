@@ -347,10 +347,15 @@ jobs:
           # Build 35: live dashboard age, bolus and carbs refresh after Loop fetches.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild35LiveDashboardRefresh.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild35LiveDashboardRefresh.patch
+          # Final native tab layout, one safety-aware glucose HUD, insulin summary, pod details.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild36FinishNativeUI.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild36FinishNativeUI.patch
           # Preserve pump-reported decimal reservoir precision below 50 U.
           # Above threshold remains 50+ U; no synthetic estimate.
           git -C OmnipodKit apply --check ../customizations/LoKeyBuild29PreciseReservoir.patch
           git -C OmnipodKit apply ../customizations/LoKeyBuild29PreciseReservoir.patch
+          git -C OmnipodKit apply --unidiff-zero --check ../customizations/LoKeyBuild36PodTelemetry.patch
+          git -C OmnipodKit apply --unidiff-zero ../customizations/LoKeyBuild36PodTelemetry.patch
           echo "LoKey final dashboard polish applied."
           echo "LoKey T1D rounded chart cards and shared Now markers applied."
 
