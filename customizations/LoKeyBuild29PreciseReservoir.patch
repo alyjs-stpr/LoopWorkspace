@@ -1,7 +1,7 @@
 diff --git a/OmnipodKit/PumpManagerUI/Views/OmniReservoirView.swift b/OmnipodKit/PumpManagerUI/Views/OmniReservoirView.swift
 --- a/OmnipodKit/PumpManagerUI/Views/OmniReservoirView.swift
 +++ b/OmnipodKit/PumpManagerUI/Views/OmniReservoirView.swift
-@@ -72,6 +72,8 @@
+@@ -72,7 +72,9 @@
      private lazy var numberFormatter: NumberFormatter = {
          let formatter = NumberFormatter()
          formatter.numberStyle = .decimal
@@ -9,5 +9,6 @@ diff --git a/OmnipodKit/PumpManagerUI/Views/OmniReservoirView.swift b/OmnipodKit
 +        // Omnipod reports 0.05 U resolution at/below 50 U.
 +        // Do not round actual readings to whole units in LoKey.
 +        formatter.maximumFractionDigits = 2
+ 
          return formatter
      }()
