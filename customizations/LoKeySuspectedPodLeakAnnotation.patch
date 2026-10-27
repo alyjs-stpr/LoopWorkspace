@@ -102,8 +102,10 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 @@ -388,1 +388,1 @@
 -                    age: String, expires: String, remaining: String) {
 +                    age: String, expires: String, remaining: String, leakFlagged: Bool) {
-@@ -424,1 +424,15 @@
+@@ -424,2 +424,16 @@
+-            }
 -            stack.layer.cornerRadius = 20
++            }
 +            if leakFlagged {
 +                let warning = UILabel()
 +                warning.text = "Suspected pod leak · delivered insulin uncertain. Loop IOB is unchanged."
