@@ -14,12 +14,12 @@ diff --git a/LoopKitUI/Charts/PredictedGlucoseChart.swift b/LoopKitUI/Charts/Pre
 +                original.hidden = value.hidden
 +                return original
 +            }
-@@ -104,1 +104,1 @@
+@@ -104,1 +114,1 @@
 -targetGlucosePoints = ChartPoint.barsForGlucoseRangeSchedule(schedule, unit: glucoseUnit, xAxisValues: xAxisValues, considering: potentialOverride)
 +targetGlucosePoints = ChartPoint.barsForGlucoseRangeSchedule(schedule, unit: glucoseUnit, xAxisValues: targetTimeValues, considering: potentialOverride)
-@@ -108,1 +108,1 @@
+@@ -108,1 +118,1 @@
 -preMealOverrideDurationPoints = ChartPoint.pointsForGlucoseRangeScheduleOverride(preMealOverride, unit: glucoseUnit, xAxisValues: xAxisValues)
 +preMealOverrideDurationPoints = ChartPoint.pointsForGlucoseRangeScheduleOverride(preMealOverride, unit: glucoseUnit, xAxisValues: targetTimeValues)
-@@ -123,1 +123,1 @@
+@@ -123,1 +133,1 @@
 -targetOverrideDurationPoints = ChartPoint.pointsForGlucoseRangeScheduleOverride(override, unit: glucoseUnit, xAxisValues: xAxisValues)
 +targetOverrideDurationPoints = ChartPoint.pointsForGlucoseRangeScheduleOverride(override, unit: glucoseUnit, xAxisValues: targetTimeValues)
