@@ -1,0 +1,196 @@
+diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View Controllers/StatusTableViewController.swift
+--- a/Loop/View Controllers/StatusTableViewController.swift
++++ b/Loop/View Controllers/StatusTableViewController.swift
+@@ -185,1 +185,2 @@
+-    private weak var loKeyQuickStatsCell: LoKeyQuickStatsCell?
++    private weak var loKeyQuickStatsCell: LoKeyQuickStatsCell?
++    private weak var loKeyInsulinCard: LoKeyInsulinCard?
+@@ -260,1 +260,51 @@
+-    private final class LoKeyPodCard: UITableViewCell {
++    // Concise insulin summary, sourced only from the same Loop snapshot as
++    // the established dosing interface. No insulin calculation here.
++    private final class LoKeyInsulinCard: UITableViewCell {
++        static let id = "LoKeyInsulinCard"
++        private let iob = UILabel()
++        private let basal = UILabel()
++        private let lastBolus = UILabel()
++        override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
++            super.init(style: style, reuseIdentifier: reuseIdentifier)
++            selectionStyle = .none
++            backgroundColor = .clear
++            let title = UILabel()
++            title.text = "INSULIN OVERVIEW"
++            title.textColor = .secondaryLabel
++            title.font = .preferredFont(forTextStyle: .caption1)
++            iob.textColor = .systemGreen
++            iob.font = .monospacedDigitSystemFont(ofSize: 37, weight: .bold)
++            iob.adjustsFontSizeToFitWidth = true
++            iob.minimumScaleFactor = 0.65
++            for item in [basal, lastBolus] {
++                item.font = .preferredFont(forTextStyle: .subheadline)
++                item.textColor = .secondaryLabel
++                item.numberOfLines = 2
++            }
++            let stack = UIStackView(arrangedSubviews: [title, iob, basal, lastBolus])
++            stack.axis = .vertical
++            stack.spacing = 9
++            stack.backgroundColor = .secondarySystemGroupedBackground
++            stack.layer.cornerRadius = 20
++            stack.isLayoutMarginsRelativeArrangement = true
++            stack.directionalLayoutMargins = NSDirectionalEdgeInsets(
++                top: 18, leading: 20, bottom: 18, trailing: 20
++            )
++            stack.translatesAutoresizingMaskIntoConstraints = false
++            contentView.addSubview(stack)
++            NSLayoutConstraint.activate([
++                stack.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 7),
++                stack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -7),
++                stack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
++                stack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -12)
++            ])
++        }
++        required init?(coder: NSCoder) { fatalError("init(coder:) unavailable") }
++        func update(iob: String, basal: String, lastBolus: String) {
++            self.iob.text = iob
++            self.basal.text = "Current basal  ·  " + basal
++            self.lastBolus.text = "Last bolus  ·  " + lastBolus
++        }
++    }
++
++    private final class LoKeyPodCard: UITableViewCell {
+@@ -286,1 +286,2 @@
+-        func update(reservoir: String, updated: String, pump: String, cgm: String) {
++        func update(reservoir: String, updated: String, pump: String, cgm: String,
++                    age: String, expires: String, remaining: String) {
+@@ -296,1 +296,4 @@
+-                ("POD STATUS", reservoir),
++                ("INSULIN REMAINING", reservoir),
++                ("Pod age", age),
++                ("Pod expiration", expires),
++                ("Time remaining", remaining),
+@@ -510,1 +510,2 @@
+-        tableView.register(LoKeyPodCard.self, forCellReuseIdentifier: LoKeyPodCard.id)
++        tableView.register(LoKeyPodCard.self, forCellReuseIdentifier: LoKeyPodCard.id)
++        tableView.register(LoKeyInsulinCard.self, forCellReuseIdentifier: LoKeyInsulinCard.id)
+@@ -1050,2 +1050,2 @@
+-        case metrics
+-        case charts
++        case charts
++        case metrics
+@@ -1174,1 +1174,6 @@
+-            self.loKeyRefreshHeader()
++            self.loKeyRefreshHeader()
++            self.loKeyInsulinCard?.update(
++                iob: self.lokeySnapshot.iob,
++                basal: self.lokeySnapshot.basal,
++                lastBolus: self.lokeySnapshot.lastBolus
++            )
+@@ -1434,1 +1434,2 @@
+-            hudView = cell.hudView
++            hudView = cell.hudView
++            hudView?.setLoKeyDashboardMode(loKeyPage == .dashboard)
+@@ -1745,1 +1745,8 @@
+-            if loKeyPage == .pod {
++            if loKeyPage == .insulin {
++                let cell = tableView.dequeueReusableCell(withIdentifier: LoKeyInsulinCard.id, for: indexPath) as! LoKeyInsulinCard
++                loKeyInsulinCard = cell
++                cell.update(iob: lokeySnapshot.iob, basal: lokeySnapshot.basal,
++                            lastBolus: lokeySnapshot.lastBolus)
++                return cell
++            }
++            if loKeyPage == .pod {
+@@ -1750,1 +1750,20 @@
+-                let updated = date.map { DateFormatter.localizedString(from: $0, dateStyle: .none, timeStyle: .short) } ?? "Unknown"
++                let updated = date.map { DateFormatter.localizedString(from: $0, dateStyle: .none, timeStyle: .short) } ?? "Unknown"
++                let expiresAt = raw["podExpiresAt"] as? Date
++                let activatedAt = raw["podActivatedAt"] as? Date
++                let expires = expiresAt.map {
++                    DateFormatter.localizedString(from: $0, dateStyle: .medium, timeStyle: .short)
++                } ?? "Unavailable"
++                let age: String = activatedAt.map {
++                    let hours = max(0, Int(Date().timeIntervalSince($0) / 3600))
++                    return "\(hours / 24)d \(hours % 24)h"
++                } ?? "Unavailable"
++                let timeRemaining: String = expiresAt.map {
++                    let minutes = Int(ceil($0.timeIntervalSinceNow / 60))
++                    if minutes <= 0 { return "Expired" }
++                    return "\(minutes / 60)h \(minutes % 60)m"
++                } ?? "Unavailable"
++                let podActive = raw["podIsActive"] as? Bool
++                let uncertain = raw["podDeliveryUncertain"] as? Bool ?? false
++                let pumpState = uncertain ? "Delivery uncertain · Check pump" :
++                    (podActive == true ? "Active pod" :
++                     (podActive == false ? "No active pod" : "Status unavailable"))
+@@ -1755,3 +1755,4 @@
+-                cell.update(reservoir: remaining, updated: updated,
+-                            pump: deviceManager.pumpManager == nil ? "Not configured" : "Configured",
+-                            cgm: deviceManager.isGlucoseValueStale ? "Stale readings" : "Reading")
++                cell.update(reservoir: remaining, updated: updated,
++                            pump: pumpState,
++                            cgm: deviceManager.isGlucoseValueStale ? "Stale readings" : "Reading",
++                            age: age, expires: expires, remaining: timeRemaining)
+diff --git a/LoopUI/Views/StatusBarHUDView.swift b/LoopUI/Views/StatusBarHUDView.swift
+--- a/LoopUI/Views/StatusBarHUDView.swift
++++ b/LoopUI/Views/StatusBarHUDView.swift
+@@ -28,1 +28,60 @@
+-    private let lokeyPumpLabel = UILabel()
++    private let lokeyPumpLabel = UILabel()
++    private var lokeyDashboardStatusRow: UIStackView?
++    private var lokeyDashboardTiles: [UIView] = []
++    private var lokeyPreviousGlucoseFont: UIFont?
++
++    // The large LoKey glucose card IS the native CGM HUD. Moving the existing
++    // views keeps glucose trends, highlights, badges and tap actions working.
++    // The small Loop and pump HUDs remain fully visible directly below it.
++    public func setLoKeyDashboardMode(_ enabled: Bool) {
++        if enabled {
++            guard lokeyDashboardStatusRow == nil else { return }
++            let tiles = containerView.arrangedSubviews
++            guard tiles.count == 3 else { return }
++            lokeyDashboardTiles = tiles
++            for tile in tiles {
++                containerView.removeArrangedSubview(tile)
++                tile.removeFromSuperview()
++            }
++            let statusRow = UIStackView(arrangedSubviews: [tiles[1], tiles[2]])
++            statusRow.axis = .horizontal
++            statusRow.distribution = .fillEqually
++            statusRow.alignment = .fill
++            statusRow.spacing = 9
++            containerView.axis = .vertical
++            containerView.alignment = .fill
++            containerView.distribution = .fill
++            containerView.spacing = 10
++            containerView.addArrangedSubview(tiles[0])
++            containerView.addArrangedSubview(statusRow)
++            lokeyDashboardStatusRow = statusRow
++
++            let glucose = cgmStatusHUD.glucoseValueHUD.glucoseLabel
++            lokeyPreviousGlucoseFont = glucose?.font
++            glucose?.font = .monospacedDigitSystemFont(ofSize: 48, weight: .bold)
++            glucose?.adjustsFontSizeToFitWidth = true
++            glucose?.minimumScaleFactor = 0.65
++        } else {
++            guard let statusRow = lokeyDashboardStatusRow,
++                  lokeyDashboardTiles.count == 3 else { return }
++            containerView.removeArrangedSubview(statusRow)
++            statusRow.removeFromSuperview()
++            containerView.removeArrangedSubview(lokeyDashboardTiles[0])
++            lokeyDashboardTiles[0].removeFromSuperview()
++            for tile in lokeyDashboardTiles {
++                if let superview = tile.superview as? UIStackView {
++                    superview.removeArrangedSubview(tile)
++                }
++                tile.removeFromSuperview()
++            }
++            containerView.axis = .horizontal
++            containerView.distribution = .fillEqually
++            containerView.spacing = adjustViewsForNarrowDisplay ? 4 : 6
++            for tile in lokeyDashboardTiles { containerView.addArrangedSubview(tile) }
++            if let previous = lokeyPreviousGlucoseFont {
++                cgmStatusHUD.glucoseValueHUD.glucoseLabel?.font = previous
++            }
++            lokeyDashboardStatusRow = nil
++            lokeyDashboardTiles = []
++        }
++    }
