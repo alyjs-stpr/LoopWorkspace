@@ -374,6 +374,10 @@ jobs:
           # Final native tab layout, one safety-aware glucose HUD, insulin summary, pod details.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild36FinishNativeUI.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild36FinishNativeUI.patch
+          # A pod-specific, user-confirmed delivery uncertainty flag (read-only).
+          # Never adjusts IOB, pump records, or automatic bolus calculation.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeySuspectedPodLeakAnnotation.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeySuspectedPodLeakAnnotation.patch
           # Preserve pump-reported decimal reservoir precision below 50 U.
           # Above threshold remains 50+ U; no synthetic estimate.
           git -C OmnipodKit apply --check ../customizations/LoKeyBuild29PreciseReservoir.patch
