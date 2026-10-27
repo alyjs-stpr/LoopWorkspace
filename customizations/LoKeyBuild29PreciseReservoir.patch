@@ -1,7 +1,7 @@
 diff --git a/OmnipodKit/PumpManagerUI/Views/OmniReservoirView.swift b/OmnipodKit/PumpManagerUI/Views/OmniReservoirView.swift
 --- a/OmnipodKit/PumpManagerUI/Views/OmniReservoirView.swift
 +++ b/OmnipodKit/PumpManagerUI/Views/OmniReservoirView.swift
-@@ -72,7 +72,9 @@
+@@ -72,6 +72,8 @@
      private lazy var numberFormatter: NumberFormatter = {
          let formatter = NumberFormatter()
          formatter.numberStyle = .decimal
