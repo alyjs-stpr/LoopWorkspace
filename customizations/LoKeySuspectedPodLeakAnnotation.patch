@@ -1,11 +1,7 @@
 diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View Controllers/StatusTableViewController.swift
 --- a/Loop/View Controllers/StatusTableViewController.swift
 +++ b/Loop/View Controllers/StatusTableViewController.swift
-@@ -21,1 +21,2 @@
--import WidgetKit
-+import WidgetKit
-+import UserNotifications
-@@ -211,1 +211,133 @@
+@@ -211,1 +211,81 @@
 -    private weak var loKeyAgeText: UILabel?
 +    private weak var loKeyAgeText: UILabel?
 +
@@ -24,58 +20,6 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +            defaults.set(flagged, forKey: "LoKeyDeliveryLeakActiveV1")
 +        }
 +        loKeyAgeText?.textColor = flagged ? .systemOrange : .secondaryLabel
-+    }
-+
-+    // Read-only CGM surveillance after a user reports possible delivery
-+    // loss. Never change IOB, insulin records, bolus recommendations or
-+    // pump commands. Trigger at most one alert per 30 minutes.
-+    private func loKeyEvaluateLeakWatch(samples: [StoredGlucoseSample]?) {
-+        guard loKeyCurrentPodLeakFlagged(),
-+              !deviceManager.isGlucoseValueStale,
-+              let readings = samples?.sorted(by: { $0.startDate < $1.startDate }),
-+              let latest = readings.last,
-+              abs(latest.startDate.timeIntervalSinceNow) < 10 * 60 else {
-+            return
-+        }
-+        let current = latest.quantity.doubleValue(for: .milligramsPerDeciliter)
-+        guard current.isFinite else { return }
-+        let older = readings.last {
-+            let minutes = latest.startDate.timeIntervalSince($0.startDate) / 60
-+            return minutes >= 10 && minutes <= 20
-+        }
-+        let rise = older.map {
-+            current - $0.quantity.doubleValue(for: .milligramsPerDeciliter)
-+        }
-+        let highAndRising = current >= 180 && (rise ?? 0) >= 15
-+        let veryHigh = current >= 250
-+        guard highAndRising || veryHigh else { return }
-+
-+        let defaults = UserDefaults.standard
-+        if let lastAlert = defaults.object(forKey: "LoKeyLeakWatchLastAlertV1") as? Date,
-+           Date().timeIntervalSince(lastAlert) < 30 * 60 {
-+            return
-+        }
-+        defaults.set(Date(), forKey: "LoKeyLeakWatchLastAlertV1")
-+
-+        let description = rise.map { String(format: "%+.0f mg/dL in about 15 minutes", $0) }
-+            ?? "trend not available"
-+        if let podStart = defaults.object(forKey: "LoKeyLeakFlagPodStartV1") as? Date {
-+            loKeyStoreLeakEvent(
-+                kind: "elevated-glucose-observed",
-+                podStart: podStart,
-+                note: String(format: "CGM %.0f mg/dL; %@. Automated insulin adjustment: none.", current, description)
-+            )
-+        }
-+        let notice = UNMutableNotificationContent()
-+        notice.title = "LoKey · Possible Pod Delivery Issue"
-+        notice.body = String(format:
-+            "CGM %.0f mg/dL (%@) while a pod leak is flagged. Loop's IOB may overestimate insulin received. Check glucose, pod and your pump-failure plan.",
-+            current, description)
-+        notice.sound = .default
-+        let identifier = "lokey.leakwatch." + UUID().uuidString
-+        UNUserNotificationCenter.current().add(
-+            UNNotificationRequest(identifier: identifier, content: notice, trigger: nil)
-+        )
 +    }
 +
 +    private func loKeyStoreLeakEvent(kind: String, podStart: Date, note: String = "") {
@@ -174,15 +118,76 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +            leakButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 44).isActive = true
 +            stack.addArrangedSubview(leakButton)
 +            stack.layer.cornerRadius = 20
-@@ -1170,1 +1170,2 @@
--            self.lokeyMetricsCell?.configure(self.lokeySnapshot)
-+            self.lokeyMetricsCell?.configure(self.lokeySnapshot)
-+            self.loKeyEvaluateLeakWatch(samples: glucoseSamples)
 @@ -1808,1 +1808,3 @@
 -                            age: age, expires: expires, remaining: timeRemaining)
 +                            age: age, expires: expires, remaining: timeRemaining,
 +                            leakFlagged: loKeyCurrentPodLeakFlagged())
 +                cell.onLeakReview = { [weak self] in self?.loKeyReviewSuspectedPodLeak() }
+diff --git a/Loop/Managers/DeviceDataManager.swift b/Loop/Managers/DeviceDataManager.swift
+--- a/Loop/Managers/DeviceDataManager.swift
++++ b/Loop/Managers/DeviceDataManager.swift
+@@ -582,1 +582,54 @@
+-    private func processCGMReadingResult(_ manager: CGMManager, readingResult: CGMReadingResult, completion: @escaping () -> Void) {
++    // The watch is bound to successful CGM storage, not the dashboard's
++    // lifecycle. It can run while LoKey is in the background when the CGM
++    // delivers readings to the app. Never changes Loop's dose or IOB data.
++    private func loKeyCheckSuspectedPodLeakAfterCGM() {
++        let defaults = UserDefaults.standard
++        guard let flaggedPodStart = defaults.object(forKey: "LoKeyLeakFlagPodStartV1") as? Date else { return }
++        let start = Date().addingTimeInterval(-21 * 60)
++        glucoseStore.getGlucoseSamples(start: start, end: nil) { result in
++            guard case .success(let samples) = result,
++                  let latest = samples.max(by: { $0.startDate < $1.startDate }),
++                  latest.startDate.timeIntervalSinceNow >= -(10 * 60),
++                  latest.startDate.timeIntervalSinceNow <= 60 else { return }
++            let glucose = latest.quantity.doubleValue(for: .milligramsPerDeciliter)
++            guard glucose.isFinite else { return }
++            let previous = samples.filter { sample in
++                let minutes = latest.startDate.timeIntervalSince(sample.startDate) / 60
++                return minutes >= 10 && minutes <= 20
++            }.max(by: { $0.startDate < $1.startDate })
++            let change = previous.map {
++                glucose - $0.quantity.doubleValue(for: .milligramsPerDeciliter)
++            }
++            let highAndRising = glucose >= 180 && (change ?? 0) >= 15
++            let veryHigh = glucose >= 250
++            guard highAndRising || veryHigh else { return }
++            // Re-check the flag to avoid an alert after the user clears it.
++            guard defaults.object(forKey: "LoKeyLeakFlagPodStartV1") as? Date != nil else { return }
++            let now = Date()
++            if let lastAlert = defaults.object(forKey: "LoKeyLeakWatchLastAlertV1") as? Date,
++               now.timeIntervalSince(lastAlert) < 30 * 60 { return }
++            defaults.set(now, forKey: "LoKeyLeakWatchLastAlertV1")
++            let trend = change.map { String(format: "%+.0f mg/dL over the last 10–20 min", $0) }
++                ?? "trend unavailable"
++            let description = String(format: "CGM %.0f mg/dL; %@.", glucose, trend)
++            var events = defaults.array(forKey: "LoKeyLeakEventHistoryV1") as? [[String: Any]] ?? []
++            events.append([
++                "timestamp": now,
++                "podActivatedAt": flaggedPodStart,
++                "event": "elevated-glucose-observed",
++                "observation": description,
++                "cgmMgDl": glucose
++            ])
++            defaults.set(Array(events.suffix(200)), forKey: "LoKeyLeakEventHistoryV1")
++            let content = UNMutableNotificationContent()
++            content.title = "LoKey · Suspected Pod Leak Watch"
++            content.body = description + " Loop may be overestimating effective IOB. Check your glucose, pod and pump-failure plan; do not assume how much insulin was absorbed."
++            content.sound = .default
++            UNUserNotificationCenter.current().add(
++                UNNotificationRequest(identifier: "lokey.leakwatch." + UUID().uuidString,
++                                      content: content, trigger: nil)
++            )
++        }
++    }
++
++    private func processCGMReadingResult(_ manager: CGMManager, readingResult: CGMReadingResult, completion: @escaping () -> Void) {
+@@ -587,1 +653,4 @@
+-                    self.analyticsServicesManager.didStoreGlucose(samples)
++                    self.analyticsServicesManager.didStoreGlucose(samples)
++                    if !samples.isEmpty {
++                        self.loKeyCheckSuspectedPodLeakAfterCGM()
++                    }
 diff --git a/Loop/Views/BolusEntryView.swift b/Loop/Views/BolusEntryView.swift
 --- a/Loop/Views/BolusEntryView.swift
 +++ b/Loop/Views/BolusEntryView.swift
