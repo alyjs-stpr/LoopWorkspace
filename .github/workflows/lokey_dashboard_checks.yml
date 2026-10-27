@@ -124,6 +124,9 @@ jobs:
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild25LastBolusSummary.patch
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild25MarkerRefresh.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild25MarkerRefresh.patch
+          # Build 27: balanced, display-only 3h history / 6h forecast timeline.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild27BalancedHistory.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild27BalancedHistory.patch
       - name: Parse modified Swift files
         shell: bash
         run: |
@@ -203,6 +206,8 @@ jobs:
           grep -Fq 'Button("Save Without Bolusing")' "Loop/Loop/Views/BolusEntryView.swift"
           grep -Fq 'lokeyForecastHours = 6' "Loop/Loop/View Controllers/StatusTableViewController.swift"
           grep -Fq 'chartEndDate = anchor.addingTimeInterval(TimeInterval(hours: 6))' "Loop/Loop/View Controllers/StatusTableViewController.swift"
+          grep -Fq 'chartStartDate = anchor.addingTimeInterval(-TimeInterval(hours: 3))' "Loop/Loop/View Controllers/StatusTableViewController.swift"
+          grep -Fq 'Past 3h · Next 6h · ' "Loop/Loop/View Controllers/StatusTableViewController.swift"
           grep -Fq 'UIStackView(arrangedSubviews: [predictions])' "Loop/Loop/View Controllers/StatusTableViewController.swift"
           grep -Fq 'currentPlotFraction' "Loop/Loop/View Controllers/StatusTableViewController.swift"
           grep -Fq 'latestBolusSummaryDoses' "Loop/Loop/View Controllers/StatusTableViewController.swift"
@@ -322,6 +327,7 @@ jobs:
             grep -Fq 'LoKeyBuild25FixedTimeline.patch' "$workflow"
             grep -Fq 'LoKeyBuild25LastBolusSummary.patch' "$workflow"
             grep -Fq 'LoKeyBuild25MarkerRefresh.patch' "$workflow"
+            grep -Fq 'LoKeyBuild27BalancedHistory.patch' "$workflow"
             grep -Fq 'LoKeyDashboardCleanupLoop.patch' "$workflow"
             grep -Fq 'LoKeyDashboardCleanupLoopKit.patch' "$workflow"
           done
@@ -428,6 +434,9 @@ jobs:
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild25LastBolusSummary.patch
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild25MarkerRefresh.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild25MarkerRefresh.patch
+          # Build 27: balanced, display-only 3h history / 6h forecast timeline.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild27BalancedHistory.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild27BalancedHistory.patch
           git -C NightscoutService apply --check ../customizations/LoKeyT1PalNightscout.patch
           git -C NightscoutService apply ../customizations/LoKeyT1PalNightscout.patch
       # This is a source compilation smoke test, not an installable app package.

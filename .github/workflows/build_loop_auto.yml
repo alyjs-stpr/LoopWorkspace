@@ -332,6 +332,9 @@ jobs:
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild25LastBolusSummary.patch
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild25MarkerRefresh.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild25MarkerRefresh.patch
+          # Build 27: balanced, display-only 3h history / 6h forecast timeline.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild27BalancedHistory.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild27BalancedHistory.patch
           echo "LoKey final dashboard polish applied."
           echo "LoKey T1D rounded chart cards and shared Now markers applied."
 
