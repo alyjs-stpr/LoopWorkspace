@@ -7,14 +7,14 @@ diff --git a/LoopKitUI/Charts/DoseChart.swift b/LoopKitUI/Charts/DoseChart.swift
 +    public var loKeyVisualScale: LoKeyDisplayTimeScale? {
 +        didSet { pointsCache = nil }
 +    }
-@@ -64,1 +64,2 @@
+@@ -64,1 +67,2 @@
 -let startDate = ChartAxisValueDate.dateFromScalar(xAxisValues.first!.scalar)
 +let startDate = (xAxisValues.first as? ChartAxisValueDate)?.date
 +            ?? ChartAxisValueDate.dateFromScalar(xAxisValues.first!.scalar)
-@@ -170,1 +170,1 @@
+@@ -170,1 +174,1 @@
 -let x = ChartAxisValueDate(date: entry.startDate, formatter: dateFormatter)
 +let x = loKeyChartDateValue(entry.startDate, formatter: dateFormatter, scale: loKeyVisualScale)
-@@ -178,2 +178,2 @@
+@@ -178,2 +182,2 @@
 -let startX = ChartAxisValueDate(date: max(startDate, entry.startDate), formatter: dateFormatter)
 -                let endX = ChartAxisValueDate(date: entry.endDate, formatter: dateFormatter)
 +let startX = loKeyChartDateValue(max(startDate, entry.startDate), formatter: dateFormatter, scale: loKeyVisualScale)
