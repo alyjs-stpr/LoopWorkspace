@@ -163,10 +163,15 @@ jobs:
           # Build 35: live dashboard age, bolus and carbs refresh after Loop fetches.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild35LiveDashboardRefresh.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild35LiveDashboardRefresh.patch
+          # Final native tab layout, one safety-aware glucose HUD, insulin summary, pod details.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild36FinishNativeUI.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild36FinishNativeUI.patch
           # Preserve pump-reported decimal reservoir precision below 50 U.
           # Above threshold remains 50+ U; no synthetic estimate.
           git -C OmnipodKit apply --check ../customizations/LoKeyBuild29PreciseReservoir.patch
           git -C OmnipodKit apply ../customizations/LoKeyBuild29PreciseReservoir.patch
+          git -C OmnipodKit apply --unidiff-zero --check ../customizations/LoKeyBuild36PodTelemetry.patch
+          git -C OmnipodKit apply --unidiff-zero ../customizations/LoKeyBuild36PodTelemetry.patch
       - name: Parse modified Swift files
         shell: bash
         run: |
@@ -210,6 +215,15 @@ jobs:
           grep -Fq 'self.loKeyQuickStatsCell?.update(' "$FILE"
           grep -Fq 'self.loKeyRefreshHeader()' "$FILE"
           grep -Fq 'loKeyQuickStatsCell = cell' "$FILE"
+          # Native CGM and pump warnings must remain visible, with one glucose tile.
+          grep -Fq 'hudView?.setLoKeyDashboardMode(loKeyPage == .dashboard)' "$FILE"
+          grep -Fq 'LoKeyInsulinCard.id' "$FILE"
+          grep -Fq 'raw["podExpiresAt"]' "$FILE"
+          grep -Fq 'raw["podActivatedAt"]' "$FILE"
+          grep -Fq 'setLoKeyDashboardMode(_ enabled: Bool)' "Loop/LoopUI/Views/StatusBarHUDView.swift"
+          grep -Fq 'rawValue["podExpiresAt"] = pumpManager.podExpiresAt' "OmnipodKit/OmnipodKit/PumpManagerUI/OmniHUDProvider.swift"
+          grep -Fq 'case charts' "$FILE"
+          grep -Fq 'case metrics' "$FILE"
           if grep -Fq 'let hudRows = (0..<(loKeyPage == .dashboard ? 2 : 1)).map' "$FILE"; then
             echo '::error::Duplicated dashboard HUD row returned'
             exit 1
@@ -553,10 +567,15 @@ jobs:
           # Build 35: live dashboard age, bolus and carbs refresh after Loop fetches.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild35LiveDashboardRefresh.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild35LiveDashboardRefresh.patch
+          # Final native tab layout, one safety-aware glucose HUD, insulin summary, pod details.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild36FinishNativeUI.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild36FinishNativeUI.patch
           # Preserve pump-reported decimal reservoir precision below 50 U.
           # Above threshold remains 50+ U; no synthetic estimate.
           git -C OmnipodKit apply --check ../customizations/LoKeyBuild29PreciseReservoir.patch
           git -C OmnipodKit apply ../customizations/LoKeyBuild29PreciseReservoir.patch
+          git -C OmnipodKit apply --unidiff-zero --check ../customizations/LoKeyBuild36PodTelemetry.patch
+          git -C OmnipodKit apply --unidiff-zero ../customizations/LoKeyBuild36PodTelemetry.patch
           git -C NightscoutService apply --check ../customizations/LoKeyT1PalNightscout.patch
           git -C NightscoutService apply ../customizations/LoKeyT1PalNightscout.patch
       # This is a source compilation smoke test, not an installable app package.
