@@ -152,6 +152,9 @@ jobs:
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild27BalancedHistory.patch
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild28StatusView.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild28StatusView.patch
+          # Central LoKey-specific settings hub (UI-only; shared Shadow opt-in key).
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeySettingsHub.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeySettingsHub.patch
           # Preserve pump-reported decimal reservoir precision below 50 U.
           # Above threshold remains 50+ U; no synthetic estimate.
           git -C OmnipodKit apply --check ../customizations/LoKeyBuild29PreciseReservoir.patch
@@ -185,6 +188,14 @@ jobs:
           grep -q 'LoKeyCGMTIRStatistics' "Loop/Loop/Views/SettingsView.swift"
           grep -q 'Time in range (custom)' "Loop/Loop/Views/SettingsView.swift"
           grep -q 'LoKeyTargetStatistics' "Loop/Loop/Views/SettingsView.swift"
+          grep -Fq 'LoKeySettingsView(viewModel: viewModel)' "Loop/Loop/Views/SettingsView.swift"
+          grep -Fq '@AppStorage("LoKeyAdaptiveShadowEnabledV1")' "Loop/Loop/Views/SettingsView.swift"
+          grep -Fq 'Toggle("Record live shadow decisions", isOn: $shadowEnabled)' "Loop/Loop/Views/SettingsView.swift"
+          grep -Fq 'Text("Reports")' "Loop/Loop/Views/SettingsView.swift"
+          if grep -Fq 'Section(header: Text("Adaptive Shadow · observation only"))' "Loop/Loop/View Controllers/StatusTableViewController.swift"; then
+            echo "::error::Adaptive Shadow controls still appear in Theme Park panel"
+            exit 1
+          fi
           grep -q 'tickHours' "LoopKit/LoopKitUI/View Controllers/ChartsManager.swift"
           grep -q 'bolusPlanned' "$FILE"
           grep -q 'lokeyInstallStatusBarScrim' "$FILE"
@@ -504,6 +515,9 @@ jobs:
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild27BalancedHistory.patch
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild28StatusView.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild28StatusView.patch
+          # Central LoKey-specific settings hub (UI-only; shared Shadow opt-in key).
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeySettingsHub.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeySettingsHub.patch
           # Preserve pump-reported decimal reservoir precision below 50 U.
           # Above threshold remains 50+ U; no synthetic estimate.
           git -C OmnipodKit apply --check ../customizations/LoKeyBuild29PreciseReservoir.patch
