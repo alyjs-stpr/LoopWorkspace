@@ -1,0 +1,263 @@
+diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View Controllers/StatusTableViewController.swift
+--- a/Loop/View Controllers/StatusTableViewController.swift
++++ b/Loop/View Controllers/StatusTableViewController.swift
+@@ -165,1 +165,248 @@
+-    private var lokeySnapshot = LoKeyDashboardSnapshot()
++    private var lokeySnapshot = LoKeyDashboardSnapshot()
++    // Build 32 native visual pages. Read-only; Loop remains the sole dosing controller.
++    private enum LoKeyPage: Int { case dashboard, insulin, pod }
++    private var loKeyPage: LoKeyPage = .dashboard
++    private weak var loKeyStatusText: UILabel?
++    private weak var loKeyAgeText: UILabel?
++
++    private func loKeyInstallPages() {
++        let header = UIView(frame: CGRect(x: 0, y: 0, width: tableView.bounds.width, height: 142))
++        header.backgroundColor = .systemGroupedBackground
++        header.autoresizingMask = [.flexibleWidth]
++
++        let brand = UILabel()
++        brand.text = "LoKey LOOP"
++        brand.textColor = UIColor(red: 0.43, green: 0.18, blue: 0.79, alpha: 1)
++        brand.font = .systemFont(ofSize: 27, weight: .bold)
++
++        let loop = UILabel()
++        loop.font = .preferredFont(forTextStyle: .caption1)
++        loop.textColor = .systemGreen
++        loop.textAlignment = .right
++        loop.adjustsFontForContentSizeCategory = true
++        loKeyStatusText = loop
++
++        let age = UILabel()
++        age.font = .preferredFont(forTextStyle: .caption1)
++        age.textColor = .secondaryLabel
++        age.adjustsFontForContentSizeCategory = true
++        loKeyAgeText = age
++
++        let tabs = UISegmentedControl(items: ["DASHBOARD", "INSULIN", "POD INFO"])
++        tabs.selectedSegmentIndex = loKeyPage.rawValue
++        tabs.selectedSegmentTintColor = UIColor(red: 0.46, green: 0.19, blue: 0.79, alpha: 1)
++        tabs.setTitleTextAttributes([.foregroundColor: UIColor.white], for: .selected)
++        tabs.setTitleTextAttributes([.foregroundColor: UIColor.secondaryLabel], for: .normal)
++        tabs.addTarget(self, action: #selector(loKeyChangePage(_:)), for: .valueChanged)
++        tabs.accessibilityLabel = "LoKey main screens"
++
++        for v in [brand, loop, age, tabs] {
++            v.translatesAutoresizingMaskIntoConstraints = false
++            header.addSubview(v)
++        }
++        NSLayoutConstraint.activate([
++            brand.topAnchor.constraint(equalTo: header.topAnchor, constant: 15),
++            brand.leadingAnchor.constraint(equalTo: header.leadingAnchor, constant: 22),
++            loop.centerYAnchor.constraint(equalTo: brand.centerYAnchor),
++            loop.trailingAnchor.constraint(equalTo: header.trailingAnchor, constant: -20),
++            brand.trailingAnchor.constraint(lessThanOrEqualTo: loop.leadingAnchor, constant: -8),
++            age.topAnchor.constraint(equalTo: brand.bottomAnchor, constant: 6),
++            age.leadingAnchor.constraint(equalTo: brand.leadingAnchor),
++            tabs.topAnchor.constraint(equalTo: age.bottomAnchor, constant: 14),
++            tabs.leadingAnchor.constraint(equalTo: header.leadingAnchor, constant: 15),
++            tabs.trailingAnchor.constraint(equalTo: header.trailingAnchor, constant: -15),
++            tabs.bottomAnchor.constraint(equalTo: header.bottomAnchor, constant: -14)
++        ])
++        tableView.tableHeaderView = header
++        loKeyRefreshHeader()
++    }
++
++    private func loKeyRefreshHeader() {
++        if let last = deviceManager.loopManager.lastLoopCompleted {
++            let age = max(0, Int(Date().timeIntervalSince(last) / 60))
++            loKeyStatusText?.text = age <= 10 ? "● Loop running" : "● Loop overdue · \(age)m"
++            loKeyStatusText?.textColor = age <= 10 ? .systemGreen : .systemOrange
++        } else {
++            loKeyStatusText?.text = "● Loop waiting"
++            loKeyStatusText?.textColor = .secondaryLabel
++        }
++        loKeyAgeText?.text = "CGM " + lokeySnapshot.glucoseAge
++    }
++
++    @objc private func loKeyChangePage(_ sender: UISegmentedControl) {
++        guard let page = LoKeyPage(rawValue: sender.selectedSegmentIndex) else { return }
++        loKeyPage = page
++        loKeyRefreshHeader()
++        tableView.reloadData()
++        tableView.setContentOffset(CGPoint(x: 0, y: -tableView.adjustedContentInset.top), animated: false)
++    }
++
++    private func loKeyChartRow(at row: Int) -> ChartRow {
++        if loKeyPage == .insulin { return row == 0 ? .iob : .dose }
++        return .glucose
++    }
++
++    private final class LoKeyGlucoseCard: UITableViewCell {
++        static let id = "LoKeyGlucoseCard"
++        private let value = UILabel()
++        private let subtitle = UILabel()
++        private let insulin = UILabel()
++        override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
++            super.init(style: style, reuseIdentifier: reuseIdentifier)
++            selectionStyle = .none
++            backgroundColor = .clear
++            let heading = UILabel()
++            heading.text = "CURRENT GLUCOSE"
++            heading.font = .preferredFont(forTextStyle: .caption1)
++            heading.textColor = .secondaryLabel
++            let row = UIStackView(arrangedSubviews: [heading, insulin])
++            row.axis = .horizontal; row.distribution = .equalSpacing
++            insulin.font = .preferredFont(forTextStyle: .caption1)
++            insulin.textColor = UIColor(red: 0.43, green: 0.18, blue: 0.79, alpha: 1)
++            value.font = .systemFont(ofSize: 70, weight: .bold)
++            value.adjustsFontSizeToFitWidth = true
++            value.minimumScaleFactor = 0.55
++            value.textColor = UIColor(red: 0.43, green: 0.18, blue: 0.79, alpha: 1)
++            subtitle.font = .preferredFont(forTextStyle: .subheadline)
++            subtitle.textColor = .secondaryLabel
++            let stack = UIStackView(arrangedSubviews: [row, value, subtitle])
++            stack.axis = .vertical; stack.spacing = 6
++            stack.isLayoutMarginsRelativeArrangement = true
++            stack.directionalLayoutMargins = NSDirectionalEdgeInsets(top: 19, leading: 20, bottom: 19, trailing: 20)
++            stack.backgroundColor = .secondarySystemGroupedBackground
++            stack.layer.cornerRadius = 21
++            stack.translatesAutoresizingMaskIntoConstraints = false
++            contentView.addSubview(stack)
++            NSLayoutConstraint.activate([
++                stack.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 6),
++                stack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -5),
++                stack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
++                stack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -12)
++            ])
++        }
++        required init?(coder: NSCoder) { fatalError("init(coder:) unavailable") }
++        func update(glucose: String, detail: String, iob: String) {
++            value.text = glucose
++            subtitle.text = detail
++            insulin.text = "IOB " + iob
++            accessibilityLabel = "Current glucose " + glucose + ". " + detail + ". Insulin on board " + iob
++        }
++    }
++
++    private final class LoKeyQuickStatsCell: UITableViewCell {
++        static let id = "LoKeyQuickStatsCell"
++        var onTarget: ((Int) -> Void)?
++        override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
++            super.init(style: style, reuseIdentifier: reuseIdentifier)
++            selectionStyle = .none
++            backgroundColor = .clear
++        }
++        required init?(coder: NSCoder) { fatalError("init(coder:) unavailable") }
++        @objc private func targetTapped(_ sender: UIButton) { onTarget?(sender.tag) }
++        func update(lastBolus: String, carbs: String, targetsEnabled: [Bool]) {
++            contentView.subviews.forEach { $0.removeFromSuperview() }
++            func info(_ title: String, _ value: String) -> UIView {
++                let heading = UILabel()
++                heading.text = title
++                heading.font = .preferredFont(forTextStyle: .caption1)
++                heading.textColor = .secondaryLabel
++                let amount = UILabel()
++                amount.text = value
++                amount.font = .preferredFont(forTextStyle: .headline)
++                amount.numberOfLines = 2
++                amount.adjustsFontForContentSizeCategory = true
++                let stack = UIStackView(arrangedSubviews: [heading, amount])
++                stack.axis = .vertical; stack.spacing = 6
++                stack.backgroundColor = .secondarySystemGroupedBackground
++                stack.isLayoutMarginsRelativeArrangement = true
++                stack.directionalLayoutMargins = NSDirectionalEdgeInsets(top: 16, leading: 14, bottom: 16, trailing: 12)
++                stack.layer.cornerRadius = 18
++                return stack
++            }
++            let values = UIStackView(arrangedSubviews: [info("LAST BOLUS", lastBolus), info("ACTIVE CARBS", carbs)])
++            values.axis = .horizontal; values.distribution = .fillEqually; values.spacing = 9
++            let targetTitle = UILabel()
++            targetTitle.text = "TARGETS"
++            targetTitle.textColor = .secondaryLabel
++            targetTitle.font = .preferredFont(forTextStyle: .caption1)
++            let labels = ["Pre-Meal", "Workout", "Theme Park"]
++            let modes = UIStackView()
++            modes.axis = .horizontal; modes.spacing = 7; modes.distribution = .fillEqually
++            for i in 0..<3 {
++                let button = UIButton(type: .system)
++                button.tag = i
++                button.setTitle(labels[i], for: .normal)
++                button.titleLabel?.font = .systemFont(ofSize: 12, weight: .semibold)
++                button.titleLabel?.adjustsFontSizeToFitWidth = true
++                button.backgroundColor = UIColor(red: 0.94, green: 0.91, blue: 0.99, alpha: 1)
++                button.tintColor = UIColor(red: 0.43, green: 0.18, blue: 0.79, alpha: 1)
++                button.layer.cornerRadius = 12
++                button.isEnabled = targetsEnabled.indices.contains(i) && targetsEnabled[i]
++                button.addTarget(self, action: #selector(targetTapped(_:)), for: .touchUpInside)
++                button.heightAnchor.constraint(greaterThanOrEqualToConstant: 46).isActive = true
++                modes.addArrangedSubview(button)
++            }
++            let targetStack = UIStackView(arrangedSubviews: [targetTitle, modes])
++            targetStack.axis = .vertical; targetStack.spacing = 9
++            targetStack.backgroundColor = .secondarySystemGroupedBackground
++            targetStack.isLayoutMarginsRelativeArrangement = true
++            targetStack.directionalLayoutMargins = NSDirectionalEdgeInsets(top: 12, leading: 13, bottom: 13, trailing: 13)
++            targetStack.layer.cornerRadius = 18
++            let stack = UIStackView(arrangedSubviews: [values, targetStack])
++            stack.axis = .vertical; stack.spacing = 11
++            stack.translatesAutoresizingMaskIntoConstraints = false
++            contentView.addSubview(stack)
++            NSLayoutConstraint.activate([
++                stack.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 5),
++                stack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -6),
++                stack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
++                stack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -12)
++            ])
++        }
++    }
++
++    private final class LoKeyPodCard: UITableViewCell {
++        static let id = "LoKeyPodCard"
++        override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
++            super.init(style: style, reuseIdentifier: reuseIdentifier)
++            backgroundColor = .clear
++            selectionStyle = .none
++        }
++        required init?(coder: NSCoder) { fatalError("init(coder:) unavailable") }
++        func update(reservoir: String, updated: String, pump: String, cgm: String) {
++            contentView.subviews.forEach { $0.removeFromSuperview() }
++            let stack = UIStackView()
++            stack.axis = .vertical; stack.spacing = 15
++            stack.backgroundColor = .secondarySystemGroupedBackground
++            stack.isLayoutMarginsRelativeArrangement = true
++            stack.directionalLayoutMargins = NSDirectionalEdgeInsets(top: 20, leading: 20, bottom: 20, trailing: 20)
++            let pairs = [
++                ("POD STATUS", reservoir),
++                ("Last pod update", updated),
++                ("Omnipod", pump),
++                ("Dexcom G7", cgm)
++            ]
++            for (heading, detail) in pairs {
++                let left = UILabel(); left.text = heading
++                left.textColor = .secondaryLabel
++                left.font = .preferredFont(forTextStyle: .subheadline)
++                let right = UILabel(); right.text = detail
++                right.textColor = .label
++                right.font = .preferredFont(forTextStyle: .headline)
++                right.adjustsFontSizeToFitWidth = true
++                right.minimumScaleFactor = 0.7
++                let row = UIStackView(arrangedSubviews: [left, right])
++                row.axis = .horizontal; row.distribution = .equalSpacing; row.spacing = 8
++                stack.addArrangedSubview(row)
++            }
++            stack.layer.cornerRadius = 20
++            stack.translatesAutoresizingMaskIntoConstraints = false
++            contentView.addSubview(stack)
++            NSLayoutConstraint.activate([
++                stack.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
++                stack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -8),
++                stack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
++                stack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -12)
++            ])
++        }
++    }
+@@ -478,1 +478,5 @@
+-        tableView.register(LoKeyMetricsCell.self, forReuseIdentifier: LoKeyMetricsCell.reuseID)
++        tableView.register(LoKeyMetricsCell.self, forReuseIdentifier: LoKeyMetricsCell.reuseID)
++        tableView.register(LoKeyGlucoseCard.self, forCellReuseIdentifier: LoKeyGlucoseCard.id)
++        tableView.register(LoKeyQuickStatsCell.self, forCellReuseIdentifier: LoKeyQuickStatsCell.id)
++        tableView.register(LoKeyPodCard.self, forCellReuseIdentifier: LoKeyPodCard.id)
++        loKeyInstallPages()
+@@ -1555,1 +1555,1 @@
+-            return ChartRow.allCases.count
++            return loKeyPage == .dashboard ? 1 : (loKeyPage == .insulin ? 2 : 0)
