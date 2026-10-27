@@ -85,7 +85,7 @@ diff --git a/LoopKitUI/View Controllers/ChartsManager.swift b/LoopKitUI/View Con
 +}
 +
 +open class ChartsManager {
-@@ -83,10 +83,11 @@
+@@ -83,10 +164,11 @@
 -    public var startDate = Date() {
 -        didSet {
 -            if startDate != oldValue {
@@ -107,7 +107,7 @@ diff --git a/LoopKitUI/View Controllers/ChartsManager.swift b/LoopKitUI/View Con
 +            }
 +        }
 +    }
-@@ -101,7 +101,32 @@
+@@ -101,7 +183,32 @@
 -    public var useSparseTimeAxisLabels = false {
 -        didSet {
 -            if useSparseTimeAxisLabels != oldValue {
@@ -147,11 +147,11 @@ diff --git a/LoopKitUI/View Controllers/ChartsManager.swift b/LoopKitUI/View Con
 +            (chart as? COBChart)?.loKeyVisualScale = scale
 +        }
 +    }
-@@ -119,1 +119,2 @@
+@@ -119,1 +226,2 @@
 -        let position = ChartAxisValueDate(date: date, formatter: timeFormatter).scalar
 +        let position = loKeyChartDateValue(date, formatter: timeFormatter,
 +                                           scale: loKeyVisualScale).scalar
-@@ -255,1 +255,16 @@
+@@ -255,1 +363,16 @@
 -            self.xAxisValues = [exactStart] + interior + [exactEnd]
 +            let exactValues = [exactStart] + interior + [exactEnd]
 +            if let scale = loKeyVisualScale {
