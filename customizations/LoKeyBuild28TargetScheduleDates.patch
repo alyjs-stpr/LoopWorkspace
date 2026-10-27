@@ -1,0 +1,25 @@
+diff --git a/LoopKitUI/Charts/PredictedGlucoseChart.swift b/LoopKitUI/Charts/PredictedGlucoseChart.swift
+--- a/LoopKitUI/Charts/PredictedGlucoseChart.swift
++++ b/LoopKitUI/Charts/PredictedGlucoseChart.swift
+@@ -100,1 +100,11 @@
+-        if targetGlucosePoints.isEmpty, xAxisValues.count > 1, let schedule = targetGlucoseSchedule {
++        if targetGlucosePoints.isEmpty, xAxisValues.count > 1, let schedule = targetGlucoseSchedule {
++            // Scheduling and overrides must always use ACTUAL timestamps,
++            // never the horizontally expanded presentation coordinates.
++            let targetTimeValues: [ChartAxisValue] = xAxisValues.map { value in
++                guard let actual = (value as? ChartAxisValueDate)?.date else { return value }
++                let original = ChartAxisValueDate(
++                    date: actual, formatter: DateFormatter(timeStyle: .short)
++                )
++                original.hidden = value.hidden
++                return original
++            }
+@@ -104,1 +114,1 @@
+-            targetGlucosePoints = ChartPoint.barsForGlucoseRangeSchedule(schedule, unit: glucoseUnit, xAxisValues: xAxisValues, considering: potentialOverride)
++            targetGlucosePoints = ChartPoint.barsForGlucoseRangeSchedule(schedule, unit: glucoseUnit, xAxisValues: targetTimeValues, considering: potentialOverride)
+@@ -108,1 +118,1 @@
+-                preMealOverrideDurationPoints = ChartPoint.pointsForGlucoseRangeScheduleOverride(preMealOverride, unit: glucoseUnit, xAxisValues: xAxisValues)
++                preMealOverrideDurationPoints = ChartPoint.pointsForGlucoseRangeScheduleOverride(preMealOverride, unit: glucoseUnit, xAxisValues: targetTimeValues)
+@@ -123,1 +133,1 @@
+-                targetOverrideDurationPoints = ChartPoint.pointsForGlucoseRangeScheduleOverride(override, unit: glucoseUnit, xAxisValues: xAxisValues)
++                targetOverrideDurationPoints = ChartPoint.pointsForGlucoseRangeScheduleOverride(override, unit: glucoseUnit, xAxisValues: targetTimeValues)

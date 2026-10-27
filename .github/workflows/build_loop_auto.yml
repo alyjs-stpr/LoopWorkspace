@@ -270,6 +270,20 @@ jobs:
           # Display-only Build 12 follow-up: actual axis alignment and readable history.
           git -C LoopKit apply --check ../customizations/LoKeyDashboardCleanupLoopKit.patch
           git -C LoopKit apply ../customizations/LoKeyDashboardCleanupLoopKit.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28SplitTimeAxisCore.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28SplitTimeAxisCore.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28GlucoseProjection.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28GlucoseProjection.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28PredictionsProjection.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28PredictionsProjection.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28TargetScheduleDates.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28TargetScheduleDates.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28IOBProjection.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28IOBProjection.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28COBProjection.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28COBProjection.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28DoseProjection.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28DoseProjection.patch
           git -C Loop apply --check ../customizations/LoKeyDashboardCleanupLoop.patch
           git -C Loop apply ../customizations/LoKeyDashboardCleanupLoop.patch
 
@@ -335,6 +349,8 @@ jobs:
           # Build 27: balanced, display-only 3h history / 6h forecast timeline.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild27BalancedHistory.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild27BalancedHistory.patch
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild28StatusView.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild28StatusView.patch
           echo "LoKey final dashboard polish applied."
           echo "LoKey T1D rounded chart cards and shared Now markers applied."
 
