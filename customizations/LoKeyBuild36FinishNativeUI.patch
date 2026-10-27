@@ -194,15 +194,3 @@ diff --git a/LoopUI/Views/StatusBarHUDView.swift b/LoopUI/Views/StatusBarHUDView
 +            lokeyDashboardTiles = []
 +        }
 +    }
-diff --git a/OmnipodKit/PumpManagerUI/OmniHUDProvider.swift b/OmnipodKit/PumpManagerUI/OmniHUDProvider.swift
---- a/OmnipodKit/PumpManagerUI/OmniHUDProvider.swift
-+++ b/OmnipodKit/PumpManagerUI/OmniHUDProvider.swift
-@@ -73,1 +73,7 @@
--        rawValue["lastStatusDate"] = pumpManager.lastStatusDate
-+        rawValue["lastStatusDate"] = pumpManager.lastStatusDate
-+        // Read-only pod metadata for LoKey's Pod Info tab. Never infer an
-+        // expiration or a connected state from reservoir measurements.
-+        rawValue["podActivatedAt"] = pumpManager.podActivatedAt
-+        rawValue["podExpiresAt"] = pumpManager.podExpiresAt
-+        rawValue["podIsActive"] = pumpManager.hasActivePod
-+        rawValue["podDeliveryUncertain"] = pumpManager.status.deliveryIsUncertain
