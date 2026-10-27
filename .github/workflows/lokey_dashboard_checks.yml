@@ -510,12 +510,14 @@ jobs:
           fi
 
           # Xcode 27 still validates .loopplugin frameworks when VALIDATE_PRODUCT=NO.
-          # Accept ONLY one or two previously observed plugin Info.plist errors,
-          # with no other compiler/packaging errors, and ONLY at final Validate.
-          # This is an unsigned simulator source smoke test, NOT a signed package.
+          # On this pinned workspace the unsigned simulator may surface all five
+          # .loopplugin entries as frameworks without generated Info.plist files.
+          # Accept ONLY the five EXACT known plugin names at final Validate,
+          # never real Swift errors, other bundling errors, or a signed build.
+          # This is source-compilation smoke-test evidence, NOT app validation.
           error_count="$(grep -Ec '^error:' "$log" || true)"
-          unexpected_errors="$(grep '^error:' "$log" | grep -Ev "^error: Framework .*/Loop[.]app/Frameworks/(AmplitudeServiceKitPlugin|LoopOnboardingPlugin)[.]framework did not contain an Info[.]plist [(]in target 'Loop' from project 'Loop'[)]$" || true)"
-          if [ "$error_count" -ge 1 ] && [ "$error_count" -le 2 ] \
+          unexpected_errors="$(grep '^error:' "$log" | grep -Ev "^error: Framework .*/Loop[.]app/Frameworks/(AmplitudeServiceKitPlugin|LoopOnboardingPlugin|CGMBLEKitG5Plugin|CGMBLEKitG6Plugin|NightscoutServiceKitPlugin)[.]framework did not contain an Info[.]plist [(]in target 'Loop' from project 'Loop'[)]$" || true)"
+          if [ "$error_count" -ge 1 ] && [ "$error_count" -le 5 ] \
             && [ -z "$unexpected_errors" ] \
             && ! grep -Eq '[.]swift:[0-9]+:[0-9]+: error:' "$log" \
             && grep -Eq "^[[:space:]]*Validate .*/Loop[.]app [(]in target 'Loop' from project 'Loop'[)]$" "$log" \
