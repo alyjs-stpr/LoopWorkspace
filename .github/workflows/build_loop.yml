@@ -338,9 +338,6 @@ jobs:
           # Build 32: approved Omnipod-inspired LoKey pages, UI only; therapy still Loop-owned.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild32NativePages.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild32NativePages.patch
-          # Restore preview-sized glucose card without hiding native pump/CGM HUD.
-          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild33PreserveDashboard.patch
-          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild33PreserveDashboard.patch
           # Central LoKey-specific settings hub (UI-only; shared Shadow opt-in key).
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeySettingsHub.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeySettingsHub.patch
