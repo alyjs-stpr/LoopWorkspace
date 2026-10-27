@@ -1,7 +1,7 @@
 diff --git a/LoopKitUI/View Controllers/ChartsManager.swift b/LoopKitUI/View Controllers/ChartsManager.swift
 --- a/LoopKitUI/View Controllers/ChartsManager.swift
 +++ b/LoopKitUI/View Controllers/ChartsManager.swift
-@@ -15,1 +15,82 @@
+@@ -16,1 +16,82 @@
 -open class ChartsManager {
 +/// Pure visual-coordinate transformation used by the LoKey status charts.
 +/// Real date/CGM/DoseStore data is retained without modification.
@@ -85,7 +85,7 @@ diff --git a/LoopKitUI/View Controllers/ChartsManager.swift b/LoopKitUI/View Con
 +}
 +
 +open class ChartsManager {
-@@ -145,10 +145,11 @@
+@@ -83,10 +83,11 @@
 -    public var startDate = Date() {
 -        didSet {
 -            if startDate != oldValue {
@@ -107,11 +107,7 @@ diff --git a/LoopKitUI/View Controllers/ChartsManager.swift b/LoopKitUI/View Con
 +            }
 +        }
 +    }
-@@ -165,1 +165,2 @@
--        let position = ChartAxisValueDate(date: date, formatter: timeFormatter).scalar
-+        let position = loKeyChartDateValue(date, formatter: timeFormatter,
-+                                           scale: loKeyVisualScale).scalar
-@@ -180,7 +180,32 @@
+@@ -101,7 +101,32 @@
 -    public var useSparseTimeAxisLabels = false {
 -        didSet {
 -            if useSparseTimeAxisLabels != oldValue {
@@ -151,7 +147,11 @@ diff --git a/LoopKitUI/View Controllers/ChartsManager.swift b/LoopKitUI/View Con
 +            (chart as? COBChart)?.loKeyVisualScale = scale
 +        }
 +    }
-@@ -298,1 +298,16 @@
+@@ -119,1 +119,2 @@
+-        let position = ChartAxisValueDate(date: date, formatter: timeFormatter).scalar
++        let position = loKeyChartDateValue(date, formatter: timeFormatter,
++                                           scale: loKeyVisualScale).scalar
+@@ -255,1 +255,16 @@
 -            self.xAxisValues = [exactStart] + interior + [exactEnd]
 +            let exactValues = [exactStart] + interior + [exactEnd]
 +            if let scale = loKeyVisualScale {
