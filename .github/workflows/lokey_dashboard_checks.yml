@@ -199,7 +199,7 @@ jobs:
           grep -Fq 'decoder.dateDecodingStrategy = .iso8601' "Loop/Loop/Views/SettingsView.swift"
           grep -Fq '@AppStorage("LoKeyAdaptiveShadowEnabledV1")' "Loop/Loop/Views/SettingsView.swift"
           grep -Fq 'Toggle("Record live shadow decisions", isOn: $shadowEnabled)' "Loop/Loop/Views/SettingsView.swift"
-          grep -Fq 'Text("Reports")' "Loop/Loop/Views/SettingsView.swift"
+          grep -Fq 'Label("Glucose reports & settings PDF", systemImage: "chart.pie")' "Loop/Loop/Views/SettingsView.swift"
           if grep -Fq 'Section(header: Text("Adaptive Shadow · observation only"))' "Loop/Loop/View Controllers/StatusTableViewController.swift"; then
             echo "::error::Adaptive Shadow controls still appear in Theme Park panel"
             exit 1
