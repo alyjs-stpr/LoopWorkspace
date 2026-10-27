@@ -5,13 +5,13 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 -import WidgetKit
 +import WidgetKit
 +import UserNotifications
-@@ -211,1 +211,131 @@
+@@ -211,1 +211,133 @@
 -    private weak var loKeyAgeText: UILabel?
 +    private weak var loKeyAgeText: UILabel?
 +
 +    // This is only an annotation of uncertain insulin absorption. It NEVER
 +    // edits DoseStore, IOB, Loop's prediction, or dosing recommendations.
-++    private func loKeyCurrentPodLeakFlagged() -> Bool {
++    private func loKeyCurrentPodLeakFlagged() -> Bool {
 +        // A pod change does not erase the uncertainty about insulin Loop
 +        // still counts from the previous pod. Only a user clears the flag.
 +        return UserDefaults.standard.object(forKey: "LoKeyLeakFlagPodStartV1") as? Date != nil
@@ -78,7 +78,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +        )
 +    }
 +
-++    private func loKeyStoreLeakEvent(kind: String, podStart: Date, note: String = "") {
++    private func loKeyStoreLeakEvent(kind: String, podStart: Date, note: String = "") {
 +        var events = UserDefaults.standard.array(forKey: "LoKeyLeakEventHistoryV1") as? [[String: Any]] ?? []
 +        events.append([
 +            "timestamp": Date(),
@@ -93,14 +93,6 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +
 +    private func loKeyReviewSuspectedPodLeak() {
 +        let raw = deviceManager.pumpManagerHUDProvider?.hudViewRawState ?? [:]
-+        guard let podStart = raw["podActivatedAt"] as? Date else {
-+            let alert = UIAlertController(title: "Pod Status Unavailable",
-+                message: "Cannot attach a leak report to a verified pod. Check the Pod Info screen and try again.",
-+                preferredStyle: .alert)
-+            alert.addAction(UIAlertAction(title: "OK", style: .default))
-+            present(alert, animated: true)
-+            return
-+        }
 +        if loKeyCurrentPodLeakFlagged() {
 +            let alert = UIAlertController(title: "Suspected Pod Leak Flag",
 +                message: "The reported insulin may not match what was absorbed. The watch stays active across pod changes until you clear it; Loop's IOB and recommendations remain unchanged.",
@@ -108,13 +100,23 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +            alert.addAction(UIAlertAction(title: "Keep Flag", style: .cancel))
 +            alert.addAction(UIAlertAction(title: "Clear Flag", style: .default) { [weak self] _ in
 +                guard let self else { return }
-+                self.loKeyStoreLeakEvent(kind: "cleared", podStart: podStart)
++                if let originalPodStart = UserDefaults.standard.object(forKey: "LoKeyLeakFlagPodStartV1") as? Date {
++                    self.loKeyStoreLeakEvent(kind: "cleared", podStart: originalPodStart)
++                }
 +                UserDefaults.standard.removeObject(forKey: "LoKeyLeakFlagPodStartV1")
 +                UserDefaults.standard.removeObject(forKey: "LoKeyLeakWatchLastAlertV1")
 +                self.loKeySyncLeakNotice()
 +                self.loKeyRefreshHeader()
 +                self.tableView.reloadData()
 +            })
++            present(alert, animated: true)
++            return
++        }
++        guard let podStart = raw["podActivatedAt"] as? Date else {
++            let alert = UIAlertController(title: "Pod Status Unavailable",
++                message: "Cannot verify the current pod's identity. Check Pod Info and try again.",
++                preferredStyle: .alert)
++            alert.addAction(UIAlertAction(title: "OK", style: .default))
 +            present(alert, animated: true)
 +            return
 +        }
