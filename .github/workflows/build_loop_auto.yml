@@ -368,6 +368,9 @@ jobs:
           # Build 33: Shadow submenu with on-device, read-only record dashboard.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild33ShadowDashboard.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild33ShadowDashboard.patch
+          # Build 35: live dashboard age, bolus and carbs refresh after Loop fetches.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild35LiveDashboardRefresh.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild35LiveDashboardRefresh.patch
           # Preserve pump-reported decimal reservoir precision below 50 U.
           # Above threshold remains 50+ U; no synthetic estimate.
           git -C OmnipodKit apply --check ../customizations/LoKeyBuild29PreciseReservoir.patch
