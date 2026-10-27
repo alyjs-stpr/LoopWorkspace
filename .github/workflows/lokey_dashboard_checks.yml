@@ -152,26 +152,16 @@ jobs:
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild27BalancedHistory.patch
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild28StatusView.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild28StatusView.patch
-          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild32NativePages.patch
-          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild32NativePages.patch
           # Central LoKey-specific settings hub (UI-only; shared Shadow opt-in key).
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeySettingsHub.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeySettingsHub.patch
           # Build 33: Shadow submenu with on-device, read-only record dashboard.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild33ShadowDashboard.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild33ShadowDashboard.patch
-          # Build 35: live dashboard age, bolus and carbs refresh after Loop fetches.
-          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild35LiveDashboardRefresh.patch
-          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild35LiveDashboardRefresh.patch
-          # Final native tab layout, one safety-aware glucose HUD, insulin summary, pod details.
-          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild36FinishNativeUI.patch
-          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild36FinishNativeUI.patch
           # Preserve pump-reported decimal reservoir precision below 50 U.
           # Above threshold remains 50+ U; no synthetic estimate.
           git -C OmnipodKit apply --check ../customizations/LoKeyBuild29PreciseReservoir.patch
           git -C OmnipodKit apply ../customizations/LoKeyBuild29PreciseReservoir.patch
-          git -C OmnipodKit apply --unidiff-zero --check ../customizations/LoKeyBuild36PodTelemetry.patch
-          git -C OmnipodKit apply --unidiff-zero ../customizations/LoKeyBuild36PodTelemetry.patch
       - name: Parse modified Swift files
         shell: bash
         run: |
@@ -206,24 +196,23 @@ jobs:
           grep -Fq 'NavigationLink(destination: LoKeyShadowDashboardView())' "Loop/Loop/Views/SettingsView.swift"
           grep -Fq 'LoKeyShadowRecordReader.readRecent()' "Loop/Loop/Views/SettingsView.swift"
           grep -Fq 'Label("Glucose reports & settings PDF", systemImage: "chart.pie")' "Loop/Loop/Views/SettingsView.swift"
-          # Only one native Loop safety HUD and one custom metrics row.
+          # Reference UI (user's installed Build 32): native compact HUD,
+          # one 2x2 read-only metrics grid, then ALL original chart rows.
+          # Never reintroduce the oversized glucose/Insulin/Pod tabbed views.
           grep -Fq 'case .hud, .metrics:' "$FILE"
           grep -Fq 'return shouldShowHUD ? 1 : 0' "$FILE"
-          grep -Fq 'withIdentifier: HUDViewTableViewCell.className' "$FILE"
-          grep -Fq 'LoKeyQuickStatsCell.id' "$FILE"
-          # The new card must update after the asynchronous Loop snapshot completes.
-          grep -Fq 'self.loKeyQuickStatsCell?.update(' "$FILE"
-          grep -Fq 'self.loKeyRefreshHeader()' "$FILE"
-          grep -Fq 'loKeyQuickStatsCell = cell' "$FILE"
-          # Native CGM and pump warnings must remain visible, with one glucose tile.
-          grep -Fq 'hudView?.setLoKeyDashboardMode(loKeyPage == .dashboard)' "$FILE"
-          grep -Fq 'LoKeyInsulinCard.id' "$FILE"
-          grep -Fq 'raw["podExpiresAt"]' "$FILE"
-          grep -Fq 'raw["podActivatedAt"]' "$FILE"
-          grep -Fq 'setLoKeyDashboardMode(_ enabled: Bool)' "Loop/LoopUI/Views/StatusBarHUDView.swift"
-          grep -Fq 'rawValue["podExpiresAt"] = pumpManager.podExpiresAt' "OmnipodKit/OmnipodKit/PumpManagerUI/OmniHUDProvider.swift"
-          grep -Fq 'case charts' "$FILE"
-          grep -Fq 'case metrics' "$FILE"
+          grep -Fq 'return ChartRow.allCases.count' "$FILE"
+          grep -Fq 'LoKeyMetricsCell.reuseID' "$FILE"
+          grep -Fq 'cell.configure(lokeySnapshot)' "$FILE"
+          grep -Fq 'case .charts:' "$FILE"
+          if grep -Fq 'loKeyInstallPages()' "$FILE"; then
+            echo '::error::Retired tabbed layout unexpectedly returned'
+            exit 1
+          fi
+          if grep -Fq 'LoKeyQuickStatsCell.id' "$FILE"; then
+            echo '::error::Build 32 four-metric grid was replaced'
+            exit 1
+          fi
           if grep -Fq 'let hudRows = (0..<(loKeyPage == .dashboard ? 2 : 1)).map' "$FILE"; then
             echo '::error::Duplicated dashboard HUD row returned'
             exit 1
@@ -349,9 +338,9 @@ jobs:
             for patch in customizations/*.patch; do
               patchname="${patch##*/}"
               # Experimental protein-based carb transfer remains review-only.
-              if [[ "$patchname" == "LoKeyBuild18MealUX.patch" || "$patchname" == "LoKeyBuild33PreserveDashboard.patch" ]]; then
-                # The latter inserts a duplicate native HUD row. Keep both
-                # excluded from the signed routes without deleting audit files.
+              if [[ "$patchname" == "LoKeyBuild18MealUX.patch" || "$patchname" == "LoKeyBuild33PreserveDashboard.patch" || "$patchname" == "LoKeyBuild32NativePages.patch" || "$patchname" == "LoKeyBuild35LiveDashboardRefresh.patch" || "$patchname" == "LoKeyBuild36FinishNativeUI.patch" || "$patchname" == "LoKeyBuild36PodTelemetry.patch" ]]; then
+                # Preserve retired UI patches for history, but never apply them
+                # to the signed builds. The reference Build 32 HUD/grid is stable.
                 continue
               fi
               grep -Fq "$patchname" "$workflow" || {
@@ -556,26 +545,16 @@ jobs:
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild27BalancedHistory.patch
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild28StatusView.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild28StatusView.patch
-          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild32NativePages.patch
-          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild32NativePages.patch
           # Central LoKey-specific settings hub (UI-only; shared Shadow opt-in key).
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeySettingsHub.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeySettingsHub.patch
           # Build 33: Shadow submenu with on-device, read-only record dashboard.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild33ShadowDashboard.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild33ShadowDashboard.patch
-          # Build 35: live dashboard age, bolus and carbs refresh after Loop fetches.
-          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild35LiveDashboardRefresh.patch
-          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild35LiveDashboardRefresh.patch
-          # Final native tab layout, one safety-aware glucose HUD, insulin summary, pod details.
-          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild36FinishNativeUI.patch
-          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild36FinishNativeUI.patch
           # Preserve pump-reported decimal reservoir precision below 50 U.
           # Above threshold remains 50+ U; no synthetic estimate.
           git -C OmnipodKit apply --check ../customizations/LoKeyBuild29PreciseReservoir.patch
           git -C OmnipodKit apply ../customizations/LoKeyBuild29PreciseReservoir.patch
-          git -C OmnipodKit apply --unidiff-zero --check ../customizations/LoKeyBuild36PodTelemetry.patch
-          git -C OmnipodKit apply --unidiff-zero ../customizations/LoKeyBuild36PodTelemetry.patch
           git -C NightscoutService apply --check ../customizations/LoKeyT1PalNightscout.patch
           git -C NightscoutService apply ../customizations/LoKeyT1PalNightscout.patch
       # This is a source compilation smoke test, not an installable app package.
