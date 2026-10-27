@@ -226,6 +226,16 @@ jobs:
           grep -Fq 'loKeyStoreLeakEvent(kind: String, podStart: Date' "$FILE"
           grep -Fq 'LoKeyDeliveryLeakActiveV1' "$FILE"
           grep -Fq 'LoKeyDeliveryLeakActiveV1' "Loop/Loop/Views/BolusEntryView.swift"
+          # The leak watch must be triggered by newly stored CGM readings,
+          # not only by the visible dashboard refresh.
+          grep -Fq 'loKeyCheckSuspectedPodLeakAfterCGM()' "Loop/Loop/Managers/DeviceDataManager.swift"
+          grep -Fq 'let highAndRising = glucose >= 180' "Loop/Loop/Managers/DeviceDataManager.swift"
+          grep -Fq 'let veryHigh = glucose >= 250' "Loop/Loop/Managers/DeviceDataManager.swift"
+          grep -Fq 'LoKeyLeakWatchLastAlertV1' "Loop/Loop/Managers/DeviceDataManager.swift"
+          if grep -Fq 'loKeyEvaluateLeakWatch(samples:' "$FILE"; then
+            echo "::error::Leak watch must not depend on dashboard visibility"
+            exit 1
+          fi
           grep -Fq "have NOT been adjusted" "Loop/Loop/Views/BolusEntryView.swift"
           grep -Fq 'raw["podActivatedAt"]' "$FILE"
           grep -Fq 'setLoKeyDashboardMode(_ enabled: Bool)' "Loop/LoopUI/Views/StatusBarHUDView.swift"
