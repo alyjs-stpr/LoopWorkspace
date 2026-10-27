@@ -44,20 +44,6 @@ jobs:
           # Exact chart-axis endpoints; read-only presentation fix.
           git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild26ExactAxisBounds.patch
           git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild26ExactAxisBounds.patch
-          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28SplitTimeAxisCore.patch
-          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28SplitTimeAxisCore.patch
-          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28GlucoseProjection.patch
-          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28GlucoseProjection.patch
-          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28PredictionsProjection.patch
-          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28PredictionsProjection.patch
-          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28TargetScheduleDates.patch
-          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28TargetScheduleDates.patch
-          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28IOBProjection.patch
-          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28IOBProjection.patch
-          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28COBProjection.patch
-          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28COBProjection.patch
-          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28DoseProjection.patch
-          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28DoseProjection.patch
           git -C Loop apply --check ../customizations/LoKeyReports.patch
           git -C Loop apply ../customizations/LoKeyReports.patch
           git -C Loop apply --check ../customizations/LoKeyTIRShortcut.patch
@@ -76,6 +62,20 @@ jobs:
           # Display-only Build 12 follow-up: actual axis alignment and readable history.
           git -C LoopKit apply --check ../customizations/LoKeyDashboardCleanupLoopKit.patch
           git -C LoopKit apply ../customizations/LoKeyDashboardCleanupLoopKit.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28SplitTimeAxisCore.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28SplitTimeAxisCore.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28GlucoseProjection.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28GlucoseProjection.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28PredictionsProjection.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28PredictionsProjection.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28TargetScheduleDates.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28TargetScheduleDates.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28IOBProjection.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28IOBProjection.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28COBProjection.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28COBProjection.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28DoseProjection.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28DoseProjection.patch
           git -C Loop apply --check ../customizations/LoKeyDashboardCleanupLoop.patch
           git -C Loop apply ../customizations/LoKeyDashboardCleanupLoop.patch
 
@@ -388,20 +388,6 @@ jobs:
           # Exact chart-axis endpoints; read-only presentation fix.
           git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild26ExactAxisBounds.patch
           git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild26ExactAxisBounds.patch
-          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28SplitTimeAxisCore.patch
-          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28SplitTimeAxisCore.patch
-          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28GlucoseProjection.patch
-          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28GlucoseProjection.patch
-          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28PredictionsProjection.patch
-          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28PredictionsProjection.patch
-          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28TargetScheduleDates.patch
-          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28TargetScheduleDates.patch
-          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28IOBProjection.patch
-          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28IOBProjection.patch
-          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28COBProjection.patch
-          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28COBProjection.patch
-          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28DoseProjection.patch
-          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28DoseProjection.patch
           git -C Loop apply --check ../customizations/LoKeyReports.patch
           git -C Loop apply ../customizations/LoKeyReports.patch
           git -C Loop apply --check ../customizations/LoKeyTIRShortcut.patch
@@ -416,6 +402,20 @@ jobs:
           # Display-only Build 12 follow-up: actual axis alignment and readable history.
           git -C LoopKit apply --check ../customizations/LoKeyDashboardCleanupLoopKit.patch
           git -C LoopKit apply ../customizations/LoKeyDashboardCleanupLoopKit.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28SplitTimeAxisCore.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28SplitTimeAxisCore.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28GlucoseProjection.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28GlucoseProjection.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28PredictionsProjection.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28PredictionsProjection.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28TargetScheduleDates.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28TargetScheduleDates.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28IOBProjection.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28IOBProjection.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28COBProjection.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28COBProjection.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28DoseProjection.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28DoseProjection.patch
           git -C Loop apply --check ../customizations/LoKeyDashboardCleanupLoop.patch
           git -C Loop apply ../customizations/LoKeyDashboardCleanupLoop.patch
 
