@@ -328,7 +328,9 @@ jobs:
             for patch in customizations/*.patch; do
               patchname="${patch##*/}"
               # Experimental protein-based carb transfer remains review-only.
-              if [[ "$patchname" == "LoKeyBuild18MealUX.patch" ]]; then
+              if [[ "$patchname" == "LoKeyBuild18MealUX.patch" || "$patchname" == "LoKeyBuild33PreserveDashboard.patch" ]]; then
+                # The latter inserts a duplicate native HUD row. Keep both
+                # excluded from the signed routes without deleting audit files.
                 continue
               fi
               grep -Fq "$patchname" "$workflow" || {
