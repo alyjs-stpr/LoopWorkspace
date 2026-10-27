@@ -16,6 +16,6 @@ diff --git a/LoopKitUI/Charts/DoseChart.swift b/LoopKitUI/Charts/DoseChart.swift
 +                let x = loKeyChartDateValue(entry.startDate, formatter: dateFormatter, scale: loKeyVisualScale)
 @@ -178,2 +182,2 @@
 -                let startX = ChartAxisValueDate(date: max(startDate, entry.startDate), formatter: dateFormatter)
--                                let endX = ChartAxisValueDate(date: entry.endDate, formatter: dateFormatter)
+-                let endX = ChartAxisValueDate(date: entry.endDate, formatter: dateFormatter)
 +                let startX = loKeyChartDateValue(max(startDate, entry.startDate), formatter: dateFormatter, scale: loKeyVisualScale)
-+                                let endX = loKeyChartDateValue(entry.endDate, formatter: dateFormatter, scale: loKeyVisualScale)
++                let endX = loKeyChartDateValue(entry.endDate, formatter: dateFormatter, scale: loKeyVisualScale)
