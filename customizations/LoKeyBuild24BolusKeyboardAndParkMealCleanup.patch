@@ -1,0 +1,35 @@
+diff --git a/Loop/Views/BolusEntryView.swift b/Loop/Views/BolusEntryView.swift
+--- a/Loop/Views/BolusEntryView.swift
++++ b/Loop/Views/BolusEntryView.swift
+@@ -62,4 +62,18 @@
+-                if bolusFieldFocused {
+-                    // Reserve space so the toolbar doesn’t overlap the field
+-                    Color.clear.frame(height: accessoryClearance)
+-                } else {
++                if bolusFieldFocused {
++                    // A visible dismissal control even if iOS hides the
++                    // system keyboard accessory toolbar during navigation.
++                    HStack {
++                        Spacer()
++                        Button {
++                            bolusFieldFocused = false
++                        } label: {
++                            Label("Hide Keyboard", systemImage: "keyboard.chevron.compact.down")
++                                .font(.subheadline.weight(.semibold))
++                        }
++                        .buttonStyle(.bordered)
++                        .accessibilityLabel("Hide bolus keyboard")
++                        .padding(.trailing, 16)
++                    }
++                    .frame(height: accessoryClearance)
++                    .background(Color(.secondarySystemGroupedBackground))
++                } else {
+diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View Controllers/StatusTableViewController.swift
+--- a/Loop/View Controllers/StatusTableViewController.swift
++++ b/Loop/View Controllers/StatusTableViewController.swift
+@@ -87,1 +87,1 @@
+-                    Button("Announce Meal") { announceMeal() }
++                    // Meal calculator remains available directly from the normal Meal button.
+@@ -368,1 +368,1 @@
+-                                    : "Tap to adjust · Pause · End · Announce meal",
++                                    : "Tap to adjust · Pause · End",

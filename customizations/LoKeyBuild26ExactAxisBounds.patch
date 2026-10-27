@@ -1,0 +1,36 @@
+diff --git a/LoopKitUI/View Controllers/ChartsManager.swift b/LoopKitUI/View Controllers/ChartsManager.swift
+--- a/LoopKitUI/View Controllers/ChartsManager.swift
++++ b/LoopKitUI/View Controllers/ChartsManager.swift
+@@ -217,4 +217,28 @@
+-        xAxisValues.first?.hidden = true
+-        xAxisValues.last?.hidden = true
+-
+-        self.xAxisValues = xAxisValues
++        if useSparseTimeAxisLabels {
++            // The tick generator rounds outward to full clock intervals.
++            // With a 1-hour history and a 6-hour forecast, that can make
++            // the rendered graph show several extra hours of empty space.
++            // Preserve only interior labeled ticks; the exact requested
++            // bounds remain the first and last (hidden) axis values.
++            let exactStart = ChartAxisValueDate(
++                date: startDate,
++                formatter: timeFormatter,
++                labelSettings: axisLabelSettings
++            )
++            let exactEnd = ChartAxisValueDate(
++                date: endDate,
++                formatter: timeFormatter,
++                labelSettings: axisLabelSettings
++            )
++            exactStart.hidden = true
++            exactEnd.hidden = true
++            let interior = xAxisValues.filter {
++                $0.scalar > exactStart.scalar && $0.scalar < exactEnd.scalar
++            }
++            self.xAxisValues = [exactStart] + interior + [exactEnd]
++        } else {
++            // Preserve Loop's original axis behavior everywhere else.
++            xAxisValues.first?.hidden = true
++            xAxisValues.last?.hidden = true
++            self.xAxisValues = xAxisValues
++        }

@@ -41,6 +41,9 @@ jobs:
           git -C Loop apply ../customizations/LoKeyChartColors.patch
           git -C LoopKit apply --check ../customizations/LoKeyAxisReadability.patch
           git -C LoopKit apply ../customizations/LoKeyAxisReadability.patch
+          # Exact chart-axis endpoints; read-only presentation fix.
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild26ExactAxisBounds.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild26ExactAxisBounds.patch
           git -C Loop apply --check ../customizations/LoKeyReports.patch
           git -C Loop apply ../customizations/LoKeyReports.patch
           git -C Loop apply --check ../customizations/LoKeyTIRShortcut.patch
@@ -59,6 +62,20 @@ jobs:
           # Display-only Build 12 follow-up: actual axis alignment and readable history.
           git -C LoopKit apply --check ../customizations/LoKeyDashboardCleanupLoopKit.patch
           git -C LoopKit apply ../customizations/LoKeyDashboardCleanupLoopKit.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28SplitTimeAxisCore.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28SplitTimeAxisCore.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28GlucoseProjection.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28GlucoseProjection.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28PredictionsProjection.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28PredictionsProjection.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28TargetScheduleDates.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28TargetScheduleDates.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28IOBProjection.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28IOBProjection.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28COBProjection.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28COBProjection.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28DoseProjection.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28DoseProjection.patch
           git -C Loop apply --check ../customizations/LoKeyDashboardCleanupLoop.patch
           git -C Loop apply ../customizations/LoKeyDashboardCleanupLoop.patch
 
@@ -111,7 +128,22 @@ jobs:
           # Compact interactive park control center, separate from Loop dosing.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyParkControls.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyParkControls.patch
-          # Read-only adaptive shadow on successful normal Loop cycles.
+          # Build 24 UI-only cleanup: one-tap Meal button remains canonical.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild24BolusKeyboardAndParkMealCleanup.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild24BolusKeyboardAndParkMealCleanup.patch
+          # Build 25: view-only fixed chart timeline and independent last-bolus history.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild25FixedTimeline.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild25FixedTimeline.patch
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild25LastBolusSummary.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild25LastBolusSummary.patch
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild25MarkerRefresh.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild25MarkerRefresh.patch
+          # Build 27: balanced, display-only 3h history / 6h forecast timeline.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild27BalancedHistory.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild27BalancedHistory.patch
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild28StatusView.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild28StatusView.patch
+          # Adaptive Shadow: read-only evaluation after latest approved UI patches.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyAdaptiveShadowCapture.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyAdaptiveShadowCapture.patch
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyAdaptiveShadowUI.patch
@@ -194,8 +226,20 @@ jobs:
           grep -Fq 'LoKeyThemeParkView(' "Loop/Loop/View Controllers/StatusTableViewController.swift"
           grep -Fq 'loKeySaveWithoutBolus()' "Loop/Loop/View Models/BolusEntryViewModel.swift"
           grep -Fq 'Button("Save Without Bolusing")' "Loop/Loop/Views/BolusEntryView.swift"
-          grep -Fq 'lokeyForecastHours = 3' "Loop/Loop/View Controllers/StatusTableViewController.swift"
-          grep -Fq 'chartEndDate = anchor.addingTimeInterval(TimeInterval(hours: Double(lokeyForecastHours)))' "Loop/Loop/View Controllers/StatusTableViewController.swift"
+          grep -Fq 'lokeyForecastHours = 6' "Loop/Loop/View Controllers/StatusTableViewController.swift"
+          grep -Fq 'chartEndDate = anchor.addingTimeInterval(TimeInterval(hours: 6))' "Loop/Loop/View Controllers/StatusTableViewController.swift"
+          grep -Fq 'chartStartDate = anchor.addingTimeInterval(-TimeInterval(hours: 1))' "Loop/Loop/View Controllers/StatusTableViewController.swift"
+          grep -Fq 'Past 1h (expanded) · Next 6h · ' "Loop/Loop/View Controllers/StatusTableViewController.swift"
+          grep -Fq 'statusCharts.loKeyExpandOneHourHistory = true' "Loop/Loop/View Controllers/StatusTableViewController.swift"
+          grep -Fq 'LoKeyDisplayDateAxisValue' "LoopKit/LoopKitUI/View Controllers/ChartsManager.swift"
+          grep -Fq 'date: scale.actualDate(for: displayed)' "LoopKit/LoopKitUI/View Controllers/ChartsManager.swift"
+          grep -Fq 'UIStackView(arrangedSubviews: [predictions])' "Loop/Loop/View Controllers/StatusTableViewController.swift"
+          grep -Fq 'currentPlotFraction' "Loop/Loop/View Controllers/StatusTableViewController.swift"
+          grep -Fq 'latestBolusSummaryDoses' "Loop/Loop/View Controllers/StatusTableViewController.swift"
+          if grep -Fq 'UISegmentedControl(items: ["1h", "3h", "6h"])' "Loop/Loop/View Controllers/StatusTableViewController.swift"; then
+            echo "::error::The removed forecast selector is still present."
+            exit 1
+          fi
           grep -Fq 'LoKeyMealKind = .suggested(for: Date())' "Loop/Loop/Views/CarbEntryView.swift"
           grep -Fq 'DisclosureGroup("Optional meal details")' "Loop/Loop/Views/CarbEntryView.swift"
           grep -Fq 'mealWasManuallyChosen' "Loop/Loop/Views/CarbEntryView.swift"
@@ -297,6 +341,15 @@ jobs:
 
           for workflow in .github/workflows/build_loop.yml .github/workflows/build_loop_auto.yml; do
             grep -Fq 'LoKeyAxisReadability.patch' "$workflow"
+            grep -Fq 'LoKeyBuild26ExactAxisBounds.patch' "$workflow"
+            grep -Fq 'LoKeyBuild28SplitTimeAxisCore.patch' "$workflow"
+            grep -Fq 'LoKeyBuild28GlucoseProjection.patch' "$workflow"
+            grep -Fq 'LoKeyBuild28PredictionsProjection.patch' "$workflow"
+            grep -Fq 'LoKeyBuild28TargetScheduleDates.patch' "$workflow"
+            grep -Fq 'LoKeyBuild28IOBProjection.patch' "$workflow"
+            grep -Fq 'LoKeyBuild28COBProjection.patch' "$workflow"
+            grep -Fq 'LoKeyBuild28DoseProjection.patch' "$workflow"
+            grep -Fq 'LoKeyBuild28StatusView.patch' "$workflow"
             grep -Fq 'LoKeyReports.patch' "$workflow"
             grep -Fq 'LoKeyDashboardInsights.patch' "$workflow"
             grep -Fq 'LoKeyDashboardPolish.patch' "$workflow"
@@ -305,6 +358,11 @@ jobs:
             grep -Fq 'LoKeyParkControls.patch' "$workflow"
             grep -Fq 'LoKeyAdaptiveShadowCapture.patch' "$workflow"
             grep -Fq 'LoKeyAdaptiveShadowUI.patch' "$workflow"
+            grep -Fq 'LoKeyBuild24BolusKeyboardAndParkMealCleanup.patch' "$workflow"
+            grep -Fq 'LoKeyBuild25FixedTimeline.patch' "$workflow"
+            grep -Fq 'LoKeyBuild25LastBolusSummary.patch' "$workflow"
+            grep -Fq 'LoKeyBuild25MarkerRefresh.patch' "$workflow"
+            grep -Fq 'LoKeyBuild27BalancedHistory.patch' "$workflow"
             grep -Fq 'LoKeyDashboardCleanupLoop.patch' "$workflow"
             grep -Fq 'LoKeyDashboardCleanupLoopKit.patch' "$workflow"
           done
@@ -335,6 +393,9 @@ jobs:
           git -C LoopKit apply ../customizations/LoKeyFoodEmojis.patch
           git -C LoopKit apply --check ../customizations/LoKeyAxisReadability.patch
           git -C LoopKit apply ../customizations/LoKeyAxisReadability.patch
+          # Exact chart-axis endpoints; read-only presentation fix.
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild26ExactAxisBounds.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild26ExactAxisBounds.patch
           git -C Loop apply --check ../customizations/LoKeyReports.patch
           git -C Loop apply ../customizations/LoKeyReports.patch
           git -C Loop apply --check ../customizations/LoKeyTIRShortcut.patch
@@ -349,6 +410,20 @@ jobs:
           # Display-only Build 12 follow-up: actual axis alignment and readable history.
           git -C LoopKit apply --check ../customizations/LoKeyDashboardCleanupLoopKit.patch
           git -C LoopKit apply ../customizations/LoKeyDashboardCleanupLoopKit.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28SplitTimeAxisCore.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28SplitTimeAxisCore.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28GlucoseProjection.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28GlucoseProjection.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28PredictionsProjection.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28PredictionsProjection.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28TargetScheduleDates.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28TargetScheduleDates.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28IOBProjection.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28IOBProjection.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28COBProjection.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28COBProjection.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28DoseProjection.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28DoseProjection.patch
           git -C Loop apply --check ../customizations/LoKeyDashboardCleanupLoop.patch
           git -C Loop apply ../customizations/LoKeyDashboardCleanupLoop.patch
 
@@ -398,7 +473,22 @@ jobs:
           # Compact interactive park control center, separate from Loop dosing.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyParkControls.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyParkControls.patch
-          # Read-only adaptive shadow on successful normal Loop cycles.
+          # Build 24 UI-only cleanup: one-tap Meal button remains canonical.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild24BolusKeyboardAndParkMealCleanup.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild24BolusKeyboardAndParkMealCleanup.patch
+          # Build 25: view-only fixed chart timeline and independent last-bolus history.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild25FixedTimeline.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild25FixedTimeline.patch
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild25LastBolusSummary.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild25LastBolusSummary.patch
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild25MarkerRefresh.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild25MarkerRefresh.patch
+          # Build 27: balanced, display-only 3h history / 6h forecast timeline.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild27BalancedHistory.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild27BalancedHistory.patch
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild28StatusView.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild28StatusView.patch
+          # Adaptive Shadow: read-only evaluation after latest approved UI patches.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyAdaptiveShadowCapture.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyAdaptiveShadowCapture.patch
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyAdaptiveShadowUI.patch
@@ -434,12 +524,14 @@ jobs:
           fi
 
           # Xcode 27 still validates .loopplugin frameworks when VALIDATE_PRODUCT=NO.
-          # Accept ONLY one or two previously observed plugin Info.plist errors,
-          # with no other compiler/packaging errors, and ONLY at final Validate.
-          # This is an unsigned simulator source smoke test, NOT a signed package.
+          # On this pinned workspace the unsigned simulator may surface all five
+          # .loopplugin entries as frameworks without generated Info.plist files.
+          # Accept ONLY the five EXACT known plugin names at final Validate,
+          # never real Swift errors, other bundling errors, or a signed build.
+          # This is source-compilation smoke-test evidence, NOT app validation.
           error_count="$(grep -Ec '^error:' "$log" || true)"
-          unexpected_errors="$(grep '^error:' "$log" | grep -Ev "^error: Framework .*/Loop[.]app/Frameworks/(AmplitudeServiceKitPlugin|LoopOnboardingPlugin)[.]framework did not contain an Info[.]plist [(]in target 'Loop' from project 'Loop'[)]$" || true)"
-          if [ "$error_count" -ge 1 ] && [ "$error_count" -le 2 ] \
+          unexpected_errors="$(grep '^error:' "$log" | grep -Ev "^error: Framework .*/Loop[.]app/Frameworks/(AmplitudeServiceKitPlugin|LoopOnboardingPlugin|CGMBLEKitG5Plugin|CGMBLEKitG6Plugin|NightscoutServiceKitPlugin)[.]framework did not contain an Info[.]plist [(]in target 'Loop' from project 'Loop'[)]$" || true)"
+          if [ "$error_count" -ge 1 ] && [ "$error_count" -le 5 ] \
             && [ -z "$unexpected_errors" ] \
             && ! grep -Eq '[.]swift:[0-9]+:[0-9]+: error:' "$log" \
             && grep -Eq "^[[:space:]]*Validate .*/Loop[.]app [(]in target 'Loop' from project 'Loop'[)]$" "$log" \
