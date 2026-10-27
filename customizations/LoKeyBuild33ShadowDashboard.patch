@@ -1,0 +1,396 @@
+diff --git a/Loop/Views/SettingsView.swift b/Loop/Views/SettingsView.swift
+--- a/Loop/Views/SettingsView.swift
++++ b/Loop/Views/SettingsView.swift
+@@ -1152,59 +1152,333 @@
+-private struct LoKeySettingsView: View {
+-    let viewModel: SettingsViewModel
+-
+-    // Shared with the recorder; changing the screen must not reset the opt-in.
+-    @AppStorage("LoKeyAdaptiveShadowEnabledV1") private var shadowEnabled = false
+-    @State private var exportFiles: [URL] = []
+-    @State private var showingExporter = false
+-    @State private var showingEmptyExportAlert = false
+-
+-    var body: some View {
+-        Form {
+-            Section(header: Text("Adaptive Shadow")) {
+-                Toggle("Record live shadow decisions", isOn: $shadowEnabled)
+-                Text("Observation only. Normal Loop controls insulin delivery. Records remain on this iPhone unless you choose to export them.")
+-                    .font(.footnote)
+-                    .foregroundColor(.secondary)
+-                Button("Export Shadow Records") { exportShadowRecords() }
+-            }
+-
+-            Section(header: Text("Reports")) {
+-                NavigationLink(destination: LoKeyReportsView(viewModel: viewModel)) {
+-                    Label("Glucose reports & settings PDF", systemImage: "chart.pie")
+-                }
+-            }
+-        }
+-        .navigationTitle("LoKey Settings")
+-        .navigationBarTitleDisplayMode(.inline)
+-        .sheet(isPresented: $showingExporter) {
+-            LoKeyReportShareSheet(items: exportFiles)
+-        }
+-        .alert("No shadow records yet", isPresented: $showingEmptyExportAlert) {
+-            Button("OK", role: .cancel) {}
+-        } message: {
+-            Text("Turn on Adaptive Shadow and allow Loop to complete a cycle, then try again.")
+-        }
+-    }
+-
+-    private func exportShadowRecords() {
+-        let manager = FileManager.default
+-        guard let support = manager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+-            showingEmptyExportAlert = true
+-            return
+-        }
+-        let directory = support.appendingPathComponent("LoKeyAdaptiveShadow", isDirectory: true)
+-        let files = (try? manager.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
+-        let records = files.filter {
+-            $0.lastPathComponent.hasPrefix("adaptive-shadow-") && $0.pathExtension == "jsonl"
+-        }.sorted { $0.lastPathComponent < $1.lastPathComponent }
+-
+-        guard !records.isEmpty else {
+-            showingEmptyExportAlert = true
+-            return
+-        }
+-        exportFiles = records
+-        showingExporter = true
+-    }
+-}
+-
+-
++private struct LoKeySettingsView: View {
++    let viewModel: SettingsViewModel
++
++    var body: some View {
++        Form {
++            Section(header: Text("LoKey Features")) {
++                NavigationLink(destination: LoKeyAdaptiveShadowSettingsView()) {
++                    Label("Adaptive Shadow", systemImage: "eye")
++                }
++                NavigationLink(destination: LoKeyReportsView(viewModel: viewModel)) {
++                    Label("Glucose reports & settings PDF", systemImage: "chart.pie")
++                }
++            }
++        }
++        .navigationTitle("LoKey Settings")
++        .navigationBarTitleDisplayMode(.inline)
++    }
++}
++
++private struct LoKeyAdaptiveShadowSettingsView: View {
++    @AppStorage("LoKeyAdaptiveShadowEnabledV1") private var shadowEnabled = false
++    @State private var exportFiles: [URL] = []
++    @State private var showingExporter = false
++    @State private var showingEmptyExportAlert = false
++
++    var body: some View {
++        Form {
++            Section(header: Text("Recording")) {
++                Toggle("Record live shadow decisions", isOn: $shadowEnabled)
++                Text("Observation only. Normal Loop remains the only insulin controller. Recording continues during ordinary Loop use when enabled.")
++                    .font(.footnote)
++                    .foregroundColor(.secondary)
++            }
++
++            Section(header: Text("Collected Data")) {
++                NavigationLink(destination: LoKeyShadowDashboardView()) {
++                    Label("View Dashboard", systemImage: "chart.xyaxis.line")
++                }
++                Button("Export Shadow Records") { exportShadowRecords() }
++                Text("Records are stored locally on this iPhone. Existing JSONL exports remain available.")
++                    .font(.footnote)
++                    .foregroundColor(.secondary)
++            }
++        }
++        .navigationTitle("Adaptive Shadow")
++        .navigationBarTitleDisplayMode(.inline)
++        .sheet(isPresented: $showingExporter) {
++            LoKeyReportShareSheet(items: exportFiles)
++        }
++        .alert("No shadow records yet", isPresented: $showingEmptyExportAlert) {
++            Button("OK", role: .cancel) {}
++        } message: {
++            Text("Turn on Adaptive Shadow and allow Loop to complete a cycle, then try again.")
++        }
++    }
++
++    private func exportShadowRecords() {
++        let manager = FileManager.default
++        guard let root = manager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
++            showingEmptyExportAlert = true
++            return
++        }
++        let folder = root.appendingPathComponent("LoKeyAdaptiveShadow", isDirectory: true)
++        let files = (try? manager.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []
++        let records = files.filter {
++            $0.lastPathComponent.hasPrefix("adaptive-shadow-") && $0.pathExtension == "jsonl"
++        }.sorted { $0.lastPathComponent < $1.lastPathComponent }
++        guard !records.isEmpty else {
++            showingEmptyExportAlert = true
++            return
++        }
++        exportFiles = records
++        showingExporter = true
++    }
++}
++
++private struct LoKeyShadowDashboardView: View {
++    @AppStorage("LoKeyAdaptiveShadowEnabledV1") private var shadowEnabled = false
++    @State private var cycles: [LoKeyAdaptive.RecordedCycle] = []
++    @State private var isLoading = true
++    @State private var unreadableLines = 0
++    @State private var filesFound = 0
++    @State private var refreshedAt: Date?
++
++    var body: some View {
++        List {
++            Section(header: Text("Recording status")) {
++                HStack {
++                    Label("Adaptive Shadow", systemImage: "eye")
++                    Spacer()
++                    Text(shadowEnabled ? "On" : "Off")
++                        .foregroundColor(shadowEnabled ? .green : .secondary)
++                }
++                Text("This is historical observation data, not a live glucose display or an insulin dosing recommendation.")
++                    .font(.footnote).foregroundColor(.secondary)
++                Button("Refresh records") { Task { await reload() } }
++                    .disabled(isLoading)
++                if isLoading {
++                    ProgressView("Reading local records")
++                }
++                if let refreshedAt {
++                    Text("Last refreshed: \(refreshedAt.formatted(date: .abbreviated, time: .shortened))")
++                        .font(.caption).foregroundColor(.secondary)
++                }
++            }
++
++            if let latest = cycles.first {
++                Section(header: Text("Latest recorded cycle")) {
++                    Text(latest.snapshot.observedAt.formatted(date: .abbreviated, time: .shortened))
++                        .font(.headline)
++                    if Date().timeIntervalSince(latest.snapshot.observedAt) > 15 * 60 {
++                        Label("Historical data; not a current reading", systemImage: "clock")
++                            .font(.footnote).foregroundColor(.secondary)
++                    }
++                    metric("Glucose", number(latest.snapshot.latestGlucose?.glucoseMgDl, suffix: " mg/dL"))
++                    metric("IOB", number(latest.snapshot.recordedIOBUnits, digits: 2, suffix: " U"))
++                    metric("COB", number(latest.snapshot.carbsOnBoardGrams, suffix: " g"))
++                    metric("Loop forecast samples", "\(latest.snapshot.predictedGlucose.count)")
++                    metric("Recent dose events", "\(latest.snapshot.recordedDoseEvents.count)")
++                    if let lower = latest.evaluation.predictionMinimumMgDl,
++                       let upper = latest.evaluation.predictionMaximumMgDl {
++                        metric("Predicted range", "\(number(lower))–\(number(upper)) mg/dL")
++                    }
++                    if let hypotheticalTarget = latest.evaluation.shadowTargetMgDl {
++                        metric("Hypothetical target", number(hypotheticalTarget, suffix: " mg/dL"))
++                    }
++                    Text(LoKeyShadowRecordReader.explanation(latest.evaluation.blocker))
++                        .font(.footnote).foregroundColor(.secondary)
++                }
++
++                Section(header: Text("Recent cycle history")) {
++                    Text("Showing \(cycles.count) recent readable cycles. Select a record to see the captured data.")
++                        .font(.footnote).foregroundColor(.secondary)
++                    ForEach(0..<min(cycles.count, 40), id: \.self) { index in
++                        let cycle = cycles[index]
++                        NavigationLink(destination: LoKeyShadowCycleDetailView(cycle: cycle)) {
++                            VStack(alignment: .leading, spacing: 4) {
++                                Text(cycle.snapshot.observedAt.formatted(date: .abbreviated, time: .shortened))
++                                Text(LoKeyShadowRecordReader.status(cycle.evaluation.blocker))
++                                    .font(.caption).foregroundColor(.secondary)
++                            }
++                        }
++                    }
++                }
++            } else if !isLoading {
++                Section {
++                    Text(filesFound == 0
++                         ? "No Shadow records saved yet. Allow Loop to complete a cycle with recording enabled."
++                         : "Files were found, but no readable Shadow records could be displayed.")
++                        .foregroundColor(.secondary)
++                }
++            }
++            if unreadableLines > 0 {
++                Section {
++                    Text("\(unreadableLines) unreadable record lines were skipped. The original files remain available through Export Shadow Records.")
++                        .font(.footnote).foregroundColor(.secondary)
++                }
++            }
++        }
++        .navigationTitle("Shadow Dashboard")
++        .navigationBarTitleDisplayMode(.inline)
++        .task { await reload() }
++    }
++
++    private func metric(_ label: String, _ detail: String) -> some View {
++        HStack {
++            Text(label)
++            Spacer()
++            Text(detail).foregroundColor(.secondary).monospacedDigit()
++        }
++    }
++
++    private func number(_ value: Double?, digits: Int = 0, suffix: String = "") -> String {
++        guard let value, value.isFinite else { return "Unavailable" }
++        return String(format: "%.*f", digits, value) + suffix
++    }
++
++    @MainActor private func reload() async {
++        isLoading = true
++        let result = await Task.detached(priority: .utility) {
++            LoKeyShadowRecordReader.readRecent()
++        }.value
++        cycles = result.cycles
++        unreadableLines = result.unreadableLines
++        filesFound = result.filesFound
++        refreshedAt = Date()
++        isLoading = false
++    }
++}
++
++private struct LoKeyShadowCycleDetailView: View {
++    let cycle: LoKeyAdaptive.RecordedCycle
++
++    var body: some View {
++        List {
++            Section(header: Text("Recorded cycle")) {
++                Text(cycle.snapshot.observedAt.formatted(date: .abbreviated, time: .standard))
++                Text(LoKeyShadowRecordReader.explanation(cycle.evaluation.blocker))
++                    .font(.footnote).foregroundColor(.secondary)
++                if let target = cycle.evaluation.shadowTargetMgDl {
++                    line("Hypothetical target", number(target, suffix: " mg/dL"))
++                    Text("Not an applied correction target or insulin instruction.")
++                        .font(.caption).foregroundColor(.secondary)
++                }
++            }
++            Section(header: Text("Loop measurements")) {
++                line("Glucose", number(cycle.snapshot.latestGlucose?.glucoseMgDl, suffix: " mg/dL"))
++                line("IOB", number(cycle.snapshot.recordedIOBUnits, digits: 2, suffix: " U"))
++                line("COB", number(cycle.snapshot.carbsOnBoardGrams, suffix: " g"))
++                line("Loop bolus recommendation", number(cycle.snapshot.recommendedAutomaticBolusUnits, digits: 2, suffix: " U"))
++                line("Dose history reconciled", cycle.snapshot.insulinHistoryReconciled ? "Reported" : "Not confirmed")
++                line("Pump delivery certainty", cycle.snapshot.deliveryCertainty.rawValue)
++                line("Theme Park active", cycle.snapshot.parkModeActive ? "Yes" : "No")
++                line("Automatic dosing enabled", cycle.snapshot.automaticDosingEnabled ? "Yes" : "No")
++                if cycle.snapshot.target.isValid {
++                    line("Recorded target", "\(number(cycle.snapshot.target.lowMgDl))–\(number(cycle.snapshot.target.highMgDl)) mg/dL")
++                }
++            }
++            Section(header: Text("Loop forecast samples")) {
++                if cycle.snapshot.predictedGlucose.isEmpty {
++                    Text("None recorded")
++                }
++                ForEach(0..<min(cycle.snapshot.predictedGlucose.count, 24), id: \.self) { index in
++                    let sample = cycle.snapshot.predictedGlucose[index]
++                    line(sample.timestamp.formatted(date: .omitted, time: .shortened),
++                         number(sample.glucoseMgDl, suffix: " mg/dL"))
++                }
++            }
++            Section(header: Text("Recent dose history")) {
++                if cycle.snapshot.recordedDoseEvents.isEmpty {
++                    Text("No dose events recorded")
++                }
++                ForEach(0..<min(cycle.snapshot.recordedDoseEvents.count, 30), id: \.self) { index in
++                    let dose = cycle.snapshot.recordedDoseEvents[index]
++                    VStack(alignment: .leading, spacing: 4) {
++                        Text("\(dose.type) · \(dose.timestamp.formatted(date: .omitted, time: .shortened))")
++                        Text("Programmed: \(number(dose.programmedUnits, digits: 2)) U · Delivered: \(number(dose.deliveredUnits, digits: 2)) U")
++                            .font(.caption).foregroundColor(.secondary)
++                    }
++                }
++                Text("Programmed insulin is not proof of delivery. Missing values appear as unavailable.")
++                    .font(.caption).foregroundColor(.secondary)
++            }
++        }
++        .navigationTitle("Shadow Cycle")
++        .navigationBarTitleDisplayMode(.inline)
++    }
++
++    private func line(_ label: String, _ detail: String) -> some View {
++        HStack {
++            Text(label)
++            Spacer()
++            Text(detail).foregroundColor(.secondary).monospacedDigit()
++        }
++    }
++
++    private func number(_ value: Double?, digits: Int = 0, suffix: String = "") -> String {
++        guard let value, value.isFinite else { return "Unavailable" }
++        return String(format: "%.*f", digits, value) + suffix
++    }
++}
++
++private enum LoKeyShadowRecordReader {
++    struct Result: Sendable {
++        let cycles: [LoKeyAdaptive.RecordedCycle]
++        let unreadableLines: Int
++        let filesFound: Int
++    }
++
++    static func readRecent() -> Result {
++        let manager = FileManager.default
++        guard let root = manager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
++            return Result(cycles: [], unreadableLines: 0, filesFound: 0)
++        }
++        let directory = root.appendingPathComponent("LoKeyAdaptiveShadow", isDirectory: true)
++        let files = ((try? manager.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? [])
++            .filter { $0.lastPathComponent.hasPrefix("adaptive-shadow-") && $0.pathExtension == "jsonl" }
++            .sorted { $0.lastPathComponent > $1.lastPathComponent }
++
++        let decoder = JSONDecoder()
++        decoder.dateDecodingStrategy = .iso8601
++        decoder.nonConformingFloatDecodingStrategy =
++            .convertFromString(positiveInfinity: "Infinity", negativeInfinity: "-Infinity", nan: "NaN")
++
++        var cycles: [LoKeyAdaptive.RecordedCycle] = []
++        var unreadableLines = 0
++        for file in files.prefix(14) {
++            guard let data = try? Data(contentsOf: file, options: .mappedIfSafe),
++                  let text = String(data: data, encoding: .utf8) else {
++                unreadableLines += 1
++                continue
++            }
++            for line in text.split(whereSeparator: \.isNewline).reversed() {
++                if let cycle = try? decoder.decode(LoKeyAdaptive.RecordedCycle.self, from: Data(line.utf8)) {
++                    cycles.append(cycle)
++                } else {
++                    unreadableLines += 1
++                }
++                if cycles.count >= 240 { break }
++            }
++            if cycles.count >= 240 { break }
++        }
++        cycles.sort { $0.snapshot.observedAt > $1.snapshot.observedAt }
++        return Result(cycles: cycles, unreadableLines: unreadableLines, filesFound: files.count)
++    }
++
++    static func status(_ blocker: LoKeyAdaptive.Blocker?) -> String {
++        guard let blocker else { return "Hypothetical target evaluated (not applied)" }
++        switch blocker {
++        case .inactiveParkMode: return "Recorded · Theme Park inactive"
++        case .automaticDosingOff: return "Recorded · Automatic dosing off"
++        case .invalidTarget: return "Recorded · Invalid target range"
++        case .staleOrMissingCGM: return "Recorded · Missing or stale CGM"
++        case .staleOrMissingLoop: return "Recorded · Missing or stale Loop cycle"
++        case .insulinHistoryUnreconciled: return "Recorded · Dose history not reconciled"
++        case .uncertainDelivery: return "Recorded · Delivery uncertainty"
++        case .missingOrInvalidIOB: return "Recorded · IOB unavailable"
++        case .insufficientForecast: return "Recorded · Incomplete forecast"
++        case .invalidForecast: return "Recorded · Invalid forecast"
++        }
++    }
++
++    static func explanation(_ blocker: LoKeyAdaptive.Blocker?) -> String {
++        guard let blocker else {
++            return "Shadow calculated a hypothetical target. Normal Loop did not apply it."
++        }
++        if blocker == .inactiveParkMode {
++            return "Data collection is active, but the current target experiment only evaluates while Theme Park Mode is active. This normal-use cycle was recorded without calculating a hypothetical target."
++        }
++        return status(blocker) + ". No hypothetical target was calculated for this cycle."
++    }
++}
++
