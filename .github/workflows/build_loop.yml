@@ -2,6 +2,9 @@ name: 4. Build Loop Manual
 run-name: Build Loop Manual (${{ github.ref_name }})
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - preview/lokey-build32-testflight
 
 env:
   GH_PAT: ${{ secrets.GH_PAT }}
@@ -155,6 +158,7 @@ jobs:
       secrets: inherit
       if: |
         github.event_name == 'workflow_dispatch' ||
+        (github.event_name == 'push' && github.ref_name == 'preview/lokey-build32-testflight') ||
           (vars.SCHEDULED_BUILD != 'false' && needs.check_status.outputs.IS_SECOND_IN_MONTH == 'true') ||
           (vars.SCHEDULED_SYNC != 'false' && needs.check_status.outputs.NEW_COMMITS == 'true' )
 
@@ -168,6 +172,7 @@ jobs:
     if:
       | # builds with manual start; if scheduled: once a month or when new commits are found
       github.event_name == 'workflow_dispatch' ||
+        (github.event_name == 'push' && github.ref_name == 'preview/lokey-build32-testflight') ||
         (vars.SCHEDULED_BUILD != 'false' && needs.check_status.outputs.IS_SECOND_IN_MONTH == 'true') ||
         (vars.SCHEDULED_SYNC != 'false' && needs.check_status.outputs.NEW_COMMITS == 'true' )
     steps:
