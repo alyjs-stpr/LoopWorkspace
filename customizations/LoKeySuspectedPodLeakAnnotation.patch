@@ -182,7 +182,7 @@ diff --git a/Loop/Managers/DeviceDataManager.swift b/Loop/Managers/DeviceDataMan
 +    }
 +
 +    private func processCGMReadingResult(_ manager: CGMManager, readingResult: CGMReadingResult, completion: @escaping () -> Void) {
-@@ -587,1 +653,4 @@
+@@ -587,1 +640,4 @@
 -                    self.analyticsServicesManager.didStoreGlucose(samples)
 +                    self.analyticsServicesManager.didStoreGlucose(samples)
 +                    if !samples.isEmpty {
