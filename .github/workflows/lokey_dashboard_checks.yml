@@ -202,6 +202,7 @@ jobs:
           grep -Fq 'LoKeyShadowRecordReader.readRecent()' "Loop/Loop/Views/SettingsView.swift"
           grep -Fq 'Label("Glucose reports & settings PDF", systemImage: "chart.pie")' "Loop/Loop/Views/SettingsView.swift"
           grep -Fq 'return shouldShowHUD ? (loKeyPage == .dashboard ? 2 : 1) : 0' "Loop/Loop/View Controllers/StatusTableViewController.swift"
+          grep -Fq 'let hudRows = (0..<(loKeyPage == .dashboard ? 2 : 1)).map' "Loop/Loop/View Controllers/StatusTableViewController.swift"
           grep -Fq 'withIdentifier: HUDViewTableViewCell.className' "Loop/Loop/View Controllers/StatusTableViewController.swift"
           grep -Fq 'card.update(glucose: glucose + " " + unitText,' "Loop/Loop/View Controllers/StatusTableViewController.swift"
           grep -Fq '@AppStorage("LoKeyAdaptiveShadowEnabledV1")' "Loop/Loop/Views/SettingsView.swift"
