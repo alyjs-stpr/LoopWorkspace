@@ -236,6 +236,9 @@ jobs:
           # Sparse, adaptive time ticks on all four graphs (display only).
           git -C LoopKit apply --check ../customizations/LoKeyAxisReadability.patch
           git -C LoopKit apply ../customizations/LoKeyAxisReadability.patch
+          # Exact chart-axis endpoints; read-only presentation fix.
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild26ExactAxisBounds.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild26ExactAxisBounds.patch
           echo "LoKey chart time axis cleaned up."
           echo "LoKey T1D More Foods picker applied (18 new icons)."
 
