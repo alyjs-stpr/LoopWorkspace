@@ -1,0 +1,171 @@
+diff --git a/LoopKitUI/View Controllers/ChartsManager.swift b/LoopKitUI/View Controllers/ChartsManager.swift
+--- a/LoopKitUI/View Controllers/ChartsManager.swift
++++ b/LoopKitUI/View Controllers/ChartsManager.swift
+@@ -15,1 +15,82 @@
+-open class ChartsManager {
++/// Pure visual-coordinate transformation used by the LoKey status charts.
++/// Real date/CGM/DoseStore data is retained without modification.
++/// One hour of history occupies the same plot width as three forecast hours.
++public struct LoKeyDisplayTimeScale {
++    public let nowAnchor: Date
++
++    public init(nowAnchor: Date) {
++        self.nowAnchor = nowAnchor
++    }
++
++    public func displayDate(for actual: Date) -> Date {
++        let delta = actual.timeIntervalSince(nowAnchor)
++        return nowAnchor.addingTimeInterval(delta < 0 ? delta * 3 : delta)
++    }
++
++    public func actualDate(for displayed: Date) -> Date {
++        let delta = displayed.timeIntervalSince(nowAnchor)
++        return nowAnchor.addingTimeInterval(delta < 0 ? delta / 3 : delta)
++    }
++}
++
++/// X positions are deliberately nonlinear; descriptions and date accessors
++/// continue to report the real time. Never use this to store therapy data.
++public final class LoKeyDisplayDateAxisValue: ChartAxisValueDate {
++    private let actual: Date
++    private let scale: LoKeyDisplayTimeScale
++    private let displayFormatter: (Date) -> String
++
++    public override var date: Date { actual }
++
++    public init(date: Date,
++                scale: LoKeyDisplayTimeScale,
++                formatter: @escaping (Date) -> String,
++                labelSettings: ChartLabelSettings = ChartLabelSettings()) {
++        self.actual = date
++        self.scale = scale
++        self.displayFormatter = formatter
++        super.init(date: scale.displayDate(for: date),
++                   formatter: formatter, labelSettings: labelSettings)
++    }
++
++    public convenience init(date: Date, scale: LoKeyDisplayTimeScale,
++                            formatter: DateFormatter,
++                            labelSettings: ChartLabelSettings = ChartLabelSettings()) {
++        self.init(date: date, scale: scale,
++                  formatter: { formatter.string(from: $0) },
++                  labelSettings: labelSettings)
++    }
++
++    public override func copy(_ scalar: Double) -> ChartAxisValue {
++        let displayed = Date(timeIntervalSince1970: scalar)
++        return LoKeyDisplayDateAxisValue(
++            date: scale.actualDate(for: displayed),
++            scale: scale,
++            formatter: displayFormatter,
++            labelSettings: labelSettings
++        )
++    }
++}
++
++/// Format and place the same real date; only the on-screen x coordinate changes.
++internal func loKeyChartDateValue(
++    _ date: Date,
++    formatter: DateFormatter,
++    scale: LoKeyDisplayTimeScale?
++) -> ChartAxisValueDate {
++    guard let scale else { return ChartAxisValueDate(date: date, formatter: formatter) }
++    return LoKeyDisplayDateAxisValue(date: date, scale: scale, formatter: formatter)
++}
++
++internal func loKeyVisualPoint(
++    _ point: ChartPoint,
++    scale: LoKeyDisplayTimeScale?,
++    formatter: DateFormatter
++) -> ChartPoint {
++    guard let scale,
++          let real = (point.x as? ChartAxisValueDate)?.date else { return point }
++    return ChartPoint(x: LoKeyDisplayDateAxisValue(date: real, scale: scale,
++                                                  formatter: formatter), y: point.y)
++}
++
++open class ChartsManager {
+@@ -145,10 +145,11 @@
+-    public var startDate = Date() {
+-        didSet {
+-            if startDate != oldValue {
+-                xAxisValues = nil
+-
+-                // Set a new minimum end date
+-                endDate = startDate.addingTimeInterval(.hours(3))
+-            }
+-        }
+-    }
++    public var startDate = Date() {
++        didSet {
++            if startDate != oldValue {
++                xAxisValues = nil
++
++                // Set a new minimum end date
++                endDate = startDate.addingTimeInterval(.hours(3))
++                updateLoKeyVisualScale()
++            }
++        }
++    }
+@@ -180,7 +180,32 @@
+-    public var useSparseTimeAxisLabels = false {
+-        didSet {
+-            if useSparseTimeAxisLabels != oldValue {
+-                xAxisValues = nil
+-            }
+-        }
+-    }
++    public var useSparseTimeAxisLabels = false {
++        didSet {
++            if useSparseTimeAxisLabels != oldValue {
++                xAxisValues = nil
++            }
++        }
++    }
++
++    // Explicit opt-in from the LoKey status dashboard only. Do not alter
++    // charts shown elsewhere in Loop, including bolus review screens.
++    public var loKeyExpandOneHourHistory = false {
++        didSet {
++            guard loKeyExpandOneHourHistory != oldValue else { return }
++            xAxisValues = nil
++            updateLoKeyVisualScale()
++        }
++    }
++
++    private var loKeyVisualScale: LoKeyDisplayTimeScale? {
++        guard loKeyExpandOneHourHistory else { return nil }
++        return LoKeyDisplayTimeScale(nowAnchor: startDate.addingTimeInterval(.hours(1)))
++    }
++
++    private func updateLoKeyVisualScale() {
++        let scale = loKeyVisualScale
++        for chart in charts {
++            (chart as? GlucoseChart)?.loKeyVisualScale = scale
++            (chart as? IOBChart)?.loKeyVisualScale = scale
++            (chart as? DoseChart)?.loKeyVisualScale = scale
++            (chart as? COBChart)?.loKeyVisualScale = scale
++        }
++    }
+@@ -165,1 +165,2 @@
+-        let position = ChartAxisValueDate(date: date, formatter: timeFormatter).scalar
++        let position = loKeyChartDateValue(date, formatter: timeFormatter,
++                                           scale: loKeyVisualScale).scalar
+@@ -298,1 +298,16 @@
+-            self.xAxisValues = [exactStart] + interior + [exactEnd]
++            let exactValues = [exactStart] + interior + [exactEnd]
++            if let scale = loKeyVisualScale {
++                // Real timestamps remain available for labeling, target bands
++                // and touch highlights; only the chart's x scalar is weighted.
++                self.xAxisValues = exactValues.map { value in
++                    let actual = ChartAxisValueDate.dateFromScalar(value.scalar)
++                    let projected = LoKeyDisplayDateAxisValue(
++                        date: actual, scale: scale,
++                        formatter: timeFormatter, labelSettings: axisLabelSettings
++                    )
++                    projected.hidden = value.hidden
++                    return projected
++                }
++            } else {
++                self.xAxisValues = exactValues
++            }
