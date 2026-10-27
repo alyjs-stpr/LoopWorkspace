@@ -119,7 +119,8 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 -        present(sheet, animated: true)
 -    }
 -
-@@ -1690,5 +1690,1 @@
+@@ -1690,6 +1690,1 @@
+-            },
 -            shareShadow: { [weak self] in
 -                self?.dismiss(animated: true) { [weak self] in
 -                    self?.loKeyExportAdaptiveShadow()
