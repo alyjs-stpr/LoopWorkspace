@@ -336,26 +336,16 @@ jobs:
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild28StatusView.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild28StatusView.patch
           # Build 32: approved Omnipod-inspired LoKey pages, UI only; therapy still Loop-owned.
-          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild32NativePages.patch
-          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild32NativePages.patch
           # Central LoKey-specific settings hub (UI-only; shared Shadow opt-in key).
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeySettingsHub.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeySettingsHub.patch
           # Build 33: Shadow submenu with on-device, read-only record dashboard.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild33ShadowDashboard.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild33ShadowDashboard.patch
-          # Build 35: live dashboard age, bolus and carbs refresh after Loop fetches.
-          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild35LiveDashboardRefresh.patch
-          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild35LiveDashboardRefresh.patch
-          # Final native tab layout, one safety-aware glucose HUD, insulin summary, pod details.
-          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild36FinishNativeUI.patch
-          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild36FinishNativeUI.patch
           # Preserve pump-reported decimal reservoir precision below 50 U.
           # Above threshold remains 50+ U; no synthetic estimate.
           git -C OmnipodKit apply --check ../customizations/LoKeyBuild29PreciseReservoir.patch
           git -C OmnipodKit apply ../customizations/LoKeyBuild29PreciseReservoir.patch
-          git -C OmnipodKit apply --unidiff-zero --check ../customizations/LoKeyBuild36PodTelemetry.patch
-          git -C OmnipodKit apply --unidiff-zero ../customizations/LoKeyBuild36PodTelemetry.patch
           echo "LoKey final dashboard polish applied."
           echo "LoKey T1D rounded chart cards and shared Now markers applied."
 
