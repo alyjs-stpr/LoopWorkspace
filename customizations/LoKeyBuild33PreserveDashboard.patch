@@ -1,0 +1,31 @@
+diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View Controllers/StatusTableViewController.swift
+--- a/Loop/View Controllers/StatusTableViewController.swift
++++ b/Loop/View Controllers/StatusTableViewController.swift
+@@ -1315,1 +1315,1 @@
+-            return shouldShowHUD ? 1 : 0
++            return shouldShowHUD ? (loKeyPage == .dashboard ? 2 : 1) : 0
+@@ -1401,5 +1401,24 @@
+         case .hud:
++            // Build 32 preview's large glucose presentation, as an ADDITIONAL
++            // read-only row. Preserve the native pump/CGM safety HUD below.
++            if loKeyPage == .dashboard && indexPath.row == 0 {
++                let card = tableView.dequeueReusableCell(
++                    withIdentifier: LoKeyGlucoseCard.id, for: indexPath
++                ) as! LoKeyGlucoseCard
++                let unit = statusCharts.glucose.glucoseUnit
++                let latest = deviceManager.glucoseStore.latestGlucose
++                let glucose = latest.map {
++                    String(format: unit == .milligramsPerDeciliter ? "%.0f" : "%.1f",
++                           $0.quantity.doubleValue(for: unit))
++                } ?? "—"
++                let unitText = unit == .milligramsPerDeciliter ? "mg/dL" : "mmol/L"
++                let warning = deviceManager.isGlucoseValueStale ? " · CGM stale" : ""
++                card.update(glucose: glucose + " " + unitText,
++                            detail: lokeySnapshot.glucoseDelta + " · " + lokeySnapshot.glucoseAge + warning,
++                            iob: lokeySnapshot.iob)
++                return card
++            }
+             let cell = tableView.dequeueReusableCell(withIdentifier: HUDViewTableViewCell.className, for: indexPath) as! HUDViewTableViewCell
+             hudView = cell.hudView
+ 
+             return cell

@@ -335,10 +335,16 @@ jobs:
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild27BalancedHistory.patch
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild28StatusView.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild28StatusView.patch
+          # Build 32: approved Omnipod-inspired LoKey pages, UI only; therapy still Loop-owned.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild32NativePages.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild32NativePages.patch
+          # Restore preview-sized glucose card without hiding native pump/CGM HUD.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild33PreserveDashboard.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild33PreserveDashboard.patch
           # Central LoKey-specific settings hub (UI-only; shared Shadow opt-in key).
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeySettingsHub.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeySettingsHub.patch
-          # Build 33: separate Adaptive Shadow submenu and local read-only activity dashboard.
+          # Build 33: Shadow submenu with on-device, read-only record dashboard.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild33ShadowDashboard.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild33ShadowDashboard.patch
           # Preserve pump-reported decimal reservoir precision below 50 U.
