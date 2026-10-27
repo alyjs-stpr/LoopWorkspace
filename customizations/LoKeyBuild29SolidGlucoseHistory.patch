@@ -1,0 +1,56 @@
+diff --git a/LoopKitUI/Charts/PredictedGlucoseChart.swift b/LoopKitUI/Charts/PredictedGlucoseChart.swift
+--- a/LoopKitUI/Charts/PredictedGlucoseChart.swift
++++ b/LoopKitUI/Charts/PredictedGlucoseChart.swift
+@@ -170,7 +170,41 @@
+         // Grid lines
+         let gridLayer = ChartGuideLinesForValuesLayer(xAxis: xAxisLayer.axis, yAxis: yAxisLayer.axis, settings: guideLinesLayerSettings, axisValuesX: Array(xAxisValues.dropFirst().dropLast()), axisValuesY: yAxisValues)
+ 
+-        let circles = ChartPointsScatterCirclesLayer(xAxis: xAxisLayer.axis, yAxis: yAxisLayer.axis, chartPoints: glucosePoints, displayDelay: 0, itemSize: CGSize(width: 4, height: 4), itemFillColor: colors.glucoseTint, optimized: true)
++        // LoKey dashboard only: draw the *observed* CGM history as a solid purple line.
++        // All other Loop charts continue using their original point rendering.
++        // CGM gaps longer than 12 minutes are never joined by a fabricated line.
++        var loKeyHistoricalLine: ChartLayer?
++        if loKeyVisualScale != nil {
++            let maxContinuousGap: TimeInterval = 12 * 60
++            var lineSegments = [[ChartPoint]]()
++            var segment = [ChartPoint]()
++
++            for point in glucosePoints {
++                let readingTime = (point.x as? ChartAxisValueDate)?.date
++                let priorTime = segment.last.flatMap { ($0.x as? ChartAxisValueDate)?.date }
++                if let readingTime, let priorTime,
++                   readingTime <= priorTime || readingTime.timeIntervalSince(priorTime) > maxContinuousGap {
++                    if segment.count > 1 { lineSegments.append(segment) }
++                    segment.removeAll()
++                }
++                segment.append(point)
++            }
++            if segment.count > 1 { lineSegments.append(segment) }
++
++            if !lineSegments.isEmpty {
++                let lineModels = lineSegments.map {
++                    ChartLineModel(chartPoints: $0, lineColor: colors.glucoseTint,
++                                   lineWidth: 2.5, animDuration: 0, animDelay: 0)
++                }
++                loKeyHistoricalLine = ChartPointsLineLayer(
++                    xAxis: xAxisLayer.axis, yAxis: yAxisLayer.axis, lineModels: lineModels
++                )
++            }
++        }
++
++        // Only the newest observed point is highlighted on LoKey's dashboard.
++        let visibleHistoryDots = loKeyVisualScale == nil ? glucosePoints : Array(glucosePoints.suffix(1))
++        let circles = ChartPointsScatterCirclesLayer(xAxis: xAxisLayer.axis, yAxis: yAxisLayer.axis, chartPoints: visibleHistoryDots, displayDelay: 0, itemSize: CGSize(width: 4, height: 4), itemFillColor: colors.glucoseTint, optimized: true)
+ 
+         var alternatePrediction: ChartLayer?
+ 
+@@ -214,7 +248,8 @@
+             glucoseChartCache?.highlightLayer,
+             prediction,
+             alternatePrediction,
+-            circles
++            loKeyHistoricalLine,
++            circles
+         ]
+ 
+         return Chart(

@@ -251,6 +251,10 @@ jobs:
           git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28GlucoseProjection.patch
           git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28PredictionsProjection.patch
           git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28PredictionsProjection.patch
+          # Build 29: connect observed CGM readings with a solid dashboard line.
+          # Leave future predictions dashed, and insulin/meal logic untouched.
+          git -C LoopKit apply --check ../customizations/LoKeyBuild29SolidGlucoseHistory.patch
+          git -C LoopKit apply ../customizations/LoKeyBuild29SolidGlucoseHistory.patch
           git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28TargetScheduleDates.patch
           git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28TargetScheduleDates.patch
           git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28IOBProjection.patch
@@ -331,6 +335,10 @@ jobs:
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild27BalancedHistory.patch
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild28StatusView.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild28StatusView.patch
+          # Preserve pump-reported decimal reservoir precision below 50 U.
+          # Above threshold remains 50+ U; no synthetic estimate.
+          git -C OmnipodKit apply --check ../customizations/LoKeyBuild29PreciseReservoir.patch
+          git -C OmnipodKit apply ../customizations/LoKeyBuild29PreciseReservoir.patch
           echo "LoKey final dashboard polish applied."
           echo "LoKey T1D rounded chart cards and shared Now markers applied."
 
