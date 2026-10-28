@@ -32,9 +32,6 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 -        tabs.accessibilityLabel = "LoKey main screens"
 +        tabs.accessibilityLabel = "LoKey main screens"
 +        loKeyTabs = tabs
-@@ -213,1 +213,1 @@
--            tabs.topAnchor.constraint(equalTo: age.bottomAnchor, constant: 14)
-+            tabs.topAnchor.constraint(equalTo: brand.bottomAnchor, constant: 15)
 @@ -221,1 +221,1 @@
 -            glucoseCard.heightAnchor.constraint(equalToConstant: 178)
 +            glucoseCard.heightAnchor.constraint(equalToConstant: 169)
