@@ -176,6 +176,10 @@ jobs:
           # reading in the native HUD. Show native CGM tiles for alerts/stale data.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeySingleGlucoseDashboard.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeySingleGlucoseDashboard.patch
+          # Approved mockups: full purple current CGM + large trend, green insulin,
+          # pod details, compact safety HUD and 4-button toolbar.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyApprovedScreensFinalUI.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyApprovedScreensFinalUI.patch
           # Preserve pump-reported decimal reservoir precision below 50 U.
           # Above threshold remains 50+ U; no synthetic estimate.
           git -C OmnipodKit apply --check ../customizations/LoKeyBuild29PreciseReservoir.patch
@@ -228,6 +232,12 @@ jobs:
           # Native CGM and pump warnings must remain visible, with one glucose tile.
           grep -Fq 'hudView?.setLoKeyDashboardMode(false)' "$FILE"
           grep -Fq 'loKeyGlucoseHeaderCard?.update(' "$FILE"
+          grep -Fq 'trendArrow.font = .systemFont(ofSize: 44' "$FILE"
+          grep -Fq 'loKeyNeedsNativeStatusHUD' "$FILE"
+          grep -Fq 'toolbarItems = [carbsItem, bolusItem, reportsItem, settingsItem]' "$FILE"
+          grep -Fq 'LoKeyInsulinCard.id' "$FILE"
+          grep -Fq 'Report Suspected Pod Leak' "$FILE"
+          grep -Fq 'cell.onPumpStatus' "$FILE"
           grep -Fq 'setLoKeyCompactDashboardMode(loKeyPage == .dashboard)' "$FILE"
           grep -Fq 'glucoseCard.addGestureRecognizer(cgmDetailsTap)' "$FILE"
           grep -Fq 'setLoKeyCompactDashboardMode(_ enabled: Bool)' "Loop/LoopUI/Views/StatusBarHUDView.swift"
@@ -606,6 +616,10 @@ jobs:
           # reading in the native HUD. Show native CGM tiles for alerts/stale data.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeySingleGlucoseDashboard.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeySingleGlucoseDashboard.patch
+          # Approved mockups: full purple current CGM + large trend, green insulin,
+          # pod details, compact safety HUD and 4-button toolbar.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyApprovedScreensFinalUI.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyApprovedScreensFinalUI.patch
           # Preserve pump-reported decimal reservoir precision below 50 U.
           # Above threshold remains 50+ U; no synthetic estimate.
           git -C OmnipodKit apply --check ../customizations/LoKeyBuild29PreciseReservoir.patch
