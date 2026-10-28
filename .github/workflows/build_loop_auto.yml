@@ -384,6 +384,12 @@ jobs:
           # reading in the native HUD. Show native CGM tiles for alerts/stale data.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeySingleGlucoseDashboard.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeySingleGlucoseDashboard.patch
+          # Approved three-screen LoKey UI: actual CGM trend, compact Dashboard,
+          # insulin/pod detail cards, and four primary toolbar actions.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyApprovedThreeScreensCore.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyApprovedThreeScreensCore.patch
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyApprovedThreeScreensDetails.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyApprovedThreeScreensDetails.patch
           # Preserve pump-reported decimal reservoir precision below 50 U.
           # Above threshold remains 50+ U; no synthetic estimate.
           git -C OmnipodKit apply --check ../customizations/LoKeyBuild29PreciseReservoir.patch
