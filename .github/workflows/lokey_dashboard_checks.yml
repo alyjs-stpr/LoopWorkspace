@@ -172,6 +172,10 @@ jobs:
           # Observe CGM updates after user reports a suspected pod leak; no dosing changes.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeySuspectedPodLeakAnnotation.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeySuspectedPodLeakAnnotation.patch
+          # Keep the approved purple card, but never repeat the healthy CGM
+          # reading in the native HUD. Show native CGM tiles for alerts/stale data.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeySingleGlucoseDashboard.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeySingleGlucoseDashboard.patch
           # Preserve pump-reported decimal reservoir precision below 50 U.
           # Above threshold remains 50+ U; no synthetic estimate.
           git -C OmnipodKit apply --check ../customizations/LoKeyBuild29PreciseReservoir.patch
@@ -224,6 +228,12 @@ jobs:
           # Native CGM and pump warnings must remain visible, with one glucose tile.
           grep -Fq 'hudView?.setLoKeyDashboardMode(false)' "$FILE"
           grep -Fq 'loKeyGlucoseHeaderCard?.update(' "$FILE"
+          grep -Fq 'setLoKeyCompactDashboardMode(loKeyPage == .dashboard)' "$FILE"
+          grep -Fq 'glucoseCard.addGestureRecognizer(cgmDetailsTap)' "$FILE"
+          grep -Fq 'setLoKeyCompactDashboardMode(_ enabled: Bool)' "Loop/LoopUI/Views/StatusBarHUDView.swift"
+          grep -Fq 'cgmTile.isHidden = loKeyCompactDashboardMode && !cgmStatusHUD.loKeyRequiresAttention' "Loop/LoopUI/Views/StatusBarHUDView.swift"
+          grep -Fq 'loKeyHasActiveStatusNotice' "Loop/LoopUI/Views/DeviceStatusHUDView.swift"
+          grep -Fq 'loKeyAttentionChanged' "Loop/LoopUI/Views/CGMStatusHUDView.swift"
           # The leak warning is CGM-driven (not dashboard-only) and cannot
           # change Loop's insulin math or pump commands.
           grep -Fq 'loKeyCurrentPodLeakFlagged()' "$FILE"
@@ -592,6 +602,10 @@ jobs:
           # Observe CGM updates after user reports a suspected pod leak; no dosing changes.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeySuspectedPodLeakAnnotation.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeySuspectedPodLeakAnnotation.patch
+          # Keep the approved purple card, but never repeat the healthy CGM
+          # reading in the native HUD. Show native CGM tiles for alerts/stale data.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeySingleGlucoseDashboard.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeySingleGlucoseDashboard.patch
           # Preserve pump-reported decimal reservoir precision below 50 U.
           # Above threshold remains 50+ U; no synthetic estimate.
           git -C OmnipodKit apply --check ../customizations/LoKeyBuild29PreciseReservoir.patch
