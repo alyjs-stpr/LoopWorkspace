@@ -36,7 +36,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +            let pieces = glucose.split(separator: " ", maxSplits: 1)
 +            value.text = pieces.first.map(String.init) ?? glucose
 +            unit.text = pieces.count > 1 ? String(pieces[1]) : ""
-+            trendArrow.text = trend
++            trendArrow.text = trend == "—" ? "" : trend
 +            subtitle.text = detail
 +            insulin.text = "IOB " + iob
 +            accessibilityLabel = "Current glucose " + glucose + ". Trend " + trend +
@@ -52,6 +52,15 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 @@ -54,1 +54,1 @@
 -            tabs.topAnchor.constraint(equalTo: age.bottomAnchor, constant: 14),
 +            tabs.topAnchor.constraint(equalTo: brand.bottomAnchor, constant: 16),
+@@ -230,1 +230,7 @@
+-        loKeyAgeText?.text = "CGM " + lokeySnapshot.glucoseAge
++        loKeyAgeText?.text = "CGM " + lokeySnapshot.glucoseAge
++        // The compact mockup hides the duplicate CGM age header. Keep the
++        // active leak surveillance flag visible in the remaining status line.
++        if loKeyCurrentPodLeakFlagged() {
++            loKeyStatusText?.text = "● Loop · LEAK WATCH"
++            loKeyStatusText?.textColor = .systemOrange
++        }
 @@ -244,1 +244,4 @@
 -        loKeyGlucoseHeaderCard?.update(glucose: glucose, detail: detail, iob: lokeySnapshot.iob)
 +        let trend = deviceManager.glucoseStore.latestGlucose.flatMap { reading in
