@@ -1,0 +1,212 @@
+diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View Controllers/StatusTableViewController.swift
+--- a/Loop/View Controllers/StatusTableViewController.swift
++++ b/Loop/View Controllers/StatusTableViewController.swift
+@@ -211,1 +211,81 @@
+-    private weak var loKeyAgeText: UILabel?
++    private weak var loKeyAgeText: UILabel?
++
++    // This is only an annotation of uncertain insulin absorption. It NEVER
++    // edits DoseStore, IOB, Loop's prediction, or dosing recommendations.
++    private func loKeyCurrentPodLeakFlagged() -> Bool {
++        // A pod change does not erase the uncertainty about insulin Loop
++        // still counts from the previous pod. Only a user clears the flag.
++        return UserDefaults.standard.object(forKey: "LoKeyLeakFlagPodStartV1") as? Date != nil
++    }
++
++    private func loKeySyncLeakNotice() {
++        let flagged = loKeyCurrentPodLeakFlagged()
++        let defaults = UserDefaults.standard
++        if defaults.bool(forKey: "LoKeyDeliveryLeakActiveV1") != flagged {
++            defaults.set(flagged, forKey: "LoKeyDeliveryLeakActiveV1")
++        }
++        loKeyAgeText?.textColor = flagged ? .systemOrange : .secondaryLabel
++    }
++
++    private func loKeyStoreLeakEvent(kind: String, podStart: Date, note: String = "") {
++        var events = UserDefaults.standard.array(forKey: "LoKeyLeakEventHistoryV1") as? [[String: Any]] ?? []
++        events.append([
++            "timestamp": Date(),
++            "podActivatedAt": podStart,
++            "event": kind,
++            "observation": note,
++            "loopReportedLastBolus": lokeySnapshot.lastBolus,
++            "loopReportedIOB": lokeySnapshot.iob
++        ])
++        UserDefaults.standard.set(events, forKey: "LoKeyLeakEventHistoryV1")
++    }
++
++    private func loKeyReviewSuspectedPodLeak() {
++        let raw = deviceManager.pumpManagerHUDProvider?.hudViewRawState ?? [:]
++        if loKeyCurrentPodLeakFlagged() {
++            let alert = UIAlertController(title: "Suspected Pod Leak Flag",
++                message: "The reported insulin may not match what was absorbed. The watch stays active across pod changes until you clear it; Loop's IOB and recommendations remain unchanged.",
++                preferredStyle: .alert)
++            alert.addAction(UIAlertAction(title: "Keep Flag", style: .cancel))
++            alert.addAction(UIAlertAction(title: "Clear Flag", style: .default) { [weak self] _ in
++                guard let self else { return }
++                if let originalPodStart = UserDefaults.standard.object(forKey: "LoKeyLeakFlagPodStartV1") as? Date {
++                    self.loKeyStoreLeakEvent(kind: "cleared", podStart: originalPodStart)
++                }
++                UserDefaults.standard.removeObject(forKey: "LoKeyLeakFlagPodStartV1")
++                UserDefaults.standard.removeObject(forKey: "LoKeyLeakWatchLastAlertV1")
++                self.loKeySyncLeakNotice()
++                self.loKeyRefreshHeader()
++                self.tableView.reloadData()
++            })
++            present(alert, animated: true)
++            return
++        }
++        guard let podStart = raw["podActivatedAt"] as? Date else {
++            let alert = UIAlertController(title: "Pod Status Unavailable",
++                message: "Cannot verify the current pod's identity. Check Pod Info and try again.",
++                preferredStyle: .alert)
++            alert.addAction(UIAlertAction(title: "OK", style: .default))
++            present(alert, animated: true)
++            return
++        }
++        let alert = UIAlertController(title: "Report Suspected Pod Leak",
++            message: "Starts a CGM high/rising watch even if you later replace the pod. It will NOT adjust Loop IOB or give replacement insulin. Follow your pump-failure plan if delivery may have failed.",
++            preferredStyle: .alert)
++        alert.addTextField { field in
++            field.placeholder = "What did you notice? (optional)"
++            field.autocapitalizationType = .sentences
++        }
++        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
++        alert.addAction(UIAlertAction(title: "Flag This Pod", style: .default) { [weak self, weak alert] _ in
++            guard let self else { return }
++            let note = alert?.textFields?.first?.text ?? ""
++            self.loKeyStoreLeakEvent(kind: "suspected", podStart: podStart, note: note)
++            UserDefaults.standard.set(podStart, forKey: "LoKeyLeakFlagPodStartV1")
++            UserDefaults.standard.removeObject(forKey: "LoKeyLeakWatchLastAlertV1")
++            self.loKeySyncLeakNotice()
++            self.loKeyRefreshHeader()
++            self.tableView.reloadData()
++        })
++        present(alert, animated: true)
++    }
+@@ -270,1 +270,5 @@
+-        loKeyAgeText?.text = "CGM " + lokeySnapshot.glucoseAge
++        loKeyAgeText?.text = "CGM " + lokeySnapshot.glucoseAge
++        loKeySyncLeakNotice()
++        if loKeyCurrentPodLeakFlagged() {
++            loKeyAgeText?.text = "CGM " + lokeySnapshot.glucoseAge + " · POD LEAK SUSPECTED"
++        }
+@@ -370,1 +370,3 @@
+-        static let id = "LoKeyPodCard"
++        static let id = "LoKeyPodCard"
++        var onLeakReview: (() -> Void)?
++        @objc private func leakTapped() { onLeakReview?() }
+@@ -388,1 +388,1 @@
+-                    age: String, expires: String, remaining: String) {
++                    age: String, expires: String, remaining: String, leakFlagged: Bool) {
+@@ -424,2 +424,16 @@
+-            }
+-            stack.layer.cornerRadius = 20
++            }
++            if leakFlagged {
++                let warning = UILabel()
++                warning.text = "Suspected pod leak · delivered insulin uncertain. Loop IOB is unchanged."
++                warning.font = .preferredFont(forTextStyle: .footnote)
++                warning.textColor = .systemOrange
++                warning.numberOfLines = 0
++                stack.addArrangedSubview(warning)
++            }
++            let leakButton = UIButton(type: .system)
++            leakButton.setTitle(leakFlagged ? "Review / Clear Suspected Leak" : "Report Suspected Pod Leak", for: .normal)
++            leakButton.contentHorizontalAlignment = .leading
++            leakButton.addTarget(self, action: #selector(leakTapped), for: .touchUpInside)
++            leakButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 44).isActive = true
++            stack.addArrangedSubview(leakButton)
++            stack.layer.cornerRadius = 20
+@@ -1808,1 +1808,3 @@
+-                            age: age, expires: expires, remaining: timeRemaining)
++                            age: age, expires: expires, remaining: timeRemaining,
++                            leakFlagged: loKeyCurrentPodLeakFlagged())
++                cell.onLeakReview = { [weak self] in self?.loKeyReviewSuspectedPodLeak() }
+diff --git a/Loop/Managers/DeviceDataManager.swift b/Loop/Managers/DeviceDataManager.swift
+--- a/Loop/Managers/DeviceDataManager.swift
++++ b/Loop/Managers/DeviceDataManager.swift
+@@ -582,1 +582,54 @@
+-    private func processCGMReadingResult(_ manager: CGMManager, readingResult: CGMReadingResult, completion: @escaping () -> Void) {
++    // The watch is bound to successful CGM storage, not the dashboard's
++    // lifecycle. It can run while LoKey is in the background when the CGM
++    // delivers readings to the app. Never changes Loop's dose or IOB data.
++    private func loKeyCheckSuspectedPodLeakAfterCGM() {
++        let defaults = UserDefaults.standard
++        guard let flaggedPodStart = defaults.object(forKey: "LoKeyLeakFlagPodStartV1") as? Date else { return }
++        let start = Date().addingTimeInterval(-21 * 60)
++        glucoseStore.getGlucoseSamples(start: start, end: nil) { result in
++            guard case .success(let samples) = result,
++                  let latest = samples.max(by: { $0.startDate < $1.startDate }),
++                  latest.startDate.timeIntervalSinceNow >= -(10 * 60),
++                  latest.startDate.timeIntervalSinceNow <= 60 else { return }
++            let glucose = latest.quantity.doubleValue(for: .milligramsPerDeciliter)
++            guard glucose.isFinite else { return }
++            let previous = samples.filter { sample in
++                let minutes = latest.startDate.timeIntervalSince(sample.startDate) / 60
++                return minutes >= 10 && minutes <= 20
++            }.max(by: { $0.startDate < $1.startDate })
++            let change = previous.map {
++                glucose - $0.quantity.doubleValue(for: .milligramsPerDeciliter)
++            }
++            let highAndRising = glucose >= 180 && (change ?? 0) >= 15
++            let veryHigh = glucose >= 250
++            guard highAndRising || veryHigh else { return }
++            // Re-check the flag to avoid an alert after the user clears it.
++            guard defaults.object(forKey: "LoKeyLeakFlagPodStartV1") as? Date != nil else { return }
++            let now = Date()
++            if let lastAlert = defaults.object(forKey: "LoKeyLeakWatchLastAlertV1") as? Date,
++               now.timeIntervalSince(lastAlert) < 30 * 60 { return }
++            defaults.set(now, forKey: "LoKeyLeakWatchLastAlertV1")
++            let trend = change.map { String(format: "%+.0f mg/dL over the last 10–20 min", $0) }
++                ?? "trend unavailable"
++            let description = String(format: "CGM %.0f mg/dL; %@.", glucose, trend)
++            var events = defaults.array(forKey: "LoKeyLeakEventHistoryV1") as? [[String: Any]] ?? []
++            events.append([
++                "timestamp": now,
++                "podActivatedAt": flaggedPodStart,
++                "event": "elevated-glucose-observed",
++                "observation": description,
++                "cgmMgDl": glucose
++            ])
++            defaults.set(Array(events.suffix(200)), forKey: "LoKeyLeakEventHistoryV1")
++            let content = UNMutableNotificationContent()
++            content.title = "LoKey · Suspected Pod Leak Watch"
++            content.body = description + " Loop may be overestimating effective IOB. Check your glucose, pod and pump-failure plan; do not assume how much insulin was absorbed."
++            content.sound = .default
++            UNUserNotificationCenter.current().add(
++                UNNotificationRequest(identifier: "lokey.leakwatch." + UUID().uuidString,
++                                      content: content, trigger: nil)
++            )
++        }
++    }
++
++    private func processCGMReadingResult(_ manager: CGMManager, readingResult: CGMReadingResult, completion: @escaping () -> Void) {
+@@ -1344,1 +1397,2 @@
+-        remoteDataServicesManager.triggerUpload(for: .glucose)
++        remoteDataServicesManager.triggerUpload(for: .glucose)
++        loKeyCheckSuspectedPodLeakAfterCGM()
+diff --git a/Loop/Views/BolusEntryView.swift b/Loop/Views/BolusEntryView.swift
+--- a/Loop/Views/BolusEntryView.swift
++++ b/Loop/Views/BolusEntryView.swift
+@@ -23,1 +23,3 @@
+-    @ObservedObject var viewModel: BolusEntryViewModel
++    @ObservedObject var viewModel: BolusEntryViewModel
++    // An informational warning, NOT an adjustment to suggested insulin.
++    @AppStorage("LoKeyDeliveryLeakActiveV1") private var suspectedPodLeakActive = false
+@@ -39,1 +39,14 @@
+-                    self.chartSection
++                    if suspectedPodLeakActive {
++                        Section {
++                            VStack(alignment: .leading, spacing: 6) {
++                                Label("Suspected Pod Leak", systemImage: "exclamationmark.triangle.fill")
++                                    .font(.headline)
++                                    .foregroundColor(.orange)
++                                Text("Absorbed insulin is uncertain. Loop's IOB and bolus recommendation have NOT been adjusted. Review glucose, ketones and your backup plan before delivering more insulin.")
++                                    .font(.footnote)
++                                    .fixedSize(horizontal: false, vertical: true)
++                            }
++                            .padding(.vertical, 8)
++                        }
++                    }
++                    self.chartSection

@@ -169,6 +169,9 @@ jobs:
           # Restore the approved Build 32 purple glucose card without an extra native HUD row.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyRestoreBuild32PurpleDashboard.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyRestoreBuild32PurpleDashboard.patch
+          # Observe CGM updates after user reports a suspected pod leak; no dosing changes.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeySuspectedPodLeakAnnotation.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeySuspectedPodLeakAnnotation.patch
           # Preserve pump-reported decimal reservoir precision below 50 U.
           # Above threshold remains 50+ U; no synthetic estimate.
           git -C OmnipodKit apply --check ../customizations/LoKeyBuild29PreciseReservoir.patch
@@ -221,6 +224,13 @@ jobs:
           # Native CGM and pump warnings must remain visible, with one glucose tile.
           grep -Fq 'hudView?.setLoKeyDashboardMode(false)' "$FILE"
           grep -Fq 'loKeyGlucoseHeaderCard?.update(' "$FILE"
+          # The leak warning is CGM-driven (not dashboard-only) and cannot
+          # change Loop's insulin math or pump commands.
+          grep -Fq 'loKeyCurrentPodLeakFlagged()' "$FILE"
+          grep -Fq 'LoKeyDeliveryLeakActiveV1' "Loop/Loop/Views/BolusEntryView.swift"
+          grep -Fq 'loKeyCheckSuspectedPodLeakAfterCGM()' "Loop/Loop/Managers/DeviceDataManager.swift"
+          grep -Fq 'let highAndRising = glucose >= 180' "Loop/Loop/Managers/DeviceDataManager.swift"
+          grep -Fq 'let veryHigh = glucose >= 250' "Loop/Loop/Managers/DeviceDataManager.swift"
           grep -Fq 'glucoseCard.topAnchor.constraint(equalTo: tabs.bottomAnchor' "$FILE"
           grep -Fq 'tableView.contentInset.bottom = max(tableView.contentInset.bottom, 105)' "$FILE"
           grep -Fq 'LoKeyInsulinCard.id' "$FILE"
@@ -579,6 +589,9 @@ jobs:
           # Restore the approved Build 32 purple glucose card without an extra native HUD row.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyRestoreBuild32PurpleDashboard.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyRestoreBuild32PurpleDashboard.patch
+          # Observe CGM updates after user reports a suspected pod leak; no dosing changes.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeySuspectedPodLeakAnnotation.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeySuspectedPodLeakAnnotation.patch
           # Preserve pump-reported decimal reservoir precision below 50 U.
           # Above threshold remains 50+ U; no synthetic estimate.
           git -C OmnipodKit apply --check ../customizations/LoKeyBuild29PreciseReservoir.patch

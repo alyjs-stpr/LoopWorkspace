@@ -353,6 +353,9 @@ jobs:
           # Restore the approved Build 32 purple glucose card without an extra native HUD row.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyRestoreBuild32PurpleDashboard.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyRestoreBuild32PurpleDashboard.patch
+          # Observe CGM updates after user reports a suspected pod leak; no dosing changes.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeySuspectedPodLeakAnnotation.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeySuspectedPodLeakAnnotation.patch
           # Preserve pump-reported decimal reservoir precision below 50 U.
           # Above threshold remains 50+ U; no synthetic estimate.
           git -C OmnipodKit apply --check ../customizations/LoKeyBuild29PreciseReservoir.patch
