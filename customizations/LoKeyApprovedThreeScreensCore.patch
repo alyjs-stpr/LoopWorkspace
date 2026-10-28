@@ -1,0 +1,281 @@
+diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View Controllers/StatusTableViewController.swift
+--- a/Loop/View Controllers/StatusTableViewController.swift
++++ b/Loop/View Controllers/StatusTableViewController.swift
+@@ -350,47 +350,109 @@
+-    private final class LoKeyInsulinCard: UITableViewCell {
+-        static let id = "LoKeyInsulinCard"
+-        private let iob = UILabel()
+-        private let basal = UILabel()
+-        private let lastBolus = UILabel()
+-        override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+-            super.init(style: style, reuseIdentifier: reuseIdentifier)
+-            selectionStyle = .none
+-            backgroundColor = .clear
+-            let title = UILabel()
+-            title.text = "INSULIN OVERVIEW"
+-            title.textColor = .secondaryLabel
+-            title.font = .preferredFont(forTextStyle: .caption1)
+-            iob.textColor = .systemGreen
+-            iob.font = .monospacedDigitSystemFont(ofSize: 37, weight: .bold)
+-            iob.adjustsFontSizeToFitWidth = true
+-            iob.minimumScaleFactor = 0.65
+-            for item in [basal, lastBolus] {
+-                item.font = .preferredFont(forTextStyle: .subheadline)
+-                item.textColor = .secondaryLabel
+-                item.numberOfLines = 2
+-            }
+-            let stack = UIStackView(arrangedSubviews: [title, iob, basal, lastBolus])
+-            stack.axis = .vertical
+-            stack.spacing = 9
+-            stack.backgroundColor = .secondarySystemGroupedBackground
+-            stack.layer.cornerRadius = 20
+-            stack.isLayoutMarginsRelativeArrangement = true
+-            stack.directionalLayoutMargins = NSDirectionalEdgeInsets(
+-                top: 18, leading: 20, bottom: 18, trailing: 20
+-            )
+-            stack.translatesAutoresizingMaskIntoConstraints = false
+-            contentView.addSubview(stack)
+-            NSLayoutConstraint.activate([
+-                stack.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 7),
+-                stack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -7),
+-                stack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
+-                stack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -12)
+-            ])
+-        }
+-        required init?(coder: NSCoder) { fatalError("init(coder:) unavailable") }
+-        func update(iob: String, basal: String, lastBolus: String) {
+-            self.iob.text = iob
+-            self.basal.text = "Current basal  ·  " + basal
+-            self.lastBolus.text = "Last bolus  ·  " + lastBolus
+-        }
+-    }
++    private final class LoKeyInsulinCard: UITableViewCell {
++        static let id = "LoKeyInsulinCard"
++        var onPodInfo: (() -> Void)?
++        private let iob = UILabel()
++        private let basal = UILabel()
++        private let lastBolus = UILabel()
++        private let podStatus = UILabel()
++
++        @objc private func openPodInfo() { onPodInfo?() }
++
++        private func metric(_ title: String, label: UILabel) -> UIView {
++            let heading = UILabel()
++            heading.text = title
++            heading.font = .preferredFont(forTextStyle: .caption2)
++            heading.textColor = .secondaryLabel
++            label.font = .preferredFont(forTextStyle: .headline)
++            label.textColor = .label
++            label.adjustsFontSizeToFitWidth = true
++            label.minimumScaleFactor = 0.7
++            let stack = UIStackView(arrangedSubviews: [heading, label])
++            stack.axis = .vertical
++            stack.spacing = 4
++            stack.backgroundColor = .tertiarySystemGroupedBackground
++            stack.layer.cornerRadius = 13
++            stack.isLayoutMarginsRelativeArrangement = true
++            stack.directionalLayoutMargins = NSDirectionalEdgeInsets(top: 12, leading: 12, bottom: 12, trailing: 10)
++            return stack
++        }
++
++        override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
++            super.init(style: style, reuseIdentifier: reuseIdentifier)
++            selectionStyle = .none
++            backgroundColor = .clear
++            let title = UILabel()
++            title.text = "ACTIVE INSULIN"
++            title.textColor = .secondaryLabel
++            title.font = .preferredFont(forTextStyle: .caption1)
++            iob.textColor = .systemGreen
++            iob.font = .monospacedDigitSystemFont(ofSize: 48, weight: .bold)
++            iob.adjustsFontSizeToFitWidth = true
++            iob.minimumScaleFactor = 0.65
++
++            let stats = UIStackView(arrangedSubviews: [
++                metric("LAST BOLUS", label: lastBolus),
++                metric("CURRENT BASAL", label: basal)
++            ])
++            stats.axis = .horizontal
++            stats.spacing = 9
++            stats.distribution = .fillEqually
++
++            let overview = UIStackView(arrangedSubviews: [title, iob, stats])
++            overview.axis = .vertical
++            overview.spacing = 10
++            overview.backgroundColor = .secondarySystemGroupedBackground
++            overview.layer.cornerRadius = 20
++            overview.isLayoutMarginsRelativeArrangement = true
++            overview.directionalLayoutMargins = NSDirectionalEdgeInsets(top: 16, leading: 19, bottom: 17, trailing: 19)
++
++            let pumpIcon = UIImageView(image: UIImage(systemName: "shippingbox.fill"))
++            pumpIcon.tintColor = .systemOrange
++            pumpIcon.contentMode = .scaleAspectFit
++            pumpIcon.translatesAutoresizingMaskIntoConstraints = false
++            NSLayoutConstraint.activate([
++                pumpIcon.widthAnchor.constraint(equalToConstant: 32),
++                pumpIcon.heightAnchor.constraint(equalToConstant: 32)
++            ])
++            podStatus.text = "Omnipod · Pod Info"
++            podStatus.font = .preferredFont(forTextStyle: .subheadline)
++            podStatus.textColor = .label
++            podStatus.numberOfLines = 2
++            let arrow = UIImageView(image: UIImage(systemName: "chevron.right"))
++            arrow.tintColor = .tertiaryLabel
++            arrow.setContentCompressionResistancePriority(.required, for: .horizontal)
++            let pumpRow = UIStackView(arrangedSubviews: [pumpIcon, podStatus, arrow])
++            pumpRow.axis = .horizontal
++            pumpRow.alignment = .center
++            pumpRow.spacing = 12
++            pumpRow.isLayoutMarginsRelativeArrangement = true
++            pumpRow.directionalLayoutMargins = NSDirectionalEdgeInsets(top: 14, leading: 18, bottom: 14, trailing: 19)
++            pumpRow.backgroundColor = .secondarySystemGroupedBackground
++            pumpRow.layer.cornerRadius = 20
++            pumpRow.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(openPodInfo)))
++            pumpRow.isAccessibilityElement = true
++            pumpRow.accessibilityTraits = .button
++            pumpRow.accessibilityLabel = "Open Pod Info"
++
++            let stack = UIStackView(arrangedSubviews: [overview, pumpRow])
++            stack.axis = .vertical
++            stack.spacing = 10
++            stack.translatesAutoresizingMaskIntoConstraints = false
++            contentView.addSubview(stack)
++            NSLayoutConstraint.activate([
++                stack.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 5),
++                stack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -6),
++                stack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
++                stack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -12)
++            ])
++        }
++        required init?(coder: NSCoder) { fatalError("init(coder:) unavailable") }
++
++        func update(iob: String, basal: String, lastBolus: String) {
++            self.iob.text = iob
++            self.basal.text = basal
++            self.lastBolus.text = lastBolus.components(separatedBy: " · ").first ?? lastBolus
++        }
++        func updatePump(status: String) {
++            podStatus.text = "Omnipod · " + status
++        }
++    }
+@@ -160,1 +160,17 @@
+-    private weak var loKeyGlucoseHeaderCard: LoKeyGlucoseCard?
++    private weak var loKeyGlucoseHeaderCard: LoKeyGlucoseCard?
++    private weak var loKeyTabs: UISegmentedControl?
++
++    // Preserve access to the actual native safety HUD whenever the pump,
++    // CGM, or Loop reports a problem. Routine status is shown by the
++    // approved compact header and Insulin/Pod Info pages instead.
++    private var loKeyNeedsNativeSafetyHUD: Bool {
++        if deviceManager.cgmStatusHighlight != nil ||
++           deviceManager.cgmStatusBadge != nil ||
++           deviceManager.pumpStatusHighlight != nil ||
++           deviceManager.pumpStatusBadge != nil ||
++           deviceManager.isGlucoseValueStale {
++            return true
++        }
++        guard let lastLoop = deviceManager.loopManager.lastLoopCompleted else { return true }
++        return Date().timeIntervalSince(lastLoop) > 10 * 60
++    }
+@@ -180,1 +180,1 @@
+-        let header = UIView(frame: CGRect(x: 0, y: 0, width: tableView.bounds.width, height: 325))
++        let header = UIView(frame: CGRect(x: 0, y: 0, width: tableView.bounds.width, height: 295))
+@@ -188,1 +188,3 @@
+-        age.adjustsFontForContentSizeCategory = true
++        age.adjustsFontForContentSizeCategory = true
++        // CGM sample age already appears below the large purple number.
++        age.isHidden = true
+@@ -206,1 +206,2 @@
+-        tabs.accessibilityLabel = "LoKey main screens"
++        tabs.accessibilityLabel = "LoKey main screens"
++        loKeyTabs = tabs
+@@ -213,1 +213,1 @@
+-            tabs.topAnchor.constraint(equalTo: age.bottomAnchor, constant: 14)
++            tabs.topAnchor.constraint(equalTo: brand.bottomAnchor, constant: 15)
+@@ -221,1 +221,1 @@
+-            glucoseCard.heightAnchor.constraint(equalToConstant: 178)
++            glucoseCard.heightAnchor.constraint(equalToConstant: 169)
+@@ -230,1 +230,7 @@
+-        loKeyAgeText?.text = "CGM " + lokeySnapshot.glucoseAge
++        loKeyAgeText?.text = "CGM " + lokeySnapshot.glucoseAge
++        // A suspected leak watch must remain visible, even though the
++        // redundant header age label was removed in the approved layout.
++        if loKeyCurrentPodLeakFlagged() {
++            loKeyStatusText?.text = "● Loop · LEAK WATCH"
++            loKeyStatusText?.textColor = .systemOrange
++        }
+@@ -242,1 +242,8 @@
+-        loKeyGlucoseHeaderCard?.update(glucose: glucose, detail: detail, iob: lokeySnapshot.iob)
++        let trend: String
++        if let latest = deviceManager.glucoseStore.latestGlucose,
++           !deviceManager.isGlucoseValueStale {
++            trend = deviceManager.glucoseDisplay(for: latest)?.trendType?.symbol ?? "—"
++        } else {
++            trend = "—"
++        }
++        loKeyGlucoseHeaderCard?.update(glucose: glucose, detail: detail, iob: lokeySnapshot.iob, trend: trend)
+@@ -255,1 +255,1 @@
+-            header.frame.size.height = page == .dashboard ? 325 : 142
++            header.frame.size.height = page == .dashboard ? 295 : 112
+@@ -310,1 +310,3 @@
+-        private let value = UILabel()
++        private let value = UILabel()
++        private let glucoseUnitLabel = UILabel()
++        private let glucoseTrendLabel = UILabel()
+@@ -327,1 +327,1 @@
+-            value.font = .systemFont(ofSize: 70, weight: .bold)
++            value.font = .monospacedDigitSystemFont(ofSize: 70, weight: .bold)
+@@ -341,1 +341,11 @@
+-            let stack = UIStackView(arrangedSubviews: [row, value, subtitle])
++            glucoseUnitLabel.font = .systemFont(ofSize: 17, weight: .semibold)
++            glucoseUnitLabel.textColor = value.textColor
++            glucoseUnitLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
++            glucoseTrendLabel.font = .systemFont(ofSize: 39, weight: .bold)
++            glucoseTrendLabel.textColor = value.textColor
++            glucoseTrendLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
++            let reading = UIStackView(arrangedSubviews: [value, glucoseUnitLabel, glucoseTrendLabel])
++            reading.axis = .horizontal
++            reading.alignment = .center
++            reading.spacing = 8
++            let stack = UIStackView(arrangedSubviews: [row, reading, subtitle])
+@@ -360,6 +360,9 @@
+-        func update(glucose: String, detail: String, iob: String) {
+-            value.text = glucose
+-            subtitle.text = detail
+-            insulin.text = "IOB " + iob
+-            accessibilityLabel = "Current glucose " + glucose + ". " + detail + ". Insulin on board " + iob
+-        }
++        func update(glucose: String, detail: String, iob: String, trend: String) {
++            let parts = glucose.split(separator: " ", maxSplits: 1).map(String.init)
++            value.text = parts.first ?? glucose
++            glucoseUnitLabel.text = parts.count > 1 ? parts[1] : ""
++            glucoseTrendLabel.text = trend == "—" ? "" : trend
++            subtitle.text = detail
++            insulin.text = "IOB " + iob
++            accessibilityLabel = "Current glucose " + glucose + ", trend " + (trend == "—" ? "unavailable" : trend) + ". " + detail + ". Insulin on board " + iob
++        }
+@@ -1055,2 +1055,4 @@
+-        case .hud, .metrics:
+-            return shouldShowHUD ? 1 : 0
++        case .hud:
++            return shouldShowHUD && loKeyNeedsNativeSafetyHUD ? 1 : 0
++        case .metrics:
++            return shouldShowHUD ? 1 : 0
+@@ -1810,3 +1810,14 @@
+-                cell.update(iob: lokeySnapshot.iob, basal: lokeySnapshot.basal,
+-                            lastBolus: lokeySnapshot.lastBolus)
+-                return cell
++                cell.update(iob: lokeySnapshot.iob, basal: lokeySnapshot.basal,
++                            lastBolus: lokeySnapshot.lastBolus)
++                let raw = deviceManager.pumpManagerHUDProvider?.hudViewRawState ?? [:]
++                let active = raw["podIsActive"] as? Bool
++                let uncertain = raw["podDeliveryUncertain"] as? Bool ?? false
++                cell.updatePump(status: uncertain ? "Delivery uncertain" :
++                    (active == true ? "Active pod" :
++                     (active == false ? "No active pod" : "Status unavailable")))
++                cell.onPodInfo = { [weak self] in
++                    guard let self, let tabs = self.loKeyTabs else { return }
++                    tabs.selectedSegmentIndex = LoKeyPage.pod.rawValue
++                    self.loKeyChangePage(tabs)
++                }
++                return cell
