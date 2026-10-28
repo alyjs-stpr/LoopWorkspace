@@ -1,0 +1,71 @@
+diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View Controllers/StatusTableViewController.swift
+--- a/Loop/View Controllers/StatusTableViewController.swift
++++ b/Loop/View Controllers/StatusTableViewController.swift
+@@ -168,1 +168,2 @@
+-    private weak var loKeyAgeText: UILabel?
++    private weak var loKeyAgeText: UILabel?
++    private weak var loKeyGlucoseHeaderCard: LoKeyGlucoseCard?
+@@ -177,1 +177,3 @@
+-        let header = UIView(frame: CGRect(x: 0, y: 0, width: tableView.bounds.width, height: 142))
++        // Build 32's approved purple glucose card lives in the header, not
++        // as a second HUD row. The native CGM/loop/pump HUD remains beneath.
++        let header = UIView(frame: CGRect(x: 0, y: 0, width: tableView.bounds.width, height: 325))
+@@ -229,1 +229,1 @@
+-            tabs.bottomAnchor.constraint(equalTo: header.bottomAnchor, constant: -14)
++            tabs.heightAnchor.constraint(equalToConstant: 42)
+@@ -232,1 +232,11 @@
+-        tableView.tableHeaderView = header
++        let glucoseCard = LoKeyGlucoseCard(style: .default, reuseIdentifier: nil)
++        glucoseCard.translatesAutoresizingMaskIntoConstraints = false
++        header.addSubview(glucoseCard)
++        loKeyGlucoseHeaderCard = glucoseCard
++        NSLayoutConstraint.activate([
++            glucoseCard.topAnchor.constraint(equalTo: tabs.bottomAnchor, constant: 16),
++            glucoseCard.leadingAnchor.constraint(equalTo: header.leadingAnchor, constant: 0),
++            glucoseCard.trailingAnchor.constraint(equalTo: header.trailingAnchor, constant: 0),
++            glucoseCard.heightAnchor.constraint(equalToConstant: 178)
++        ])
++        tableView.tableHeaderView = header
+@@ -244,1 +244,16 @@
+-        loKeyAgeText?.text = "CGM " + lokeySnapshot.glucoseAge
++        loKeyAgeText?.text = "CGM " + lokeySnapshot.glucoseAge
++        // Use the same latest glucose and Loop snapshot that drive the
++        // native HUD; stale values cannot be presented as current.
++        let unit = statusCharts.glucose.glucoseUnit
++        let glucose: String
++        if let reading = deviceManager.glucoseStore.latestGlucose,
++           !deviceManager.isGlucoseValueStale {
++            let number = reading.quantity.doubleValue(for: unit)
++            glucose = String(format: unit == .milligramsPerDeciliter ? "%.0f mg/dL" : "%.1f mmol/L", number)
++        } else {
++            glucose = "—"
++        }
++        let detail = lokeySnapshot.glucoseDelta == "—" ?
++            lokeySnapshot.glucoseAge :
++            lokeySnapshot.glucoseDelta + " · " + lokeySnapshot.glucoseAge
++        loKeyGlucoseHeaderCard?.update(glucose: glucose, detail: detail, iob: lokeySnapshot.iob)
+@@ -250,1 +250,6 @@
+-        loKeyPage = page
++        loKeyPage = page
++        if let header = tableView.tableHeaderView {
++            loKeyGlucoseHeaderCard?.isHidden = page != .dashboard
++            header.frame.size.height = page == .dashboard ? 325 : 142
++            tableView.tableHeaderView = header
++        }
+@@ -510,1 +510,5 @@
+-        loKeyInstallPages()
++        loKeyInstallPages()
++        // The floating toolbar must never permanently cover the last
++        // dashboard control row when scrolled to the bottom.
++        tableView.contentInset.bottom = max(tableView.contentInset.bottom, 105)
++        tableView.scrollIndicatorInsets.bottom = max(tableView.scrollIndicatorInsets.bottom, 105)
+@@ -1050,2 +1050,2 @@
+-        case charts
+-        case metrics
++        case metrics
++        case charts
+@@ -1435,1 +1435,3 @@
+-            hudView?.setLoKeyDashboardMode(loKeyPage == .dashboard)
++            // Keep the original native three-device safety HUD intact.
++            // The enlarged purple glucose card is separate, above this row.
++            hudView?.setLoKeyDashboardMode(false)
