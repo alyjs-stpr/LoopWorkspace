@@ -64,11 +64,25 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 @@ -155,1 +155,1 @@
 -                stack.directionalLayoutMargins = NSDirectionalEdgeInsets(top: 16, leading: 14, bottom: 16, trailing: 12)
 +                stack.directionalLayoutMargins = NSDirectionalEdgeInsets(top: 12, leading: 14, bottom: 12, trailing: 12)
-@@ -167,1 +167,3 @@
+@@ -167,1 +167,17 @@
 -            let values = UIStackView(arrangedSubviews: [info("LAST BOLUS", lastBolus), info("ACTIVE CARBS", carbs)])
 +            let bolusParts = lastBolus.split(separator: "·", maxSplits: 1)
 +            let bolusAmount = bolusParts.first.map { String($0).trimmingCharacters(in: .whitespaces) } ?? "—"
-+            let values = UIStackView(arrangedSubviews: [info("LAST BOLUS", bolusAmount), info("ACTIVE CARBS", carbs)])
++            let bolusSummary = info("LAST BOLUS", bolusAmount)
++            if bolusParts.count > 1 {
++                let time = UILabel()
++                time.text = String(bolusParts[1]).trimmingCharacters(in: .whitespaces)
++                time.font = .preferredFont(forTextStyle: .caption2)
++                time.textColor = .secondaryLabel
++                (bolusSummary as? UIStackView)?.addArrangedSubview(time)
++            }
++            let carbsSummary = info("ACTIVE CARBS", carbs)
++            let carbDescription = UILabel()
++            carbDescription.text = "Carbs on board"
++            carbDescription.font = .preferredFont(forTextStyle: .caption2)
++            carbDescription.textColor = .secondaryLabel
++            (carbsSummary as? UIStackView)?.addArrangedSubview(carbDescription)
++            let values = UIStackView(arrangedSubviews: [bolusSummary, carbsSummary])
 @@ -168,1 +168,4 @@
 -            values.axis = .horizontal; values.distribution = .fillEqually; values.spacing = 9
 +            values.axis = .horizontal; values.distribution = .fillEqually; values.spacing = 1
@@ -87,7 +101,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 @@ -197,1 +197,1 @@
 -            stack.axis = .vertical; stack.spacing = 11
 +            stack.axis = .vertical; stack.spacing = 8
-@@ -260,47 +260,95 @@
+@@ -260,47 +260,105 @@
 -    private final class LoKeyInsulinCard: UITableViewCell {
 -        static let id = "LoKeyInsulinCard"
 -        private let iob = UILabel()
@@ -140,6 +154,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +        static let id = "LoKeyInsulinCard"
 +        var onPumpStatus: (() -> Void)?
 +        private let iobValue = UILabel()
++        private let iobUnit = UILabel()
 +        private let bolusValue = UILabel()
 +        private let bolusTime = UILabel()
 +        private let basalValue = UILabel()
@@ -158,6 +173,13 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +            iobValue.font = .monospacedDigitSystemFont(ofSize: 45, weight: .bold)
 +            iobValue.adjustsFontSizeToFitWidth = true
 +            iobValue.minimumScaleFactor = 0.65
++            iobUnit.font = .systemFont(ofSize: 18, weight: .semibold)
++            iobUnit.textColor = .systemGreen
++            let iobRow = UIStackView(arrangedSubviews: [iobValue, iobUnit])
++            iobRow.axis = .horizontal
++            iobRow.alignment = .lastBaseline
++            iobRow.spacing = 6
++            iobUnit.setContentCompressionResistancePriority(.required, for: .horizontal)
 +
 +            func info(_ title: String, _ amount: UILabel, _ detail: UILabel? = nil) -> UIView {
 +                let caption = UILabel()
@@ -187,7 +209,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +            summary.axis = .horizontal
 +            summary.distribution = .fillEqually
 +            summary.spacing = 9
-+            let content = UIStackView(arrangedSubviews: [heading, iobValue, summary])
++            let content = UIStackView(arrangedSubviews: [heading, iobRow, summary])
 +            content.axis = .vertical
 +            content.spacing = 10
 +            content.backgroundColor = .secondarySystemGroupedBackground
@@ -222,7 +244,9 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +        }
 +        required init?(coder: NSCoder) { fatalError("init(coder:) unavailable") }
 +        func update(iob: String, basal: String, lastBolus: String) {
-+            iobValue.text = iob
++            let insulinParts = iob.split(separator: " ", maxSplits: 1)
++            iobValue.text = insulinParts.first.map(String.init) ?? iob
++            iobUnit.text = insulinParts.count > 1 ? String(insulinParts[1]) : ""
 +            basalValue.text = basal
 +            let parts = lastBolus.split(separator: "·", maxSplits: 1)
 +            bolusValue.text = parts.first.map { String($0).trimmingCharacters(in: .whitespaces) } ?? "—"
@@ -233,7 +257,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 @@ -286,1 +286,1 @@
 -            stack.axis = .vertical; stack.spacing = 15
 +            stack.axis = .vertical; stack.spacing = 9
-@@ -296,9 +296,23 @@
+@@ -296,9 +296,33 @@
 -            let pairs = [
 -                ("INSULIN REMAINING", reservoir),
 -                ("Pod age", age),
@@ -248,13 +272,23 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +            heading.font = .preferredFont(forTextStyle: .caption1)
 +            heading.textColor = .secondaryLabel
 +            let amount = UILabel()
-+            amount.text = reservoir
++            let reservoirParts = reservoir.split(separator: " ", maxSplits: 1)
++            amount.text = reservoirParts.first.map(String.init) ?? reservoir
 +            amount.textColor = UIColor(red: 0.43, green: 0.18, blue: 0.79, alpha: 1)
 +            amount.font = .monospacedDigitSystemFont(ofSize: 47, weight: .bold)
 +            amount.adjustsFontSizeToFitWidth = true
 +            amount.minimumScaleFactor = 0.7
++            let unitLabel = UILabel()
++            unitLabel.text = reservoirParts.count > 1 ? String(reservoirParts[1]) : ""
++            unitLabel.font = .systemFont(ofSize: 19, weight: .semibold)
++            unitLabel.textColor = amount.textColor
++            let reservoirRow = UIStackView(arrangedSubviews: [amount, unitLabel])
++            reservoirRow.axis = .horizontal
++            reservoirRow.alignment = .lastBaseline
++            reservoirRow.spacing = 7
++            unitLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
 +            stack.addArrangedSubview(heading)
-+            stack.addArrangedSubview(amount)
++            stack.addArrangedSubview(reservoirRow)
 +            let divider = UIView()
 +            divider.backgroundColor = .separator
 +            divider.heightAnchor.constraint(equalToConstant: 1 / UIScreen.main.scale).isActive = true
@@ -310,6 +344,9 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 -            hudView?.setLoKeyCompactDashboardMode(loKeyPage == .dashboard)
 +            hudView?.setLoKeyCompactDashboardMode(loKeyPage == .dashboard)
 +            hudView?.isHidden = !loKeyNeedsNativeStatusHUD
+@@ -310,1 +310,1 @@
+-            reportsItem.title = NSLocalizedString("TIR", comment: "Compact report toolbar title")
++            reportsItem.title = NSLocalizedString("Reports", comment: "LoKey reports toolbar title")
 @@ -311,1 +311,1 @@
 -            toolbarItems = [carbsItem, targetsItem, bolusItem, reportsItem, settingsItem]
 +            toolbarItems = [carbsItem, bolusItem, reportsItem, settingsItem]
