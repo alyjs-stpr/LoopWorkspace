@@ -1,0 +1,78 @@
+diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View Controllers/StatusTableViewController.swift
+--- a/Loop/View Controllers/StatusTableViewController.swift
++++ b/Loop/View Controllers/StatusTableViewController.swift
+@@ -369,1 +369,1 @@
+-            reportsItem.title = NSLocalizedString("TIR", comment: "Compact report toolbar title")
++            reportsItem.title = NSLocalizedString("Reports", comment: "Compact report toolbar title")
+@@ -370,1 +370,1 @@
+-            toolbarItems = [carbsItem, targetsItem, bolusItem, reportsItem, settingsItem]
++            toolbarItems = [carbsItem, bolusItem, reportsItem, settingsItem]
+@@ -377,3 +377,1 @@
+-                targetsItem,
+-                flexibleSpace(),
+-                bolusItem,
++                bolusItem,
+@@ -391,1 +391,1 @@
+-            for item in [carbsItem, targetsItem, bolusItem, reportsItem, settingsItem] {
++            for item in [carbsItem, bolusItem, reportsItem, settingsItem] {
+@@ -415,1 +415,7 @@
+-                amount.text = value
++                let parts = title == "LAST BOLUS" ? value.components(separatedBy: " · ") : [value]
++                amount.text = parts.first ?? value
++                let detail = UILabel()
++                detail.text = parts.count > 1 ? parts.dropFirst().joined(separator: " · ") :
++                    (title == "ACTIVE CARBS" ? "Carbs on board" : "")
++                detail.font = .preferredFont(forTextStyle: .caption2)
++                detail.textColor = .secondaryLabel
+@@ -420,1 +420,1 @@
+-                let stack = UIStackView(arrangedSubviews: [heading, amount])
++                let stack = UIStackView(arrangedSubviews: [heading, amount, detail])
+@@ -424,1 +424,1 @@
+-                stack.axis = .vertical; stack.spacing = 6
++                stack.axis = .vertical; stack.spacing = 4
+@@ -428,1 +428,1 @@
+-                stack.directionalLayoutMargins = NSDirectionalEdgeInsets(top: 16, leading: 14, bottom: 16, trailing: 12)
++                stack.directionalLayoutMargins = NSDirectionalEdgeInsets(top: 11, leading: 14, bottom: 11, trailing: 12)
+@@ -478,1 +478,1 @@
+-            targetStack.directionalLayoutMargins = NSDirectionalEdgeInsets(top: 12, leading: 13, bottom: 13, trailing: 13)
++            targetStack.directionalLayoutMargins = NSDirectionalEdgeInsets(top: 10, leading: 13, bottom: 10, trailing: 13)
+@@ -553,1 +553,13 @@
+-            let pairs = [
++            let reservoirHeading = UILabel()
++            reservoirHeading.text = "INSULIN REMAINING"
++            reservoirHeading.textColor = .secondaryLabel
++            reservoirHeading.font = .preferredFont(forTextStyle: .caption1)
++            let reservoirValue = UILabel()
++            reservoirValue.text = reservoir
++            reservoirValue.font = .monospacedDigitSystemFont(ofSize: 45, weight: .bold)
++            reservoirValue.textColor = UIColor(red: 0.43, green: 0.18, blue: 0.79, alpha: 1)
++            reservoirValue.adjustsFontSizeToFitWidth = true
++            reservoirValue.minimumScaleFactor = 0.65
++            stack.addArrangedSubview(reservoirHeading)
++            stack.addArrangedSubview(reservoirValue)
++            let pairs = [
+@@ -562,7 +562,5 @@
+-                ("INSULIN REMAINING", reservoir),
+-                ("Pod age", age),
+-                ("Pod expiration", expires),
+-                ("Time remaining", remaining),
+-                ("Last pod update", updated),
+-                ("Omnipod", pump),
+-                ("Dexcom G7", cgm)
++                ("Pod status", pump),
++                ("Pod age", age),
++                ("Expires", expires),
++                ("Time remaining", remaining),
++                ("Last pump update", updated)
+@@ -604,1 +604,7 @@
+-            leakButton.setTitle(leakFlagged ? "Review / Clear Suspected Leak" : "Report Suspected Pod Leak", for: .normal)
++            leakButton.setTitle(leakFlagged ? "⚠ Review / Clear Suspected Leak" : "⚠ Report Suspected Pod Leak", for: .normal)
++            leakButton.tintColor = UIColor(red: 0.57, green: 0.34, blue: 0.06, alpha: 1)
++            leakButton.backgroundColor = UIColor(red: 1, green: 0.95, blue: 0.85, alpha: 1)
++            leakButton.layer.cornerRadius = 12
++            leakButton.layer.borderWidth = 1
++            leakButton.layer.borderColor = UIColor(red: 0.90, green: 0.75, blue: 0.45, alpha: 1).cgColor
++            leakButton.titleLabel?.font = .preferredFont(forTextStyle: .subheadline)
+@@ -605,1 +605,1 @@
+-            leakButton.contentHorizontalAlignment = .leading
++            leakButton.contentHorizontalAlignment = .center
