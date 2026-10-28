@@ -1,0 +1,104 @@
+diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View Controllers/StatusTableViewController.swift
+--- a/Loop/View Controllers/StatusTableViewController.swift
++++ b/Loop/View Controllers/StatusTableViewController.swift
+@@ -238,1 +238,9 @@
+-        loKeyGlucoseHeaderCard = glucoseCard
++        loKeyGlucoseHeaderCard = glucoseCard
++        // CGM detail/warning remains one tap away when the normal native
++        // glucose tile is visually deduplicated.
++        let cgmDetailsTap = UITapGestureRecognizer(
++            target: self, action: #selector(cgmStatusTapped(_:))
++        )
++        glucoseCard.addGestureRecognizer(cgmDetailsTap)
++        glucoseCard.isAccessibilityElement = true
++        glucoseCard.accessibilityTraits.insert(.button)
+@@ -1435,1 +1435,5 @@
+-            hudView?.setLoKeyDashboardMode(false)
++            hudView?.setLoKeyDashboardMode(false)
++            // Build 32 already has the full purple CGM card.
++            // The native CGM tile remains installed for warnings and stale data,
++            // but is not repeated during healthy readings.
++            hudView?.setLoKeyCompactDashboardMode(loKeyPage == .dashboard)
+diff --git a/LoopUI/Views/StatusBarHUDView.swift b/LoopUI/Views/StatusBarHUDView.swift
+--- a/LoopUI/Views/StatusBarHUDView.swift
++++ b/LoopUI/Views/StatusBarHUDView.swift
+@@ -28,1 +28,25 @@
+-    private let lokeyPumpLabel = UILabel()
++    private let lokeyPumpLabel = UILabel()
++    private var loKeyCompactDashboardMode = false
++
++    // On the Dashboard the full-width purple card is the primary glucose
++    // presentation. The native CGM HUD remains alive and becomes visible
++    // for stale readings, CGM warnings and status badges. Native loop and
++    // pump HUDs are always visible and retain their original tap actions.
++    public func setLoKeyCompactDashboardMode(_ enabled: Bool) {
++        loKeyCompactDashboardMode = enabled
++        cgmStatusHUD.loKeyAttentionChanged = { [weak self] _ in
++            self?.loKeyUpdateCompactHUD()
++        }
++        loKeyUpdateCompactHUD()
++    }
++
++    private func loKeyUpdateCompactHUD() {
++        guard containerView.arrangedSubviews.count == 3 else { return }
++        let cgmTile = containerView.arrangedSubviews[0]
++        cgmTile.isHidden = loKeyCompactDashboardMode && !cgmStatusHUD.loKeyRequiresAttention
++        lokeyGlucoseAgeLabel.isHidden = loKeyCompactDashboardMode
++        lokeyLoopAgeLabel.isHidden = loKeyCompactDashboardMode
++        lokeyPumpLabel.isHidden = loKeyCompactDashboardMode
++        containerView.distribution = .fillEqually
++        containerView.spacing = loKeyCompactDashboardMode ? 8 : (adjustViewsForNarrowDisplay ? 4 : 6)
++    }
+diff --git a/LoopUI/Views/DeviceStatusHUDView.swift b/LoopUI/Views/DeviceStatusHUDView.swift
+--- a/LoopUI/Views/DeviceStatusHUDView.swift
++++ b/LoopUI/Views/DeviceStatusHUDView.swift
+@@ -47,1 +47,8 @@
+-    @IBOutlet weak var statusStackView: UIStackView!
++    @IBOutlet weak var statusStackView: UIStackView!
++
++    // Read-only visibility signal used to prevent hiding a CGM error badge
++    // when LoKey's custom glucose card is the primary display.
++    public var loKeyHasActiveStatusNotice: Bool {
++        (statusHighlightView != nil && !statusHighlightView.isHidden) ||
++        (statusBadgeView != nil && !statusBadgeView.isHidden)
++    }
+diff --git a/LoopUI/Views/CGMStatusHUDView.swift b/LoopUI/Views/CGMStatusHUDView.swift
+--- a/LoopUI/Views/CGMStatusHUDView.swift
++++ b/LoopUI/Views/CGMStatusHUDView.swift
+@@ -18,1 +18,19 @@
+-    private var viewModel: CGMStatusHUDViewModel!
++    private var viewModel: CGMStatusHUDViewModel!
++
++    // Native CGM status stays authoritative. This callback changes only
++    // presentation, never samples, warnings, or Loop's glucose calculations.
++    public var loKeyAttentionChanged: ((Bool) -> Void)?
++    private var loKeyPreviousAttention: Bool?
++
++    public var loKeyRequiresAttention: Bool {
++        loKeyHasActiveStatusNotice ||
++        viewModel.glucoseValueString == CGMStatusHUDViewModel.staleGlucoseRepresentation ||
++        viewModel.glucoseValueTintColor != UIColor.label
++    }
++
++    private func loKeyNotifyAttentionIfNeeded() {
++        let attention = loKeyRequiresAttention
++        guard attention != loKeyPreviousAttention else { return }
++        loKeyPreviousAttention = attention
++        loKeyAttentionChanged?(attention)
++    }
+@@ -64,1 +64,2 @@
+-        super.presentStatusHighlight(viewModel.statusHighlight)
++        super.presentStatusHighlight(viewModel.statusHighlight)
++        loKeyNotifyAttentionIfNeeded()
+@@ -130,1 +130,6 @@
+-    func updateDisplay() {
++    override public func presentStatusBadge(_ statusBadge: DeviceStatusBadge?) {
++        super.presentStatusBadge(statusBadge)
++        loKeyNotifyAttentionIfNeeded()
++    }
++
++    func updateDisplay() {
+@@ -134,1 +134,2 @@
+-        accessibilityValue = viewModel.accessibilityString
++        accessibilityValue = viewModel.accessibilityString
++        loKeyNotifyAttentionIfNeeded()
