@@ -176,6 +176,10 @@ jobs:
           # reading in the native HUD. Show native CGM tiles for alerts/stale data.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeySingleGlucoseDashboard.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeySingleGlucoseDashboard.patch
+          # Approved mockups: full purple current CGM + large trend, green insulin,
+          # pod details, compact safety HUD and 4-button toolbar.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyApprovedScreensFinalUI.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyApprovedScreensFinalUI.patch
           # Preserve pump-reported decimal reservoir precision below 50 U.
           # Above threshold remains 50+ U; no synthetic estimate.
           git -C OmnipodKit apply --check ../customizations/LoKeyBuild29PreciseReservoir.patch
@@ -228,6 +232,12 @@ jobs:
           # Native CGM and pump warnings must remain visible, with one glucose tile.
           grep -Fq 'hudView?.setLoKeyDashboardMode(false)' "$FILE"
           grep -Fq 'loKeyGlucoseHeaderCard?.update(' "$FILE"
+          grep -Fq 'trendArrow.font = .systemFont(ofSize: 44' "$FILE"
+          grep -Fq 'loKeyNeedsNativeStatusHUD' "$FILE"
+          grep -Fq 'toolbarItems = [carbsItem, bolusItem, reportsItem, settingsItem]' "$FILE"
+          grep -Fq 'LoKeyInsulinCard.id' "$FILE"
+          grep -Fq 'Report Suspected Pod Leak' "$FILE"
+          grep -Fq 'cell.onPumpStatus' "$FILE"
           grep -Fq 'setLoKeyCompactDashboardMode(loKeyPage == .dashboard)' "$FILE"
           grep -Fq 'glucoseCard.addGestureRecognizer(cgmDetailsTap)' "$FILE"
           grep -Fq 'setLoKeyCompactDashboardMode(_ enabled: Bool)' "Loop/LoopUI/Views/StatusBarHUDView.swift"
@@ -606,6 +616,10 @@ jobs:
           # reading in the native HUD. Show native CGM tiles for alerts/stale data.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeySingleGlucoseDashboard.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeySingleGlucoseDashboard.patch
+          # Approved mockups: full purple current CGM + large trend, green insulin,
+          # pod details, compact safety HUD and 4-button toolbar.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyApprovedScreensFinalUI.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyApprovedScreensFinalUI.patch
           # Preserve pump-reported decimal reservoir precision below 50 U.
           # Above threshold remains 50+ U; no synthetic estimate.
           git -C OmnipodKit apply --check ../customizations/LoKeyBuild29PreciseReservoir.patch
@@ -642,14 +656,14 @@ jobs:
           fi
 
           # Xcode 27 still validates .loopplugin frameworks when VALIDATE_PRODUCT=NO.
-          # On this pinned workspace the unsigned simulator may surface all five
-          # .loopplugin entries as frameworks without generated Info.plist files.
-          # Accept ONLY the five EXACT known plugin names at final Validate,
+          # This pinned workspace may surface ten exact .loopplugin frameworks
+          # without generated Info.plist files in the unsigned simulator.
+          # Accept ONLY the exact known plugin names at final Validate,
           # never real Swift errors, other bundling errors, or a signed build.
           # This is source-compilation smoke-test evidence, NOT app validation.
           error_count="$(grep -Ec '^error:' "$log" || true)"
-          unexpected_errors="$(grep '^error:' "$log" | grep -Ev "^error: Framework .*/Loop[.]app/Frameworks/(AmplitudeServiceKitPlugin|LoopOnboardingPlugin|CGMBLEKitG5Plugin|CGMBLEKitG6Plugin|NightscoutServiceKitPlugin)[.]framework did not contain an Info[.]plist [(]in target 'Loop' from project 'Loop'[)]$" || true)"
-          if [ "$error_count" -ge 1 ] && [ "$error_count" -le 5 ] \
+          unexpected_errors="$(grep '^error:' "$log" | grep -Ev "^error: Framework .*/Loop[.]app/Frameworks/(AmplitudeServiceKitPlugin|LoopOnboardingPlugin|CGMBLEKitG5Plugin|CGMBLEKitG6Plugin|NightscoutServiceKitPlugin|EversenseKitPlugin|LoopSupportPlugin|LibreTransmitterPlugin|LibreDemoPlugin|G7SensorPlugin)[.]framework did not contain an Info[.]plist [(]in target 'Loop' from project 'Loop'[)]$" || true)"
+          if [ "$error_count" -ge 1 ] && [ "$error_count" -le 10 ] \
             && [ -z "$unexpected_errors" ] \
             && ! grep -Eq '[.]swift:[0-9]+:[0-9]+: error:' "$log" \
             && grep -Eq "^[[:space:]]*Validate .*/Loop[.]app [(]in target 'Loop' from project 'Loop'[)]$" "$log" \
