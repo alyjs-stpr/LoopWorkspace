@@ -364,6 +364,9 @@ jobs:
           # pod details, compact safety HUD and 4-button toolbar.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyApprovedScreensFinalUI.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyApprovedScreensFinalUI.patch
+          # Expose native Omnipod pod replacement from Pod Info without sending pump commands.
+          git -C Loop apply --check ../customizations/LoKeyPodChangeShortcut.patch
+          git -C Loop apply ../customizations/LoKeyPodChangeShortcut.patch
           # Preserve pump-reported decimal reservoir precision below 50 U.
           # Above threshold remains 50+ U; no synthetic estimate.
           git -C OmnipodKit apply --check ../customizations/LoKeyBuild29PreciseReservoir.patch
