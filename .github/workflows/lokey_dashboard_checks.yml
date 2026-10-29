@@ -183,6 +183,14 @@ jobs:
           # Expose native Omnipod pod replacement from Pod Info without sending pump commands.
           git -C Loop apply --check ../customizations/LoKeyPodChangeShortcut.patch
           git -C Loop apply ../customizations/LoKeyPodChangeShortcut.patch
+          # Pod-specific leak supervision: four successive >7 mg/dL rises;
+          # six hours from actual replacement pod activation; no dosing changes.
+          python3 Scripts/install_lokey_pod_leak_supervisor.py
+          # Regression guards for pod identity, six-hour expiry and alert rule.
+          grep -Fq 'activePod > reportedPod.addingTimeInterval(60)' 'Loop/Loop/Managers/DeviceDataManager.swift'
+          grep -Fq 'replacement.addingTimeInterval(6 * 60 * 60)' 'Loop/Loop/Managers/DeviceDataManager.swift'
+          grep -Fq 'currentMgDl - previousMgDl > 7' 'Loop/Loop/Managers/DeviceDataManager.swift'
+          grep -Fq 'consecutiveRises >= 4' 'Loop/Loop/Managers/DeviceDataManager.swift'
           # Guard against a no-op shortcut and accidental direct pump command.
           grep -Fq 'changePodButton.setTitle("Change Pod", for: .normal)' 'Loop/Loop/View Controllers/StatusTableViewController.swift'
           grep -Fq 'self.executeHUDTapAction(self.deviceManager.didTapOnPumpStatus(), from: self.view)' 'Loop/Loop/View Controllers/StatusTableViewController.swift'
@@ -629,6 +637,14 @@ jobs:
           # Expose native Omnipod pod replacement from Pod Info without sending pump commands.
           git -C Loop apply --check ../customizations/LoKeyPodChangeShortcut.patch
           git -C Loop apply ../customizations/LoKeyPodChangeShortcut.patch
+          # Pod-specific leak supervision: four successive >7 mg/dL rises;
+          # six hours from actual replacement pod activation; no dosing changes.
+          python3 Scripts/install_lokey_pod_leak_supervisor.py
+          # Regression guards for pod identity, six-hour expiry and alert rule.
+          grep -Fq 'activePod > reportedPod.addingTimeInterval(60)' 'Loop/Loop/Managers/DeviceDataManager.swift'
+          grep -Fq 'replacement.addingTimeInterval(6 * 60 * 60)' 'Loop/Loop/Managers/DeviceDataManager.swift'
+          grep -Fq 'currentMgDl - previousMgDl > 7' 'Loop/Loop/Managers/DeviceDataManager.swift'
+          grep -Fq 'consecutiveRises >= 4' 'Loop/Loop/Managers/DeviceDataManager.swift'
           # Guard against a no-op shortcut and accidental direct pump command.
           grep -Fq 'changePodButton.setTitle("Change Pod", for: .normal)' 'Loop/Loop/View Controllers/StatusTableViewController.swift'
           grep -Fq 'self.executeHUDTapAction(self.deviceManager.didTapOnPumpStatus(), from: self.view)' 'Loop/Loop/View Controllers/StatusTableViewController.swift'
