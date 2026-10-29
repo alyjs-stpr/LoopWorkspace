@@ -1,13 +1,13 @@
 diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View Controllers/StatusTableViewController.swift
 --- a/Loop/View Controllers/StatusTableViewController.swift
 +++ b/Loop/View Controllers/StatusTableViewController.swift
-@@ -370,3 +370,5 @@
+@@ -840,3 +840,5 @@
          static let id = "LoKeyPodCard"
          var onLeakReview: (() -> Void)?
          @objc private func leakTapped() { onLeakReview?() }
 +        var onChangePod: (() -> Void)?
 +        @objc private func changePodTapped() { onChangePod?() }
-@@ -430,5 +430,17 @@
+@@ -913,5 +915,17 @@
              leakButton.contentHorizontalAlignment = .leading
              leakButton.addTarget(self, action: #selector(leakTapped), for: .touchUpInside)
              leakButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 44).isActive = true
@@ -25,7 +25,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +            changePodButton.addTarget(self, action: #selector(changePodTapped), for: .touchUpInside)
 +            stack.addArrangedSubview(changePodButton)
              stack.layer.cornerRadius = 20
-@@ -1810,2 +1810,7 @@
+@@ -2425,2 +2439,7 @@
                  cell.onLeakReview = { [weak self] in self?.loKeyReviewSuspectedPodLeak() }
 +                cell.onChangePod = { [weak self] in
 +                    guard let self else { return }
