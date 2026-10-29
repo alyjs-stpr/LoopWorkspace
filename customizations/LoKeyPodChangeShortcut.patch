@@ -1,12 +1,13 @@
 diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View Controllers/StatusTableViewController.swift
 --- a/Loop/View Controllers/StatusTableViewController.swift
 +++ b/Loop/View Controllers/StatusTableViewController.swift
-@@ -840,3 +840,5 @@
+@@ -840,4 +840,6 @@
          static let id = "LoKeyPodCard"
          var onLeakReview: (() -> Void)?
          @objc private func leakTapped() { onLeakReview?() }
 +        var onChangePod: (() -> Void)?
 +        @objc private func changePodTapped() { onChangePod?() }
+         override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
 @@ -913,5 +915,17 @@
              leakButton.contentHorizontalAlignment = .leading
              leakButton.addTarget(self, action: #selector(leakTapped), for: .touchUpInside)
