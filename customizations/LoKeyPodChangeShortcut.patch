@@ -1,0 +1,35 @@
+diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View Controllers/StatusTableViewController.swift
+--- a/Loop/View Controllers/StatusTableViewController.swift
++++ b/Loop/View Controllers/StatusTableViewController.swift
+@@ -370,3 +370,5 @@
+         static let id = "LoKeyPodCard"
+         var onLeakReview: (() -> Void)?
+         @objc private func leakTapped() { onLeakReview?() }
++        var onChangePod: (() -> Void)?
++        @objc private func changePodTapped() { onChangePod?() }
+@@ -430,5 +430,17 @@
+             leakButton.contentHorizontalAlignment = .leading
+             leakButton.addTarget(self, action: #selector(leakTapped), for: .touchUpInside)
+             leakButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 44).isActive = true
+             stack.addArrangedSubview(leakButton)
++            // A shortcut into Loop's native Omnipod management flow.
++            // It must never send deactivation or pairing commands directly.
++            let changePodButton = UIButton(type: .system)
++            changePodButton.setTitle("Change Pod", for: .normal)
++            changePodButton.setTitleColor(.white, for: .normal)
++            changePodButton.titleLabel?.font = .preferredFont(forTextStyle: .headline)
++            changePodButton.backgroundColor = UIColor(red: 0.43, green: 0.18, blue: 0.79, alpha: 1)
++            changePodButton.layer.cornerRadius = 13
++            changePodButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 50).isActive = true
++            changePodButton.accessibilityHint = "Opens Omnipod pump settings for pod replacement. Deactivation still requires confirmation."
++            changePodButton.addTarget(self, action: #selector(changePodTapped), for: .touchUpInside)
++            stack.addArrangedSubview(changePodButton)
+             stack.layer.cornerRadius = 20
+@@ -1810,2 +1810,7 @@
+                 cell.onLeakReview = { [weak self] in self?.loKeyReviewSuspectedPodLeak() }
++                cell.onChangePod = { [weak self] in
++                    guard let self else { return }
++                    // Route through the same guarded native HUD action as Loop.
++                    self.executeHUDTapAction(self.deviceManager.didTapOnPumpStatus(), from: self.view)
++                }
+                 return cell
