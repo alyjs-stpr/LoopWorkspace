@@ -263,7 +263,7 @@ jobs:
           grep -Fq 'loKeyCurrentPodLeakFlagged()' "$FILE"
           grep -Fq 'LoKeyDeliveryLeakActiveV1' "Loop/Loop/Views/BolusEntryView.swift"
           grep -Fq 'loKeyCheckSuspectedPodLeakAfterCGM()' "Loop/Loop/Managers/DeviceDataManager.swift"
-          grep -Fq 'let highAndRising = glucose >= 180' "Loop/Loop/Managers/DeviceDataManager.swift"
+          grep -Fq 'let sustainedSpike = consecutiveRises >= 4' "Loop/Loop/Managers/DeviceDataManager.swift"
           grep -Fq 'let veryHigh = glucose >= 250' "Loop/Loop/Managers/DeviceDataManager.swift"
           grep -Fq 'glucoseCard.topAnchor.constraint(equalTo: tabs.bottomAnchor' "$FILE"
           grep -Fq 'tableView.contentInset.bottom = max(tableView.contentInset.bottom, 105)' "$FILE"
