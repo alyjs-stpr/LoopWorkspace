@@ -181,6 +181,10 @@ jobs:
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyApprovedScreensFinalUI.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyApprovedScreensFinalUI.patch
           # Expose native Omnipod pod replacement from Pod Info without sending pump commands.
+          echo "Diagnostics: source anchors before pod shortcut patch"
+          grep -n -F -A4 -B2 'static let id = "LoKeyPodCard"' 'Loop/Loop/View Controllers/StatusTableViewController.swift' || true
+          grep -n -F -A3 -B2 'stack.addArrangedSubview(leakButton)' 'Loop/Loop/View Controllers/StatusTableViewController.swift' || true
+          grep -n -F -A3 -B2 'cell.onLeakReview' 'Loop/Loop/View Controllers/StatusTableViewController.swift' || true
           git -C Loop apply --check ../customizations/LoKeyPodChangeShortcut.patch
           git -C Loop apply ../customizations/LoKeyPodChangeShortcut.patch
           # Guard against a no-op shortcut and accidental direct pump command.
