@@ -92,7 +92,7 @@ def install() -> None:
 
     source = replace_once(
         source,
-        '''        let leakWatch = deviceManager.loKeyLeakSupervisorState()
+        r'''        let leakWatch = deviceManager.loKeyLeakSupervisorState()
         if leakWatch.isWatching {
             if leakWatch.isPreviousPod, let minutes = leakWatch.minutesRemaining {
                 loKeyStatusText?.text = "● Loop · WATCH \(minutes / 60)h"
@@ -101,7 +101,7 @@ def install() -> None:
             }
             loKeyStatusText?.textColor = .systemOrange
         }''',
-        '''        let leakWatch = deviceManager.loKeyLeakSupervisorState()
+        r'''        let leakWatch = deviceManager.loKeyLeakSupervisorState()
         if leakWatch.isWatching {
             // Keep both safety facts: the last completed Loop age retains its
             // own native traffic-light color; the leak banner stays orange.
@@ -121,7 +121,7 @@ def install() -> None:
 
     source = replace_once(
         source,
-        '''    @objc private func loKeyChangePage(_ sender: UISegmentedControl) {''',
+        r'''    @objc private func loKeyChangePage(_ sender: UISegmentedControl) {''',
         '''    @objc private func loKeyLastSuccessfulLoopTapped(_ sender: UITapGestureRecognizer) {
         let last = deviceManager.loopManager.lastLoopCompleted
         let exactTime = last.map {
