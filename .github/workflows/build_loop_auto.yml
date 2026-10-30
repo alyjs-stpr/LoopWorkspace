@@ -394,12 +394,18 @@ jobs:
           # Pod-specific leak supervision: four successive >7 mg/dL rises;
           # six hours from actual replacement pod activation; no dosing changes.
           python3 Scripts/install_lokey_pod_leak_supervisor.py
+          # Keep the header's last successful Loop time in sync with native
+          # green/yellow/red freshness; tapping opens native Loop status.
+          python3 Scripts/install_lokey_loop_status_shortcut.py
           # Preserve pump-reported decimal reservoir precision below 50 U.
           # Above threshold remains 50+ U; no synthetic estimate.
           git -C OmnipodKit apply --check ../customizations/LoKeyBuild29PreciseReservoir.patch
           git -C OmnipodKit apply ../customizations/LoKeyBuild29PreciseReservoir.patch
           git -C OmnipodKit apply --unidiff-zero --check ../customizations/LoKeyBuild36PodTelemetry.patch
           git -C OmnipodKit apply --unidiff-zero ../customizations/LoKeyBuild36PodTelemetry.patch
+          # Build 1 stabilization: read-only previous-pod identity, late leak
+          # attribution, tiered notifications, freshness indicator and history.
+          python3 Scripts/install_lokey_build1_hardening.py
           echo "LoKey final dashboard polish applied."
           echo "LoKey T1D rounded chart cards and shared Now markers applied."
 
