@@ -207,6 +207,16 @@ jobs:
           git -C OmnipodKit apply ../customizations/LoKeyBuild29PreciseReservoir.patch
           git -C OmnipodKit apply --unidiff-zero --check ../customizations/LoKeyBuild36PodTelemetry.patch
           git -C OmnipodKit apply --unidiff-zero ../customizations/LoKeyBuild36PodTelemetry.patch
+          # Build 1 stabilization: read-only previous-pod identity, late leak
+          # attribution, tiered notifications, freshness indicator and history.
+          python3 Scripts/install_lokey_build1_hardening.py
+          grep -Fq 'rawValue["previousPodActivatedAt"] = previousActivatedAt' "OmnipodKit/OmnipodKit/PumpManagerUI/OmniHUDProvider.swift"
+          grep -Fq 'Actually Previous Pod' 'Loop/Loop/View Controllers/StatusTableViewController.swift'
+          grep -Fq 'leakHistoryButton.setTitle("Leak History", for: .normal)' 'Loop/Loop/View Controllers/StatusTableViewController.swift'
+          grep -Fq 'severity <= priorSeverity' 'Loop/Loop/Managers/DeviceDataManager.swift'
+          grep -Fq 'No fresh CGM readings' 'Loop/Loop/View Controllers/StatusTableViewController.swift'
+          grep -Fq 'LoKeyLeakWatchLastSeverityV1' 'Loop/Loop/Managers/DeviceDataManager.swift'
+          ! grep -Fq 'notification.body = summary + " Review Loop and check whether a correction is appropriate' 'Loop/Loop/Managers/DeviceDataManager.swift'
       - name: Parse modified Swift files
         shell: bash
         run: |
@@ -668,6 +678,16 @@ jobs:
           git -C OmnipodKit apply ../customizations/LoKeyBuild29PreciseReservoir.patch
           git -C OmnipodKit apply --unidiff-zero --check ../customizations/LoKeyBuild36PodTelemetry.patch
           git -C OmnipodKit apply --unidiff-zero ../customizations/LoKeyBuild36PodTelemetry.patch
+          # Build 1 stabilization: read-only previous-pod identity, late leak
+          # attribution, tiered notifications, freshness indicator and history.
+          python3 Scripts/install_lokey_build1_hardening.py
+          grep -Fq 'rawValue["previousPodActivatedAt"] = previousActivatedAt' "OmnipodKit/OmnipodKit/PumpManagerUI/OmniHUDProvider.swift"
+          grep -Fq 'Actually Previous Pod' 'Loop/Loop/View Controllers/StatusTableViewController.swift'
+          grep -Fq 'leakHistoryButton.setTitle("Leak History", for: .normal)' 'Loop/Loop/View Controllers/StatusTableViewController.swift'
+          grep -Fq 'severity <= priorSeverity' 'Loop/Loop/Managers/DeviceDataManager.swift'
+          grep -Fq 'No fresh CGM readings' 'Loop/Loop/View Controllers/StatusTableViewController.swift'
+          grep -Fq 'LoKeyLeakWatchLastSeverityV1' 'Loop/Loop/Managers/DeviceDataManager.swift'
+          ! grep -Fq 'notification.body = summary + " Review Loop and check whether a correction is appropriate' 'Loop/Loop/Managers/DeviceDataManager.swift'
           git -C NightscoutService apply --check ../customizations/LoKeyT1PalNightscout.patch
           git -C NightscoutService apply ../customizations/LoKeyT1PalNightscout.patch
       # This is a source compilation smoke test, not an installable app package.
