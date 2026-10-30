@@ -122,7 +122,7 @@ def install() -> None:
     source = replace_once(
         source,
         r'''    @objc private func loKeyChangePage(_ sender: UISegmentedControl) {''',
-        '''    @objc private func loKeyLastSuccessfulLoopTapped(_ sender: UITapGestureRecognizer) {
+        r'''    @objc private func loKeyLastSuccessfulLoopTapped(_ sender: UITapGestureRecognizer) {
         let last = deviceManager.loopManager.lastLoopCompleted
         let exactTime = last.map {
             DateFormatter.localizedString(from: $0, dateStyle: .medium, timeStyle: .short)
