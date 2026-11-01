@@ -210,6 +210,10 @@ jobs:
           # Build 1 stabilization: read-only previous-pod identity, late leak
           # attribution, tiered notifications, freshness indicator and history.
           python3 Scripts/install_lokey_build1_hardening.py
+          # UI-only repair; fail build if native source anchors changed.
+          python3 Scripts/install_lokey_ui_repair.py
+          grep -Fq 'loKeyPrimaryHeader' "Loop/Loop/View Controllers/StatusTableViewController.swift"
+          grep -Fq 'overrideSelectionControllerDidEndCurrentOverride' "Loop/WatchApp Extension/Controllers/ActionHUDController.swift"
           grep -Fq 'rawValue["previousPodActivatedAt"] = previousActivatedAt' "OmnipodKit/OmnipodKit/PumpManagerUI/OmniHUDProvider.swift"
           grep -Fq 'Actually Previous Pod' 'Loop/Loop/View Controllers/StatusTableViewController.swift'
           grep -Fq 'leakHistoryButton.setTitle("Leak History", for: .normal)' 'Loop/Loop/View Controllers/StatusTableViewController.swift'
@@ -222,7 +226,7 @@ jobs:
         run: |
           set -euo pipefail
           command -v swiftc
-          swiftc -frontend -parse "Loop/Loop Widget Extension/Timeline/StatusWidgetTimelineProvider.swift" "Loop/Loop Widget Extension/Components/GlucoseView.swift" "Loop/Loop/View Controllers/StatusTableViewController.swift" "Loop/LoopUI/Views/StatusBarHUDView.swift" "Loop/Loop/Views/SettingsView.swift" "Loop/Loop/Views/CarbEntryView.swift" "Loop/Loop/Views/BolusEntryView.swift" "Loop/Loop/View Models/BolusEntryViewModel.swift" "Loop/Loop/Managers/LoopDataManager.swift" "Loop/Loop/Managers/Missed Meal Detection/MealDetectionManager.swift" "Loop/LoopTests/Managers/MealDetectionManagerTests.swift" "LoopKit/LoopKitUI/View Controllers/ChartsManager.swift" "LoopKit/LoopKitUI/Charts/DoseChart.swift"
+          swiftc -frontend -parse "Loop/Loop Widget Extension/Timeline/StatusWidgetTimelineProvider.swift" "Loop/Loop Widget Extension/Components/GlucoseView.swift" "Loop/Loop/View Controllers/StatusTableViewController.swift" "Loop/LoopUI/Views/StatusBarHUDView.swift" "Loop/Loop/Views/SettingsView.swift" "Loop/Loop/Views/CarbEntryView.swift" "Loop/Loop/Views/BolusEntryView.swift" "Loop/Loop/View Models/BolusEntryViewModel.swift" "Loop/Loop/Managers/LoopDataManager.swift" "Loop/Loop/Managers/Missed Meal Detection/MealDetectionManager.swift" "Loop/LoopTests/Managers/MealDetectionManagerTests.swift" "Loop/WatchApp Extension/Controllers/ActionHUDController.swift" "Loop/WatchApp Extension/Controllers/OverrideSelectionController.swift" "LoopKit/LoopKitUI/View Controllers/ChartsManager.swift" "LoopKit/LoopKitUI/Charts/DoseChart.swift"
       - name: Execute source-derived missed-meal notification timing checks
         shell: bash
         run: |
@@ -681,6 +685,10 @@ jobs:
           # Build 1 stabilization: read-only previous-pod identity, late leak
           # attribution, tiered notifications, freshness indicator and history.
           python3 Scripts/install_lokey_build1_hardening.py
+          # UI-only repair; fail build if native source anchors changed.
+          python3 Scripts/install_lokey_ui_repair.py
+          grep -Fq 'loKeyPrimaryHeader' "Loop/Loop/View Controllers/StatusTableViewController.swift"
+          grep -Fq 'overrideSelectionControllerDidEndCurrentOverride' "Loop/WatchApp Extension/Controllers/ActionHUDController.swift"
           grep -Fq 'rawValue["previousPodActivatedAt"] = previousActivatedAt' "OmnipodKit/OmnipodKit/PumpManagerUI/OmniHUDProvider.swift"
           grep -Fq 'Actually Previous Pod' 'Loop/Loop/View Controllers/StatusTableViewController.swift'
           grep -Fq 'leakHistoryButton.setTitle("Leak History", for: .normal)' 'Loop/Loop/View Controllers/StatusTableViewController.swift'
