@@ -102,12 +102,13 @@ private struct LoKeyLoopDataArchiveView: View {
             let settingsData = try encoder.encode(viewModel.therapySettings())
             let currentSettings = try JSONSerialization.jsonObject(with: settingsData)
 
+            let iso = ISO8601DateFormatter()
             var readings = [[String: Any]]()
             for sample in glucose {
                 let value = sample.quantity.doubleValue(for: .milligramsPerDeciliter)
                 guard value.isFinite else { continue }
                 readings.append([
-                    "date": ISO8601DateFormatter().string(from: sample.startDate),
+                    "date": iso.string(from: sample.startDate),
                     "glucoseMgDl": value,
                     "displayOnly": sample.isDisplayOnly,
                     "userEntered": sample.wasUserEntered
@@ -151,7 +152,7 @@ private struct LoKeyLoopDataArchiveView: View {
             let archive: [String: Any] = [
                 "format": "LoKeyLoopReferenceArchive",
                 "schemaVersion": 1,
-                "createdAt": ISO8601DateFormatter().string(from: now),
+                "createdAt": iso.string(from: now),
                 "disclaimer": "Not an app backup or pump/controller restore. Never import as active IOB, settings or pump state without clinical review.",
                 "currentTherapySettings": currentSettings,
                 "closedLoopPreference": String(describing: viewModel.closedLoopPreference),
