@@ -264,21 +264,21 @@ jobs:
         run: |
           grep -Fq 'private struct LoKeyLoopDataArchiveView: View {' 'Loop/Loop/Views/SettingsView.swift'
           grep -Fq 'Prepare Data Archive' 'Loop/Loop/Views/SettingsView.swift'
-      - name: Compile complete Loop workspace for iOS device (no signing or upload)
+      - name: Archive workspace with signing disabled (no export or TestFlight upload)
         shell: bash
         run: |
           set -o pipefail
-          # Unlike an iPhone Simulator target build, an iOS-device workspace
-          # build resolves the LoopKit and WatchKit dependencies together.
-          # This mirrors the production workspace/scheme but creates NO IPA.
+          # Last known successful production builds use Xcode's archive action,
+          # not the scheme-wide build action. Mirror that to correctly resolve
+          # watchOS targets but explicitly disable signing and IPA export.
           xcodebuild \
             -workspace LoopWorkspace.xcworkspace \
             -scheme LoopWorkspace \
             -configuration Release \
-            -sdk iphoneos \
             -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/LoKeyArchiveValidation.xcarchive" \
             CODE_SIGNING_ALLOWED=NO \
-            build > lokey-archive-build.log 2>&1 || { grep -E "error:|BUILD FAILED|failed" lokey-archive-build.log | tail -n 70; tail -n 90 lokey-archive-build.log; exit 1; }
+            archive > lokey-archive-build.log 2>&1 || { grep -E "error:|BUILD FAILED|failed" lokey-archive-build.log | tail -n 70; tail -n 90 lokey-archive-build.log; exit 1; }
           tail -n 30 lokey-archive-build.log
       - name: Upload compile diagnostics
         if: always()
