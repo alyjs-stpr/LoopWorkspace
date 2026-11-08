@@ -1,0 +1,285 @@
+name: Validate LoKey Data Archive (no release)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'Scripts/install_lokey_loop_data_archive.py'
+      - '.github/workflows/build_loop.yml'
+      - '.github/workflows/validate_lokey_loop_archive.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  archive-compile:
+    name: Apply all LoKey customizations and compile (no signing)
+    runs-on: macos-26
+    timeout-minutes: 90
+    steps:
+      - name: Check out repository and pinned submodules
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+      - name: Select same Xcode as production build
+        run: sudo xcode-select --switch /Applications/Xcode_27.0.app/Contents/Developer
+      - name: Validate archive installer syntax
+        run: python3 -m py_compile Scripts/install_lokey_loop_data_archive.py
+      - name: Customize Loop
+        run: |
+
+          # LoopWorkspace patches
+          # -applies any patches located in the LoopWorkspace/patches/ directory
+          # Only accept actual .patch files; ignore instructions/README files.
+          # Refuse incompatible patches before attempting to apply them.
+          for patch in ./patches/*.patch; do
+            [ -f "$patch" ] || break
+            git apply --check "$patch"
+            git apply --whitespace=fix "$patch"
+          done
+
+          # LoKey T1D graph colors: patch chart UI inside the Loop submodule only.
+          # Check before applying so upstream changes cannot silently skip the palette.
+          git -C Loop apply --check ../customizations/LoKeyChartColors.patch
+          git -C Loop apply ../customizations/LoKeyChartColors.patch
+          echo "LoKey T1D chart palette applied (glucose purple with lavender target band, insulin vivid green, carbs orange)."
+
+          # LoKey T1D extra food emojis: presentation-only modification in LoopKitUI.
+          # Keep the Fast, Medium, and Slow absorption shortcuts unchanged.
+          git -C LoopKit apply --check ../customizations/LoKeyFoodEmojis.patch
+          git -C LoopKit apply ../customizations/LoKeyFoodEmojis.patch
+
+          # Sparse, adaptive time ticks on all four graphs (display only).
+          git -C LoopKit apply --check ../customizations/LoKeyAxisReadability.patch
+          git -C LoopKit apply ../customizations/LoKeyAxisReadability.patch
+          # Exact chart-axis endpoints; read-only presentation fix.
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild26ExactAxisBounds.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild26ExactAxisBounds.patch
+          echo "LoKey chart time axis cleaned up."
+          echo "LoKey T1D More Foods picker applied (18 new icons)."
+
+          # LoKey T1D reporting: read-only settings PDF and historical Loop-target TIR.
+          git -C Loop apply --check ../customizations/LoKeyReports.patch
+          git -C Loop apply ../customizations/LoKeyReports.patch
+          echo "LoKey T1D Reports & Time in Loop Target applied."
+
+          # LoKey T1D quick access to read-only TIR report from the bottom toolbar.
+          # Apply AFTER LoKeyReports.patch because this modifies the report screen's host.
+          git -C Loop apply --check ../customizations/LoKeyTIRShortcut.patch
+          git -C Loop apply ../customizations/LoKeyTIRShortcut.patch
+          echo "LoKey T1D bottom toolbar TIR shortcut applied."
+
+          # LoKey T1D dashboard insights are presentation-only. Apply after the
+          # TIR shortcut because both patches touch StatusTableViewController.
+          git -C Loop apply --check ../customizations/LoKeyDashboardInsights.patch
+          git -C Loop apply ../customizations/LoKeyDashboardInsights.patch
+          echo "LoKey T1D dashboard insights and precise daily insulin total applied."
+
+          # Cosmetic card spacing and shared Now markers, after the dashboard.
+          git -C Loop apply --check ../customizations/LoKeyDashboardPolish.patch
+          git -C Loop apply ../customizations/LoKeyDashboardPolish.patch
+
+          # Final dashboard-only safe-area, forecast, and alignment refinements.
+          git -C Loop apply --check ../customizations/LoKeyDashboardFinalPass.patch
+          git -C Loop apply ../customizations/LoKeyDashboardFinalPass.patch
+
+          # Display-only Build 12 follow-up: actual axis alignment and readable history.
+          git -C LoopKit apply --check ../customizations/LoKeyDashboardCleanupLoopKit.patch
+          git -C LoopKit apply ../customizations/LoKeyDashboardCleanupLoopKit.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28SplitTimeAxisCore.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28SplitTimeAxisCore.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28GlucoseProjection.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28GlucoseProjection.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28PredictionsProjection.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28PredictionsProjection.patch
+          # Build 29: connect observed CGM readings with a solid dashboard line.
+          # Leave future predictions dashed, and insulin/meal logic untouched.
+          git -C LoopKit apply --check ../customizations/LoKeyBuild29SolidGlucoseHistory.patch
+          git -C LoopKit apply ../customizations/LoKeyBuild29SolidGlucoseHistory.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28TargetScheduleDates.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28TargetScheduleDates.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28IOBProjection.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28IOBProjection.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28COBProjection.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28COBProjection.patch
+          git -C LoopKit apply --unidiff-zero --check ../customizations/LoKeyBuild28DoseProjection.patch
+          git -C LoopKit apply --unidiff-zero ../customizations/LoKeyBuild28DoseProjection.patch
+          git -C Loop apply --check ../customizations/LoKeyDashboardCleanupLoop.patch
+          git -C Loop apply ../customizations/LoKeyDashboardCleanupLoop.patch
+
+          # Adaptive Meals adds only independent tracking and local storage.
+          git -C Loop apply --check ../customizations/LoKeyAdaptiveMealsTracking.patch
+          git -C Loop apply ../customizations/LoKeyAdaptiveMealsTracking.patch
+          # Build 13: inline measured carbs/protein and explicit carb-copy confirmation.
+          # Applies after the observation-only feature; never changes the bolus engine.
+          git -C Loop apply --check ../customizations/LoKeyAdaptiveMealsUnifiedEntry.patch
+          git -C Loop apply ../customizations/LoKeyAdaptiveMealsUnifiedEntry.patch
+
+          # Notification-only guard: avoid false missed-meal prompts after logged meals.
+          git -C Loop apply --check ../customizations/LoKeyMissedMealNotificationGuard.patch
+          git -C Loop apply ../customizations/LoKeyMissedMealNotificationGuard.patch
+          # Build 17: history/settings cleanup, separate from Loop dosing.
+          git -C Loop apply --check ../customizations/LoKeyBuild17MealHistoryCleanup.patch
+          git -C Loop apply ../customizations/LoKeyBuild17MealHistoryCleanup.patch
+          # Display-only Home Screen widget failure and stale-data handling.
+          git -C Loop apply --check ../customizations/LoKeyBuild17WidgetReliability.patch
+          git -C Loop apply ../customizations/LoKeyBuild17WidgetReliability.patch
+          # Build 18: presentation and keyboard only; carb dosing handoff remains unchanged.
+          git -C Loop apply --check ../customizations/LoKeyBuild18ToolbarLayout.patch
+          git -C Loop apply ../customizations/LoKeyBuild18ToolbarLayout.patch
+          git -C Loop apply --check ../customizations/LoKeyBuild18KeyboardOnly.patch
+          git -C Loop apply ../customizations/LoKeyBuild18KeyboardOnly.patch
+          git -C Loop apply --check ../customizations/LoKeyBuild18ReportsUX.patch
+          git -C Loop apply ../customizations/LoKeyBuild18ReportsUX.patch
+          # Widget-only recovery: keep timeline completion non-blocking with fallback.
+          git -C Loop apply --check ../customizations/LoKeyBuild19WidgetTimeoutRecovery.patch
+          git -C Loop apply ../customizations/LoKeyBuild19WidgetTimeoutRecovery.patch
+          # Build 20: one combined calculator with user-confirmed carb equivalent.
+          git -C Loop apply --check ../customizations/LoKeyBuild20UnifiedMealCalculator.patch
+          git -C Loop apply ../customizations/LoKeyBuild20UnifiedMealCalculator.patch
+          # Build 21: record a meal once, only after native Loop CarbStore succeeds.
+          git -C Loop apply --check ../customizations/LoKeyBuild21ConfirmedMealCapture.patch
+          git -C Loop apply ../customizations/LoKeyBuild21ConfirmedMealCapture.patch
+          # Theme Park Mode: independent temporary correction target and
+          # native carb-save options. Existing insulin prediction stays unchanged.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyThemeParkMode.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyThemeParkMode.patch
+          # Forecast selector: one hour of history plus the next 1 / 3 / 6 hours.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyForecastWindows.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyForecastWindows.patch
+          # Simplify meal entry and suggest the meal type using its timestamp.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyMealEntryPolish.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyMealEntryPolish.patch
+          # UI-only: keep the Now overlay visible before generated chart ticks exist.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyNowMarkerStability.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyNowMarkerStability.patch
+          # Compact interactive park control center, separate from Loop dosing.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyParkControls.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyParkControls.patch
+          # Adaptive Shadow: read-only evaluation before subsequent presentation cleanups.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyAdaptiveShadowCapture.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyAdaptiveShadowCapture.patch
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyAdaptiveShadowUI.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyAdaptiveShadowUI.patch
+          # Build 24 UI-only cleanup: one-tap Meal button remains canonical.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild24BolusKeyboardAndParkMealCleanup.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild24BolusKeyboardAndParkMealCleanup.patch
+          # Build 25: view-only fixed chart timeline and independent last-bolus history.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild25FixedTimeline.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild25FixedTimeline.patch
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild25LastBolusSummary.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild25LastBolusSummary.patch
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild25MarkerRefresh.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild25MarkerRefresh.patch
+          # Build 27: balanced, display-only 3h history / 6h forecast timeline.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild27BalancedHistory.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild27BalancedHistory.patch
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild28StatusView.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild28StatusView.patch
+          # Build 32: approved Omnipod-inspired LoKey pages, UI only; therapy still Loop-owned.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild32NativePages.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild32NativePages.patch
+          # Central LoKey-specific settings hub (UI-only; shared Shadow opt-in key).
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeySettingsHub.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeySettingsHub.patch
+          # Build 33: Shadow submenu with on-device, read-only record dashboard.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild33ShadowDashboard.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild33ShadowDashboard.patch
+          # Build 35: live dashboard age, bolus and carbs refresh after Loop fetches.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild35LiveDashboardRefresh.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild35LiveDashboardRefresh.patch
+          # Final native tab layout, one safety-aware glucose HUD, insulin summary, pod details.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild36FinishNativeUI.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild36FinishNativeUI.patch
+          # Restore the approved Build 32 purple glucose card without an extra native HUD row.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyRestoreBuild32PurpleDashboard.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyRestoreBuild32PurpleDashboard.patch
+          # Observe CGM updates after user reports a suspected pod leak; no dosing changes.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeySuspectedPodLeakAnnotation.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeySuspectedPodLeakAnnotation.patch
+          # Keep the approved purple card, but never repeat the healthy CGM
+          # reading in the native HUD. Show native CGM tiles for alerts/stale data.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeySingleGlucoseDashboard.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeySingleGlucoseDashboard.patch
+          # Approved mockups: full purple current CGM + large trend, green insulin,
+          # pod details, compact safety HUD and 4-button toolbar.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyApprovedScreensFinalUI.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyApprovedScreensFinalUI.patch
+          # Expose native Omnipod pod replacement from Pod Info without sending pump commands.
+          git -C Loop apply --check ../customizations/LoKeyPodChangeShortcut.patch
+          git -C Loop apply ../customizations/LoKeyPodChangeShortcut.patch
+          # Pod-specific leak supervision: four successive >7 mg/dL rises;
+          # six hours from actual replacement pod activation; no dosing changes.
+          python3 Scripts/install_lokey_pod_leak_supervisor.py
+          # Keep the header's last successful Loop time in sync with native
+          # green/yellow/red freshness; tapping opens native Loop status.
+          python3 Scripts/install_lokey_loop_status_shortcut.py
+          # Preserve pump-reported decimal reservoir precision below 50 U.
+          # Above threshold remains 50+ U; no synthetic estimate.
+          git -C OmnipodKit apply --check ../customizations/LoKeyBuild29PreciseReservoir.patch
+          git -C OmnipodKit apply ../customizations/LoKeyBuild29PreciseReservoir.patch
+          git -C OmnipodKit apply --unidiff-zero --check ../customizations/LoKeyBuild36PodTelemetry.patch
+          git -C OmnipodKit apply --unidiff-zero ../customizations/LoKeyBuild36PodTelemetry.patch
+          # Build 1 stabilization: read-only previous-pod identity, late leak
+          # attribution, tiered notifications, freshness indicator and history.
+          python3 Scripts/install_lokey_build1_hardening.py
+          # Final UI-only repair: preserve the large CGM card during Theme Park
+          # mode and expose Workout separately in the Watch target chooser.
+          python3 Scripts/install_lokey_ui_repair.py
+          # Opt-in, read-only reference archive for users moving to another app.
+          # This is NOT an insulin pump restore and changes no dose calculations.
+          python3 Scripts/install_lokey_loop_data_archive.py
+          grep -Fq 'loKeyPrimaryHeader' "Loop/Loop/View Controllers/StatusTableViewController.swift"
+          grep -Fq 'overrideSelectionControllerDidEndCurrentOverride' "Loop/WatchApp Extension/Controllers/ActionHUDController.swift"
+          echo "LoKey final dashboard polish applied."
+          echo "LoKey T1D rounded chart cards and shared Now markers applied."
+
+          # T1Pal returns a server error for Nightscout's legacy auth-test endpoint.
+          # Apply a bounded authenticated-read fallback only for t1pal.com sites.
+          git -C NightscoutService apply --check ../customizations/LoKeyT1PalNightscout.patch
+          git -C NightscoutService apply ../customizations/LoKeyT1PalNightscout.patch
+          echo "LoKey T1D T1Pal Nightscout login compatibility applied."
+
+          # Submodule Loop patches:
+          # Template for customizing submodule Loop (changes Loop app name to "CustomLoop")
+          # Remove the "#" sign from the beginning of the line below to activate:
+          #curl https://github.com/loopnlearn/Loop/commit/d206432b024279ef710df462b20bd464cd9682d4.patch | git apply --directory=Loop -v --whitespace=fix
+
+          # Submodule LoopKit patches:
+          # General template for customizing submodule LoopKit 
+          # Copy url from a GitHub commit or pull request and insert below, and remove the "#" sign from the beginning of the line to activate:
+          #curl url_to_github_commit.patch | git apply --directory=LoopKit -v --whitespace=fix
+
+          # Submodule xxxxx patches:
+
+          # Add patches for customization of additional submodules by following the templates above, 
+          # and make sure to specify the submodule by setting "--directory=(submodule_name)".
+          # Several patches may be added per submodule.
+          # Adding comments (#) may be useful to easily tell the individual patches apart.
+
+      - name: Check archival UI was installed
+        run: |
+          grep -Fq 'private struct LoKeyLoopDataArchiveView: View {' 'Loop/Loop/Views/SettingsView.swift'
+          grep -Fq 'Prepare Data Archive' 'Loop/Loop/Views/SettingsView.swift'
+      - name: Compile iOS app with widget, no signing or TestFlight upload
+        shell: bash
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -workspace LoopWorkspace.xcworkspace \
+            -scheme LoopWorkspace \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build > lokey-archive-build.log 2>&1 || { tail -n 150 lokey-archive-build.log; exit 1; }
+          tail -n 25 lokey-archive-build.log
+      - name: Upload compile diagnostics
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: lokey-loop-archive-validation-log
+          path: lokey-archive-build.log
+          if-no-files-found: ignore
+          retention-days: 7
