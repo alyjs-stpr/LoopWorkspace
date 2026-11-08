@@ -15,15 +15,17 @@ permissions:
 jobs:
   archive-compile:
     name: Apply all LoKey customizations and compile workspace (no signing)
-    runs-on: macos-26
+    runs-on: xcode-27
     timeout-minutes: 90
     steps:
       - name: Check out repository and pinned submodules
         uses: actions/checkout@v5
         with:
           submodules: recursive
-      - name: Select available Xcode version for unsigned simulator validation
-        run: sudo xcode-select --switch /Applications/Xcode_26.5.app/Contents/Developer
+      - name: Use same Xcode version as successful production build
+        run: |
+          sudo xcode-select --switch /Applications/Xcode_27.0.app/Contents/Developer
+          xcodebuild -version
       - name: Validate archive installer syntax
         run: python3 -m py_compile Scripts/install_lokey_loop_data_archive.py
       - name: Customize Loop
