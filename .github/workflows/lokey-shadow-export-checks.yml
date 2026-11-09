@@ -1,0 +1,28 @@
+name: Shadow export source checks
+on:
+  pull_request:
+    paths:
+      - 'Scripts/install_lokey_shadow_files_export.py'
+      - 'Scripts/tests/test_lokey_shadow_files_export.py'
+      - '.github/workflows/build_loop.yml'
+      - '.github/workflows/build_loop_auto.yml'
+      - '.github/workflows/lokey_dashboard_checks.yml'
+      - '.github/workflows/lokey-shadow-export-checks.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  export-safety:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify targeted, fail-closed Shadow export installer
+        run: python3 -m unittest discover -s Scripts/tests -p test_lokey_shadow_files_export.py -v
+      - name: Confirm all build routes install the same export fix
+        run: |
+          set -euo pipefail
+          for workflow in .github/workflows/build_loop.yml .github/workflows/build_loop_auto.yml .github/workflows/lokey_dashboard_checks.yml; do
+            grep -Fq 'python3 Scripts/install_lokey_shadow_files_export.py' "$workflow"
+          done
+          grep -Fq 'fileExporter(isPresented: $showingExporter' Scripts/install_lokey_shadow_files_export.py
+          grep -Fq 'No partial archive was created.' Scripts/install_lokey_shadow_files_export.py
