@@ -166,6 +166,7 @@ private enum LoKeyShadowArchiveBuilder {
             throw ExportError.missingStorage
         }
         let directory = root.appendingPathComponent("LoKeyAdaptiveShadow", isDirectory: true)
+        guard manager.fileExists(atPath: directory.path) else { throw ExportError.noRecords }
         let files = try manager.contentsOfDirectory(
             at: directory, includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey]
         ).filter {
