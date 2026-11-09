@@ -344,6 +344,8 @@ jobs:
           # Build 33: Shadow submenu with on-device, read-only record dashboard.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild33ShadowDashboard.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild33ShadowDashboard.patch
+          # Read-only export: replace the .jsonl share sheet with a system Save to Files JSON document.
+          python3 Scripts/install_lokey_shadow_files_export.py
           # Build 35: live dashboard age, bolus and carbs refresh after Loop fetches.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyBuild35LiveDashboardRefresh.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyBuild35LiveDashboardRefresh.patch
