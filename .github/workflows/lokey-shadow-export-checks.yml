@@ -18,6 +18,22 @@ jobs:
       - uses: actions/checkout@v4
       - name: Verify targeted, fail-closed Shadow export installer
         run: python3 -m unittest discover -s Scripts/tests -p test_lokey_shadow_files_export.py -v
+      - name: Parse generated Swift source (syntax only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import importlib.util
+          from pathlib import Path
+          script = Path("Scripts/install_lokey_shadow_files_export.py")
+          spec = importlib.util.spec_from_file_location("shadow_export", script)
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          Path("/tmp/LoKeyShadowExport.swift").write_text(
+              "import SwiftUI\nimport UniformTypeIdentifiers\n" + module.REPLACEMENT
+          )
+          PY
+          swiftc -frontend -parse /tmp/LoKeyShadowExport.swift
       - name: Confirm all build routes install the same export fix
         run: |
           set -euo pipefail
