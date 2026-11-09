@@ -1,0 +1,44 @@
+name: Shadow export source checks
+on:
+  pull_request:
+    paths:
+      - 'Scripts/install_lokey_shadow_files_export.py'
+      - 'Scripts/tests/test_lokey_shadow_files_export.py'
+      - '.github/workflows/build_loop.yml'
+      - '.github/workflows/build_loop_auto.yml'
+      - '.github/workflows/lokey_dashboard_checks.yml'
+      - '.github/workflows/lokey-shadow-export-checks.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  export-safety:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify targeted, fail-closed Shadow export installer
+        run: python3 -m unittest discover -s Scripts/tests -p test_lokey_shadow_files_export.py -v
+      - name: Parse generated Swift source (syntax only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import importlib.util
+          from pathlib import Path
+          script = Path("Scripts/install_lokey_shadow_files_export.py")
+          spec = importlib.util.spec_from_file_location("shadow_export", script)
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          Path("/tmp/LoKeyShadowExport.swift").write_text(
+              "import SwiftUI\nimport UniformTypeIdentifiers\n" + module.REPLACEMENT
+          )
+          PY
+          swiftc -frontend -parse /tmp/LoKeyShadowExport.swift
+      - name: Confirm all build routes install the same export fix
+        run: |
+          set -euo pipefail
+          for workflow in .github/workflows/build_loop.yml .github/workflows/build_loop_auto.yml .github/workflows/lokey_dashboard_checks.yml; do
+            grep -Fq 'python3 Scripts/install_lokey_shadow_files_export.py' "$workflow"
+          done
+          grep -Fq 'fileExporter(isPresented: $showingExporter' Scripts/install_lokey_shadow_files_export.py
+          grep -Fq 'No partial archive was created.' Scripts/install_lokey_shadow_files_export.py
