@@ -385,6 +385,9 @@ jobs:
           # Final UI-only repair: preserve the large CGM card during Theme Park
           # mode and expose Workout separately in the Watch target chooser.
           python3 Scripts/install_lokey_ui_repair.py
+          # Opt-in, read-only reference archive for users moving to another app.
+          # This is NOT an insulin pump restore and changes no dose calculations.
+          python3 Scripts/install_lokey_loop_data_archive.py
           grep -Fq 'loKeyPrimaryHeader' "Loop/Loop/View Controllers/StatusTableViewController.swift"
           grep -Fq 'overrideSelectionControllerDidEndCurrentOverride' "Loop/WatchApp Extension/Controllers/ActionHUDController.swift"
           echo "LoKey final dashboard polish applied."
