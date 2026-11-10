@@ -11,6 +11,11 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+# PR updates supersede older validation work; manual signed releases are separate.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   export-safety:
     runs-on: ubuntu-24.04
