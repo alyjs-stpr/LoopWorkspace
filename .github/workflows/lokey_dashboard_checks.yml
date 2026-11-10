@@ -23,6 +23,11 @@ on:
       - '.github/workflows/build_loop*.yml'
   workflow_dispatch:
 
+# PR updates supersede older validation work; manual signed releases are separate.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate-dashboard:
     name: Patch compatibility and Swift parsing
@@ -502,6 +507,8 @@ jobs:
           done
 
   compile-ios:
+    # A failed/invalid patch preflight should never launch an expensive macOS compile.
+    needs: validate-dashboard
     # Manual pre-merge validation must compile Swift too, not just parse patches.
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     name: Unsigned iOS simulator compile (no upload)
