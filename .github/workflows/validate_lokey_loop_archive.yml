@@ -18,7 +18,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  archive-preflight:
+    name: Verify archive installer syntax before macOS
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Parse archive installer
+        run: python3 -m py_compile Scripts/install_lokey_loop_data_archive.py
+
   archive-compile:
+    # Avoid paying for the full iOS simulator if this inexpensive preflight fails.
+    needs: archive-preflight
     name: Apply all LoKey customizations and compile workspace (no signing)
     runs-on: xcode-27
     timeout-minutes: 90
