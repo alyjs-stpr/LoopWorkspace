@@ -239,7 +239,7 @@ jobs:
         run: |
           set -euo pipefail
           command -v swiftc
-          python3 -m unittest Scripts/tests/test_lokey_trio_widget.py
+          python3 Scripts/tests/test_lokey_trio_widget.py
           swiftc -frontend -parse "Loop/Common/Models/StatusExtensionContext.swift" "Loop/Loop/Managers/ExtensionDataManager.swift" "Loop/Loop Widget Extension/Timeline/StatusWidgetTimelimeEntry.swift" "Loop/Loop Widget Extension/Widgets/SystemStatusWidget.swift" "Loop/Loop Widget Extension/Timeline/StatusWidgetTimelineProvider.swift" "Loop/Loop Widget Extension/Components/GlucoseView.swift" "Loop/Loop/View Controllers/StatusTableViewController.swift" "Loop/LoopUI/Views/StatusBarHUDView.swift" "Loop/Loop/Views/SettingsView.swift" "Loop/Loop/Views/CarbEntryView.swift" "Loop/Loop/Views/BolusEntryView.swift" "Loop/Loop/View Models/BolusEntryViewModel.swift" "Loop/Loop/Managers/LoopDataManager.swift" "Loop/Loop/Managers/Missed Meal Detection/MealDetectionManager.swift" "Loop/LoopTests/Managers/MealDetectionManagerTests.swift" "Loop/WatchApp Extension/Controllers/ActionHUDController.swift" "Loop/WatchApp Extension/Controllers/OverrideSelectionController.swift" "LoopKit/LoopKitUI/View Controllers/ChartsManager.swift" "LoopKit/LoopKitUI/Charts/DoseChart.swift"
       - name: Execute source-derived missed-meal notification timing checks
         shell: bash
