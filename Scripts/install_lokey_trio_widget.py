@@ -224,7 +224,7 @@ struct SystemStatusWidgetEntryView: View {
                     .font(.system(size: 10, weight: .bold))
                     .foregroundColor(.orange)
             } else if let last = entry.currentGlucose?.startDate {
-                (Text("CGM ") + Text(last, style: .relative) + Text(" ago"))
+                (Text("CGM updated ") + Text(last, style: .relative))
                     .font(.system(size: 10))
                     .foregroundColor(secondary)
             }
