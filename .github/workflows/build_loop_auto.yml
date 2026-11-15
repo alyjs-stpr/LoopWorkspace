@@ -413,6 +413,8 @@ jobs:
           python3 Scripts/install_lokey_ui_repair.py
           grep -Fq 'loKeyPrimaryHeader' "Loop/Loop/View Controllers/StatusTableViewController.swift"
           grep -Fq 'overrideSelectionControllerDidEndCurrentOverride' "Loop/WatchApp Extension/Controllers/ActionHUDController.swift"
+          # Display-only dark glucose graph/IOB widget; no dosing or Bluetooth changes.
+          python3 Scripts/install_lokey_trio_widget.py
           echo "LoKey final dashboard polish applied."
           echo "LoKey T1D rounded chart cards and shared Now markers applied."
 
