@@ -48,6 +48,14 @@ def install():
         }
 '''
     status = replace_once(status, anchor, extra + anchor, "Settings host report sources")
+    # The normal dashboard is visited far more often than Pod History.
+    # Capture newly observed pod activations here without controlling the pump.
+    refresh_anchor = '    private func loKeyRefreshHeader() {'
+    capture = '''    private func loKeyRefreshHeader() {
+        // Purely historical bookkeeping, independent from Loop's insulin algorithm.
+        let podStart = deviceManager.pumpManagerHUDProvider?.hudViewRawState["podActivatedAt"] as? Date
+        LoKeyPodLedger.reconcile(podActivatedAt: podStart)'''
+    status = replace_once(status, refresh_anchor, capture, "Dashboard pod activation ledger")
     STATUS.write_text(status)
 
     settings = SETTINGS.read_text()
@@ -60,6 +68,8 @@ def install():
     settings = replace_once(settings, original, replacement, "LoKey Reports & Analytics navigation")
     if "private struct LoKeyReportsHubView: View {" in settings:
         raise RuntimeError("Reports & Analytics is already installed")
+    if "import UIKit" not in settings:
+        settings = "import UIKit\n" + settings
     SETTINGS.write_text(settings + SWIFT_SOURCE)
     print("PASS: installed reports hub, daily insulin history, pod ledger and clinician PDF; no dosing changes")
 
@@ -110,12 +120,13 @@ private struct LoKeyDoseTotals {
     }
 }
 
-private struct LoKeyPodRecord: Codable, Identifiable {
+struct LoKeyPodRecord: Codable, Identifiable {
     var id: String
     var activatedAt: Date
     var endedAt: Date?
     var endInferred: Bool
-    var fillUnits: Double?
+    var plannedFillUnits: Double?    // user plan; never claim this was measured
+    var fillUnits: Double?           // user-confirmed actual loaded amount
     var changeReason: String
 
     var wearHours: Double? {
@@ -124,7 +135,7 @@ private struct LoKeyPodRecord: Codable, Identifiable {
     }
 }
 
-private enum LoKeyPodLedger {
+enum LoKeyPodLedger {
     static let key = "LoKeyPodUsageLedgerV1"
     static let pendingFillKey = "LoKeyNextPodPlannedFillV1"
     static let reasons = ["Unrecorded", "Routine", "Suspected leak", "Pod failure", "Empty reservoir", "Adhesion / site", "Other"]
@@ -154,7 +165,8 @@ private enum LoKeyPodLedger {
         let planned = UserDefaults.standard.object(forKey: pendingFillKey) as? Double
         let acceptedFill = planned.flatMap { (85...200).contains($0) ? $0 : nil }
         records.append(LoKeyPodRecord(id: identifier, activatedAt: start,
-            endedAt: nil, endInferred: false, fillUnits: acceptedFill, changeReason: "Unrecorded"))
+            endedAt: nil, endInferred: false, plannedFillUnits: acceptedFill,
+            fillUnits: nil, changeReason: "Unrecorded"))
         if acceptedFill != nil {
             UserDefaults.standard.removeObject(forKey: pendingFillKey)
         }
@@ -192,6 +204,23 @@ private struct LoKeyReportsHubView: View {
             }
         }
         .navigationTitle("Reports & Analytics")
+    }
+}
+
+// Supports Loop's minimum iOS 15.1 target; SwiftUI LabeledContent requires iOS 16.
+private struct LoKeyMetricLine: View {
+    let title: String
+    let value: String
+    init(_ title: String, value: String) {
+        self.title = title
+        self.value = value
+    }
+    var body: some View {
+        HStack {
+            Text(title).font(.subheadline)
+            Spacer(minLength: 8)
+            Text(value).font(.subheadline).monospacedDigit()
+        }
     }
 }
 
@@ -296,7 +325,7 @@ private struct LoKeyPodUsageView: View {
     @State private var fillUnits = 110.0
     @State private var nextFillUnits = 110.0
     @State private var nextFillSaved = false
-    @State private var changeReason = "Suspected leak"
+    @State private var changeReason = "Unrecorded"
     @State private var snapshot: [String: Any] = [:]
     private let setupEstimate = 3.1
 
@@ -324,19 +353,22 @@ private struct LoKeyPodUsageView: View {
                         Spacer()
                         Text(current.activatedAt, style: .date)
                     }
+                    if let plan = current.plannedFillUnits {
+                        LoKeyMetricLine("Planned fill", value: String(format: "%.0f U", plan))
+                    }
                     if let fill = current.fillUnits {
-                        LabeledContent("Recorded fill", value: String(format: "%.0f U", fill))
+                        LoKeyMetricLine("Actual fill (you confirmed)", value: String(format: "%.0f U", fill))
                     } else {
-                        Text("No fill amount recorded yet").foregroundColor(.secondary)
+                        Text("Actual fill not yet confirmed").foregroundColor(.secondary)
                     }
                     Stepper(value: $fillUnits, in: 85...200, step: 1) {
-                        Text("Insulin put in pod: \(Int(fillUnits)) U")
+                        Text("Actual insulin loaded: \(Int(fillUnits)) U")
                     }
-                    Button("Save Fill Amount") { saveFill(id: current.id) }
+                    Button("Confirm Actual Fill Amount") { saveFill(id: current.id) }
                     if let delivered = totalForPod(current) {
-                        LabeledContent("Pump-reported delivery", value: String(format: "%.1f U", delivered))
+                        LoKeyMetricLine("Pump-reported delivery", value: String(format: "%.1f U", delivered))
                         if let filled = current.fillUnits {
-                            LabeledContent("Estimated unused insulin",
+                            LoKeyMetricLine("Estimated unused insulin",
                                 value: String(format: "%.1f U", max(0, filled - setupEstimate - delivered)))
                         }
                     }
@@ -364,11 +396,11 @@ private struct LoKeyPodUsageView: View {
                         .foregroundColor(.secondary)
                 } else {
                     let averageHours = completedHours.reduce(0, +) / Double(completedHours.count)
-                    LabeledContent("Average pod wear time", value: String(format: "%.1f h (%.2f days)",
+                    LoKeyMetricLine("Average pod wear time", value: String(format: "%.1f h (%.2f days)",
                         averageHours, averageHours / 24))
                     let confirmed = completed.compactMap { pod -> Double? in totalForPod(pod) }
                     if !confirmed.isEmpty {
-                        LabeledContent("Average pump-reported insulin per pod",
+                        LoKeyMetricLine("Average pump-reported insulin per pod",
                             value: String(format: "%.1f U", confirmed.reduce(0, +) / Double(confirmed.count)))
                     } else {
                         Text("Insulin-per-pod average unavailable until delivery history is recorded.")
@@ -379,13 +411,13 @@ private struct LoKeyPodUsageView: View {
                         return max(0, fill - setupEstimate - used)
                     }
                     if !estimatedUnused.isEmpty {
-                        LabeledContent("Average estimated unused insulin",
+                        LoKeyMetricLine("Average estimated unused insulin",
                             value: String(format: "%.1f U", estimatedUnused.reduce(0, +) / Double(estimatedUnused.count)))
                     }
                     let leaking = completed.filter { $0.changeReason == "Suspected leak" }
                     let leakHours = leaking.compactMap(\.wearHours)
                     if !leakHours.isEmpty {
-                        LabeledContent("Average wear until suspected leak",
+                        LoKeyMetricLine("Average wear until suspected leak",
                             value: String(format: "%.1f h", leakHours.reduce(0, +) / Double(leakHours.count)))
                     }
                     Text("Averages use only recorded completed pods. Unknown fill volumes and missing delivery data are excluded from their respective insulin averages.")
@@ -400,6 +432,14 @@ private struct LoKeyPodUsageView: View {
                             Spacer()
                             Text(pod.changeReason).font(.caption).foregroundColor(.secondary)
                         }
+                        Menu {
+                            ForEach(LoKeyPodLedger.reasons, id: \.self) { reason in
+                                Button(reason) { updateReason(id: pod.id, reason: reason) }
+                            }
+                        } label: {
+                            Label("Edit change reason", systemImage: "square.and.pencil")
+                                .font(.caption)
+                        }
                         if let hours = pod.wearHours {
                             Text(String(format: "Worn %.1f hours%@", hours,
                                 pod.endInferred ? " (end inferred from next activation)" : ""))
@@ -408,7 +448,10 @@ private struct LoKeyPodUsageView: View {
                             Text("Currently active / end not recorded").font(.subheadline)
                         }
                         if let fill = pod.fillUnits {
-                            Text(String(format: "Filled %.0f U", fill)).font(.subheadline)
+                            Text(String(format: "Confirmed fill %.0f U", fill)).font(.subheadline)
+                        } else if let planned = pod.plannedFillUnits {
+                            Text(String(format: "Planned %.0f U; actual fill unconfirmed", planned))
+                                .font(.subheadline).foregroundColor(.secondary)
                         } else {
                             Text("Fill amount unknown").font(.subheadline).foregroundColor(.secondary)
                         }
@@ -452,6 +495,15 @@ private struct LoKeyPodUsageView: View {
         pods = copy
     }
 
+    private func updateReason(id: String, reason: String) {
+        var copy = pods
+        guard let index = copy.firstIndex(where: { $0.id == id }),
+              LoKeyPodLedger.reasons.contains(reason) else { return }
+        copy[index].changeReason = reason
+        LoKeyPodLedger.store(copy)
+        pods = copy
+    }
+
     private func finishPod(id: String) {
         var copy = pods
         guard let index = copy.firstIndex(where: { $0.id == id }) else { return }
@@ -471,8 +523,9 @@ private struct LoKeyPodUsageView: View {
         snapshot = viewModel.loKeyCurrentPodSnapshot?() ?? [:]
         let started = snapshot["podActivatedAt"] as? Date
         pods = LoKeyPodLedger.reconcile(podActivatedAt: started)
-        if let current = pods.first(where: { $0.endedAt == nil }), let fill = current.fillUnits {
-            fillUnits = fill
+        if let current = pods.first(where: { $0.endedAt == nil }),
+           let candidate = current.fillUnits ?? current.plannedFillUnits {
+            fillUnits = candidate
         }
         doses = nil
         doseError = nil
@@ -680,31 +733,42 @@ private enum LoKeyClinicalPDF {
         let baseRange = fmt.string(from: start) + " – " + fmt.string(from: end)
         let normalizedName = patientName.trimmingCharacters(in: .whitespacesAndNewlines)
         let range = normalizedName.isEmpty ? baseRange : "Patient: " + normalizedName + "  |  " + baseRange
+        // Match the existing LoKey TIR report: exclude display-only and manual
+        // readings, credit each real sensor measurement for at most five minutes.
+        // Duplicate timestamps and CGM gaps never fabricate monitoring time.
         let raw = glucose.compactMap { sample -> (Date, Double)? in
             let value = sample.quantity.doubleValue(for: .milligramsPerDeciliter)
             guard sample.startDate >= start && sample.startDate <= end,
+                  !sample.isDisplayOnly && !sample.wasUserEntered,
                   value.isFinite && value > 0 && value < 1000 else { return nil }
             return (sample.startDate, value)
         }.sorted(by: { $0.0 < $1.0 })
-        let numbers = raw.map { $0.1 }
-        let mean = numbers.isEmpty ? 0 : numbers.reduce(0, +) / Double(numbers.count)
-        let deviation = numbers.isEmpty ? 0 :
-            sqrt(numbers.map { ($0 - mean) * ($0 - mean) }.reduce(0, +) / Double(numbers.count))
-        let coverage = min(1.0, Double(numbers.count) * 300.0 / max(300, end.timeIntervalSince(start)))
-        let tir = numbers.isEmpty ? 0 :
-            Double(numbers.filter { $0 >= 70 && $0 <= 180 }.count) / Double(numbers.count)
-        let low = numbers.isEmpty ? 0 :
-            Double(numbers.filter { $0 < 70 }.count) / Double(numbers.count)
-        let high = numbers.isEmpty ? 0 :
-            Double(numbers.filter { $0 > 180 }.count) / Double(numbers.count)
-        let veryLow = numbers.isEmpty ? 0 :
-            Double(numbers.filter { $0 < 54 }.count) / Double(numbers.count)
-        let lowOnly = numbers.isEmpty ? 0 :
-            Double(numbers.filter { $0 >= 54 && $0 < 70 }.count) / Double(numbers.count)
-        let highOnly = numbers.isEmpty ? 0 :
-            Double(numbers.filter { $0 > 180 && $0 <= 250 }.count) / Double(numbers.count)
-        let veryHigh = numbers.isEmpty ? 0 :
-            Double(numbers.filter { $0 > 250 }.count) / Double(numbers.count)
+        let measured: [(value: Double, seconds: Double)] = raw.enumerated().compactMap { index, item in
+            let cappedEnd = min(item.0.addingTimeInterval(300), end)
+            let nextDate = index + 1 < raw.count ? min(raw[index + 1].0, cappedEnd) : cappedEnd
+            let seconds = max(0, nextDate.timeIntervalSince(item.0))
+            guard seconds > 0 else { return nil }
+            return (value: item.1, seconds: seconds)
+        }
+        let observedSeconds = measured.reduce(0.0) { $0 + $1.seconds }
+        let mean = observedSeconds > 0
+            ? measured.reduce(0.0) { $0 + $1.value * $1.seconds } / observedSeconds : 0.0
+        let deviation = observedSeconds > 0
+            ? sqrt(measured.reduce(0.0) {
+                $0 + ($1.value - mean) * ($1.value - mean) * $1.seconds
+              } / observedSeconds) : 0.0
+        let coverage = min(1.0, observedSeconds / max(1.0, end.timeIntervalSince(start)))
+        func share(_ check: (Double) -> Bool) -> Double {
+            guard observedSeconds > 0 else { return 0 }
+            return measured.filter { check($0.value) }.reduce(0.0) {
+                $0 + $1.seconds
+            } / observedSeconds
+        }
+        let tir = share { $0 >= 70 && $0 <= 180 }
+        let veryLow = share { $0 < 54 }
+        let lowOnly = share { $0 >= 54 && $0 < 70 }
+        let highOnly = share { $0 > 180 && $0 <= 250 }
+        let veryHigh = share { $0 > 250 }
         let totals = LoKeyDoseTotals.sum(doses, from: start, to: end)
         let renderer = UIGraphicsPDFRenderer(bounds: CGRect(x: 0, y: 0, width: W, height: H))
         let settingsData = try JSONEncoder().encode(settings)
@@ -719,7 +783,7 @@ private enum LoKeyClinicalPDF {
             ctx.beginPage()
             header("Glucose & Insulin Summary", range: range, page: 1)
             draw("CGM Summary", x: 38, y: 141, w: 500, size: 13, bold: true)
-            if numbers.isEmpty {
+            if measured.isEmpty {
                 draw("CGM readings unavailable for this period — no glucose statistics calculated.",
                      x: 38, y: 170, w: 530, size: 10, color: gray)
             } else {
@@ -817,7 +881,9 @@ private enum LoKeyClinicalPDF {
                 for (index, pod) in relevant.prefix(4).enumerated() {
                     let y = CGFloat(604 + index*27)
                     let duration = pod.wearHours.map { String(format: "%.1f h", $0) } ?? "active"
-                    let filled = pod.fillUnits.map { String(format: "%.0f U", $0) } ?? "unknown"
+                    let filled = pod.fillUnits.map { String(format: "%.0f U confirmed", $0) }
+                        ?? pod.plannedFillUnits.map { String(format: "%.0f U planned only", $0) }
+                        ?? "unknown"
                     draw(fmt.string(from: pod.activatedAt) + "  |  " + duration +
                         "  |  fill " + filled + "  |  " + pod.changeReason,
                         x: 40, y: y, w: 530, size: 9)
