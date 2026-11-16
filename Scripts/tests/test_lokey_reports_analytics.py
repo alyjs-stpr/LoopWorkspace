@@ -31,6 +31,10 @@ class LoKeyReportsInstallerTests(unittest.TestCase):
         self.assertNotIn("suspendDelivery(", swift)
         self.assertNotIn("deactivatePod(", swift)
         self.assertNotIn("setTempBasal(", swift)
+        self.assertIn("LoKeyPodLedger.reconcile", swift)
+        self.assertIn("let measured: [(value: Double, seconds: Double)]", swift)
+        self.assertNotIn("LabeledContent(", swift)
+
 
     def test_installer_edits_only_expected_sources_and_fails_closed(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -48,7 +52,8 @@ private struct LoKeySettingsView: View {
 }
 """)
             model.write_text("    var loKeyLoadSettingsHistory: ((Date, Date, @escaping (Swift.Result<[StoredSettings], Error>) -> Void) -> Void)?")
-            status.write_text("        viewModel.loKeyLoadSettingsHistory = { [weak self] start, end, completion in\n")
+            status.write_text("    private func loKeyRefreshHeader() {\n"
+                              "        viewModel.loKeyLoadSettingsHistory = { [weak self] start, end, completion in\n")
             with mock.patch.object(reports, "SETTINGS", settings), \
                  mock.patch.object(reports, "MODEL", model), \
                  mock.patch.object(reports, "STATUS", status):
@@ -62,6 +67,12 @@ private struct LoKeySettingsView: View {
                 self.assertIn("loKeyCurrentPodSnapshot", m)
                 self.assertIn("getNormalizedDoseEntries", st)
                 self.assertIn("pumpManagerHUDProvider?.hudViewRawState", st)
+                self.assertIn("LoKeyPodLedger.reconcile(podActivatedAt: podStart)", st)
+                self.assertIn("private struct LoKeyMetricLine: View", s)
+                self.assertNotIn("LabeledContent(", s)
+                self.assertIn("!sample.isDisplayOnly && !sample.wasUserEntered", s)
+                self.assertIn("observedSeconds", s)
+                self.assertTrue(s.startswith("import UIKit"))
                 with self.assertRaises(RuntimeError):
                     reports.install()
 
