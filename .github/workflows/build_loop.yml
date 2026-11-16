@@ -397,6 +397,8 @@ jobs:
           grep -Fq 'overrideSelectionControllerDidEndCurrentOverride' "Loop/WatchApp Extension/Controllers/ActionHUDController.swift"
           # Display-only dark glucose graph/IOB widget; no dosing or Bluetooth changes.
           python3 Scripts/install_lokey_trio_widget.py
+          # Fast syntax gate after all UI patches, before expensive signed archive.
+          swiftc -frontend -parse "Loop/Loop/View Controllers/StatusTableViewController.swift"
           echo "LoKey final dashboard polish applied."
           echo "LoKey T1D rounded chart cards and shared Now markers applied."
 
