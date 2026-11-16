@@ -15,7 +15,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +        private let todayBasalValue = UILabel()
 +        private let todayBolusValue = UILabel()
 +        private let todayTotalValue = UILabel()
-@@ -327,1 +327,48 @@
+@@ -327,1 +327,47 @@
 -            let content = UIStackView(arrangedSubviews: [heading, iobRow, summary])
 +            // Separate basal and bolus TODAY totals, not the present basal rate
 +            // or the last single bolus shown above. Keep accessible text labels.
