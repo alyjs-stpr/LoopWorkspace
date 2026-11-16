@@ -126,6 +126,7 @@ private struct LoKeyPodRecord: Codable, Identifiable {
 
 private enum LoKeyPodLedger {
     static let key = "LoKeyPodUsageLedgerV1"
+    static let pendingFillKey = "LoKeyNextPodPlannedFillV1"
     static let reasons = ["Unrecorded", "Routine", "Suspected leak", "Pod failure", "Empty reservoir", "Adhesion / site", "Other"]
 
     static func read() -> [LoKeyPodRecord] {
@@ -150,8 +151,13 @@ private enum LoKeyPodLedger {
             records[index].endedAt = start
             records[index].endInferred = true
         }
+        let planned = UserDefaults.standard.object(forKey: pendingFillKey) as? Double
+        let acceptedFill = planned.flatMap { (85...200).contains($0) ? $0 : nil }
         records.append(LoKeyPodRecord(id: identifier, activatedAt: start,
-            endedAt: nil, endInferred: false, fillUnits: nil, changeReason: "Unrecorded"))
+            endedAt: nil, endInferred: false, fillUnits: acceptedFill, changeReason: "Unrecorded"))
+        if acceptedFill != nil {
+            UserDefaults.standard.removeObject(forKey: pendingFillKey)
+        }
         store(records)
         return records
     }
@@ -288,12 +294,29 @@ private struct LoKeyPodUsageView: View {
     @State private var doses: [DoseEntry]?
     @State private var doseError: String?
     @State private var fillUnits = 110.0
+    @State private var nextFillUnits = 110.0
+    @State private var nextFillSaved = false
     @State private var changeReason = "Suspected leak"
     @State private var snapshot: [String: Any] = [:]
     private let setupEstimate = 3.1
 
     var body: some View {
         List {
+            Section(header: Text("Before Activating Your Next Pod")) {
+                Stepper(value: $nextFillUnits, in: 85...200, step: 1) {
+                    Text("Planned insulin fill: \(Int(nextFillUnits)) U")
+                }
+                Button("Save Planned Fill for Next Pod") {
+                    UserDefaults.standard.set(nextFillUnits, forKey: LoKeyPodLedger.pendingFillKey)
+                    nextFillSaved = true
+                }
+                if nextFillSaved {
+                    Text("Saved. This amount will be linked to the next newly detected pod activation.")
+                        .font(.caption).foregroundColor(.secondary)
+                }
+                Text("Use the normal Loop/Omnipod pairing procedure. This screen does not send any pump command.")
+                    .font(.caption).foregroundColor(.secondary)
+            }
             Section(header: Text("Current Pod")) {
                 if let current = pods.first(where: { $0.endedAt == nil }) {
                     HStack {
@@ -440,6 +463,11 @@ private struct LoKeyPodUsageView: View {
     }
 
     private func reload() {
+        if let pending = UserDefaults.standard.object(forKey: LoKeyPodLedger.pendingFillKey) as? Double,
+           (85...200).contains(pending) {
+            nextFillUnits = pending
+            nextFillSaved = true
+        }
         snapshot = viewModel.loKeyCurrentPodSnapshot?() ?? [:]
         let started = snapshot["podActivatedAt"] as? Date
         pods = LoKeyPodLedger.reconcile(podActivatedAt: started)
