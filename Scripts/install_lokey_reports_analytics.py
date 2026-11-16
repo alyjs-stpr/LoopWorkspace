@@ -48,8 +48,8 @@ def install():
         }
 '''
     status = replace_once(status, anchor, extra + anchor, "Settings host report sources")
-    // The normal dashboard is visited far more often than Pod History.
-    // Capture newly observed pod activations here without controlling the pump.
+    # The normal dashboard is visited far more often than Pod History.
+    # Capture newly observed pod activations here without controlling the pump.
     refresh_anchor = '    private func loKeyRefreshHeader() {'
     capture = '''    private func loKeyRefreshHeader() {
         // Purely historical bookkeeping, independent from Loop's insulin algorithm.
