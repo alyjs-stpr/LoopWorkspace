@@ -1,7 +1,7 @@
 diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View Controllers/StatusTableViewController.swift
 --- a/Loop/View Controllers/StatusTableViewController.swift
 +++ b/Loop/View Controllers/StatusTableViewController.swift
-@@ -185,1 +185,6 @@
+@@ -185,1 +185,10 @@
 -    private weak var loKeyInsulinCard: LoKeyInsulinCard?
 +    private weak var loKeyInsulinCard: LoKeyInsulinCard?
 +    // Display-only totals from the normalized Loop delivery history (local day).
@@ -9,13 +9,21 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +    private var loKeyDailyBasal = "—"
 +    private var loKeyDailyBolus = "—"
 +    private var loKeyDailyTotal = "—"
-@@ -272,1 +272,4 @@
++    private var loKeyDailyAutomated = "—"
++    private var loKeyDailyInitiated = "—"
++    private var loKeyDailyUnclassified = "—"
++    private var loKeyDailyLogged = "—"
+@@ -272,1 +272,8 @@
 -        private let pumpTitle = UILabel()
 +        private let pumpTitle = UILabel()
 +        private let todayBasalValue = UILabel()
 +        private let todayBolusValue = UILabel()
 +        private let todayTotalValue = UILabel()
-@@ -327,1 +327,47 @@
++        private let autoBolusValue = UILabel()
++        private let initiatedBolusValue = UILabel()
++        private let unclassifiedBolusValue = UILabel()
++        private let loggedBolusValue = UILabel()
+@@ -327,1 +327,75 @@
 -            let content = UIStackView(arrangedSubviews: [heading, iobRow, summary])
 +            // Separate basal and bolus TODAY totals, not the present basal rate
 +            // or the last single bolus shown above. Keep accessible text labels.
@@ -56,21 +64,55 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +            todayTotalValue.adjustsFontSizeToFitWidth = true
 +            todayTotalValue.minimumScaleFactor = 0.75
 +            let note = UILabel()
-+            note.text = "Recorded doses · in-progress delivery may be estimated"
++            note.text = "Pump-delivered entries shown above; unverified manual logs excluded from totals. In-progress delivery may be estimated."
 +            note.textColor = .secondaryLabel
 +            note.font = .preferredFont(forTextStyle: .caption2)
 +            note.numberOfLines = 0
-+            let todaySection = UIStackView(arrangedSubviews: [todayHeading, todayTiles, todayTotalValue, note])
++            let bolusOriginHeading = UILabel()
++            bolusOriginHeading.text = "BOLUS BREAKDOWN · TODAY"
++            bolusOriginHeading.font = .preferredFont(forTextStyle: .caption1)
++            bolusOriginHeading.textColor = .secondaryLabel
++            func bolusOriginRow(_ title: String, _ result: UILabel) -> UIView {
++                let label = UILabel()
++                label.text = title
++                label.font = .preferredFont(forTextStyle: .subheadline)
++                label.textColor = .secondaryLabel
++                result.font = .monospacedDigitSystemFont(ofSize: 15, weight: .semibold)
++                result.textAlignment = .right
++                result.textColor = .label
++                let row = UIStackView(arrangedSubviews: [label, result])
++                row.axis = .horizontal
++                row.spacing = 8
++                row.distribution = .fill
++                return row
++            }
++            let bolusOriginRows = UIStackView(arrangedSubviews: [
++                bolusOriginRow("Automatic (Loop)", autoBolusValue),
++                bolusOriginRow("You initiated", initiatedBolusValue),
++                bolusOriginRow("Origin unknown", unclassifiedBolusValue),
++                bolusOriginRow("Manually logged (not verified)", loggedBolusValue)
++            ])
++            bolusOriginRows.axis = .vertical
++            bolusOriginRows.spacing = 6
++            let todaySection = UIStackView(arrangedSubviews: [
++                todayHeading, todayTiles, todayTotalValue, bolusOriginHeading, bolusOriginRows, note
++            ])
 +            todaySection.axis = .vertical
 +            todaySection.spacing = 7
 +            let content = UIStackView(arrangedSubviews: [heading, iobRow, summary, todaySection])
-@@ -360,1 +360,5 @@
+@@ -360,1 +360,11 @@
 -        func update(iob: String, basal: String, lastBolus: String) {
 +        func update(iob: String, basal: String, lastBolus: String,
-+                    todayBasal: String, todayBolus: String, todayTotal: String) {
++                    todayBasal: String, todayBolus: String, todayTotal: String,
++                    automatedBoluses: String, initiatedBoluses: String,
++                    unclassifiedBoluses: String, loggedBoluses: String) {
 +            todayBasalValue.text = todayBasal
 +            todayBolusValue.text = todayBolus
 +            todayTotalValue.text = "Total today  ·  " + todayTotal
++            autoBolusValue.text = automatedBoluses
++            initiatedBolusValue.text = initiatedBoluses
++            unclassifiedBolusValue.text = unclassifiedBoluses
++            loggedBolusValue.text = loggedBoluses
 @@ -797,1 +797,4 @@
 -        var latestBolusSummaryDoses: [DoseEntry]?
 +        var latestBolusSummaryDoses: [DoseEntry]?
@@ -91,7 +133,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +                }
 +            }
 +            deviceManager.doseStore.getTotalUnitsDelivered(since: Calendar.current.startOfDay(for: Date())) { (result) in
-@@ -1177,1 +1177,36 @@
+@@ -1177,1 +1177,66 @@
 -            self.loKeyInsulinCard?.update(
 +            if refreshDailySplit {
 +                self.loKeyDailyStart = loKeyDayStart
@@ -100,6 +142,10 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +                   let doses = loKeyDailyDoseEntries {
 +                    var basalUnits = 0.0
 +                    var bolusUnits = 0.0
++                    var automaticBolusUnits = 0.0
++                    var initiatedBolusUnits = 0.0
++                    var unclassifiedBolusUnits = 0.0
++                    var manuallyLoggedUnits = 0.0
 +                    var invalidValue = false
 +                    for dose in doses where dose.endDate >= loKeyDayStart && dose.startDate <= now {
 +                        let units = dose.trimmed(from: loKeyDayStart, to: now).unitsInDeliverableIncrements
@@ -109,7 +155,21 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +                        }
 +                        switch dose.type {
 +                        case .basal, .tempBasal: basalUnits += units
-+                        case .bolus: bolusUnits += units
++                        case .bolus:
++                            // Keep pump-delivered doses separate from manually
++                            // logged doses that are not confirmed by a pump.
++                            if dose.manuallyEntered {
++                                manuallyLoggedUnits += units
++                            } else {
++                                bolusUnits += units
++                                if dose.automatic == true {
++                                    automaticBolusUnits += units
++                                } else if dose.automatic == false || dose.wasProgrammedByPumpUI {
++                                    initiatedBolusUnits += units
++                                } else {
++                                    unclassifiedBolusUnits += units
++                                }
++                            }
 +                        case .suspend, .resume: break
 +                        }
 +                    }
@@ -117,26 +177,46 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +                        self.loKeyDailyBasal = "—"
 +                        self.loKeyDailyBolus = "—"
 +                        self.loKeyDailyTotal = "—"
++                        self.loKeyDailyAutomated = "—"
++                        self.loKeyDailyInitiated = "—"
++                        self.loKeyDailyUnclassified = "—"
++                        self.loKeyDailyLogged = "—"
 +                    } else {
 +                        self.loKeyDailyBasal = String(format: "%.2f U", basalUnits)
 +                        self.loKeyDailyBolus = String(format: "%.2f U", bolusUnits)
 +                        self.loKeyDailyTotal = String(format: "%.2f U", basalUnits + bolusUnits)
++                        self.loKeyDailyAutomated = String(format: "%.2f U", automaticBolusUnits)
++                        self.loKeyDailyInitiated = String(format: "%.2f U", initiatedBolusUnits)
++                        self.loKeyDailyUnclassified = String(format: "%.2f U", unclassifiedBolusUnits)
++                        self.loKeyDailyLogged = String(format: "%.2f U", manuallyLoggedUnits)
 +                    }
 +                } else {
 +                    self.loKeyDailyBasal = "—"
 +                    self.loKeyDailyBolus = "—"
 +                    self.loKeyDailyTotal = "—"
++                    self.loKeyDailyAutomated = "—"
++                    self.loKeyDailyInitiated = "—"
++                    self.loKeyDailyUnclassified = "—"
++                    self.loKeyDailyLogged = "—"
 +                }
 +            }
 +            self.loKeyInsulinCard?.update(
-@@ -1184,1 +1184,4 @@
+@@ -1184,1 +1184,8 @@
 -                lastBolus: self.lokeySnapshot.lastBolus
 +                lastBolus: self.lokeySnapshot.lastBolus,
 +                todayBasal: self.loKeyDailyBasal,
 +                todayBolus: self.loKeyDailyBolus,
-+                todayTotal: self.loKeyDailyTotal
-@@ -1717,1 +1717,3 @@
++                todayTotal: self.loKeyDailyTotal,
++                automatedBoluses: self.loKeyDailyAutomated,
++                initiatedBoluses: self.loKeyDailyInitiated,
++                unclassifiedBoluses: self.loKeyDailyUnclassified,
++                loggedBoluses: self.loKeyDailyLogged
+@@ -1717,1 +1717,7 @@
 -                            lastBolus: lokeySnapshot.lastBolus)
 +                            lastBolus: lokeySnapshot.lastBolus,
 +                            todayBasal: loKeyDailyBasal, todayBolus: loKeyDailyBolus,
-+                            todayTotal: loKeyDailyTotal)
++                            todayTotal: loKeyDailyTotal,
++                            automatedBoluses: loKeyDailyAutomated,
++                            initiatedBoluses: loKeyDailyInitiated,
++                            unclassifiedBoluses: loKeyDailyUnclassified,
++                            loggedBoluses: loKeyDailyLogged)
