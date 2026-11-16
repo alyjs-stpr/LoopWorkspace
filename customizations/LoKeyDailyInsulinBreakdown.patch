@@ -1,0 +1,143 @@
+diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View Controllers/StatusTableViewController.swift
+--- a/Loop/View Controllers/StatusTableViewController.swift
++++ b/Loop/View Controllers/StatusTableViewController.swift
+@@ -185,1 +185,6 @@
+-    private weak var loKeyInsulinCard: LoKeyInsulinCard?
++    private weak var loKeyInsulinCard: LoKeyInsulinCard?
++    // Display-only totals from the normalized Loop delivery history (local day).
++    private var loKeyDailyStart: Date?
++    private var loKeyDailyBasal = "—"
++    private var loKeyDailyBolus = "—"
++    private var loKeyDailyTotal = "—"
+@@ -272,1 +272,4 @@
+-        private let pumpTitle = UILabel()
++        private let pumpTitle = UILabel()
++        private let todayBasalValue = UILabel()
++        private let todayBolusValue = UILabel()
++        private let todayTotalValue = UILabel()
+@@ -327,1 +327,48 @@
+-            let content = UIStackView(arrangedSubviews: [heading, iobRow, summary])
++            // Separate basal and bolus TODAY totals, not the present basal rate
++            // or the last single bolus shown above. Keep accessible text labels.
++            let todayHeading = UILabel()
++            todayHeading.text = "INSULIN DELIVERED TODAY · SINCE MIDNIGHT"
++            todayHeading.font = .preferredFont(forTextStyle: .caption1)
++            todayHeading.textColor = .secondaryLabel
++            todayHeading.numberOfLines = 2
++            func todayTile(_ heading: String, value: UILabel, tint: UIColor) -> UIView {
++                let caption = UILabel()
++                caption.text = heading
++                caption.textColor = .secondaryLabel
++                caption.font = .preferredFont(forTextStyle: .caption1)
++                value.text = "—"
++                value.textColor = tint
++                value.font = .monospacedDigitSystemFont(ofSize: 23, weight: .bold)
++                value.adjustsFontSizeToFitWidth = true
++                value.minimumScaleFactor = 0.6
++                value.accessibilityLabel = heading
++                let group = UIStackView(arrangedSubviews: [caption, value])
++                group.axis = .vertical
++                group.spacing = 5
++                group.backgroundColor = .tertiarySystemGroupedBackground
++                group.layer.cornerRadius = 12
++                group.isLayoutMarginsRelativeArrangement = true
++                group.directionalLayoutMargins = NSDirectionalEdgeInsets(top: 12, leading: 12, bottom: 12, trailing: 10)
++                return group
++            }
++            let todayTiles = UIStackView(arrangedSubviews: [
++                todayTile("BASAL", value: todayBasalValue, tint: .systemOrange),
++                todayTile("BOLUSES", value: todayBolusValue, tint: .systemGreen)
++            ])
++            todayTiles.axis = .horizontal
++            todayTiles.distribution = .fillEqually
++            todayTiles.spacing = 9
++            todayTotalValue.text = "Total today · —"
++            todayTotalValue.font = .preferredFont(forTextStyle: .subheadline)
++            todayTotalValue.textColor = .label
++            todayTotalValue.adjustsFontSizeToFitWidth = true
++            todayTotalValue.minimumScaleFactor = 0.75
++            let note = UILabel()
++            note.text = "Recorded doses · in-progress delivery may be estimated"
++            note.textColor = .secondaryLabel
++            note.font = .preferredFont(forTextStyle: .caption2)
++            note.numberOfLines = 0
++            let todaySection = UIStackView(arrangedSubviews: [todayHeading, todayTiles, todayTotalValue, note])
++            todaySection.axis = .vertical
++            todaySection.spacing = 7
++            let content = UIStackView(arrangedSubviews: [heading, iobRow, summary, todaySection])
+@@ -360,1 +360,5 @@
+-        func update(iob: String, basal: String, lastBolus: String) {
++        func update(iob: String, basal: String, lastBolus: String,
++                    todayBasal: String, todayBolus: String, todayTotal: String) {
++            todayBasalValue.text = todayBasal
++            todayBolusValue.text = todayBolus
++            todayTotalValue.text = "Total today  ·  " + todayTotal
+@@ -797,1 +797,4 @@
+-        var latestBolusSummaryDoses: [DoseEntry]?
++        var latestBolusSummaryDoses: [DoseEntry]?
++        var loKeyDailyDoseEntries: [DoseEntry]?
++        let loKeyDayStart = Calendar.current.startOfDay(for: Date())
++        let refreshDailySplit = currentContext.contains(.insulin) || loKeyDailyStart != loKeyDayStart
+@@ -886,1 +886,12 @@
+-            deviceManager.doseStore.getTotalUnitsDelivered(since: Calendar.current.startOfDay(for: Date())) { (result) in
++            // Read-only daily dose history. Loop's own delivered-unit total uses
++            // this same normalized history, trimmed to the day boundary and now.
++            if refreshDailySplit {
++                reloadGroup.enter()
++                deviceManager.doseStore.getNormalizedDoseEntries(start: loKeyDayStart, end: nil) { result in
++                    if case .success(let doses) = result {
++                        loKeyDailyDoseEntries = doses
++                    }
++                    reloadGroup.leave()
++                }
++            }
++            deviceManager.doseStore.getTotalUnitsDelivered(since: Calendar.current.startOfDay(for: Date())) { (result) in
+@@ -1177,1 +1177,36 @@
+-            self.loKeyInsulinCard?.update(
++            if refreshDailySplit {
++                self.loKeyDailyStart = loKeyDayStart
++                let now = Date()
++                if Calendar.current.startOfDay(for: now) == loKeyDayStart,
++                   let doses = loKeyDailyDoseEntries {
++                    var basalUnits = 0.0
++                    var bolusUnits = 0.0
++                    var invalidValue = false
++                    for dose in doses where dose.endDate > loKeyDayStart && dose.startDate <= now {
++                        let units = dose.trimmed(from: loKeyDayStart, to: now).unitsInDeliverableIncrements
++                        guard units.isFinite && units >= 0 else {
++                            invalidValue = true
++                            break
++                        }
++                        switch dose.type {
++                        case .basal, .tempBasal: basalUnits += units
++                        case .bolus: bolusUnits += units
++                        case .suspend, .resume: break
++                        }
++                    }
++                    if invalidValue {
++                        self.loKeyDailyBasal = "—"
++                        self.loKeyDailyBolus = "—"
++                        self.loKeyDailyTotal = "—"
++                    } else {
++                        self.loKeyDailyBasal = String(format: "%.2f U", basalUnits)
++                        self.loKeyDailyBolus = String(format: "%.2f U", bolusUnits)
++                        self.loKeyDailyTotal = String(format: "%.2f U", basalUnits + bolusUnits)
++                    }
++                } else {
++                    self.loKeyDailyBasal = "—"
++                    self.loKeyDailyBolus = "—"
++                    self.loKeyDailyTotal = "—"
++                }
++            }
++            self.loKeyInsulinCard?.update(
+@@ -1184,1 +1184,4 @@
+-                lastBolus: self.lokeySnapshot.lastBolus
++                lastBolus: self.lokeySnapshot.lastBolus,
++                todayBasal: self.loKeyDailyBasal,
++                todayBolus: self.loKeyDailyBolus,
++                todayTotal: self.loKeyDailyTotal
+@@ -1717,1 +1717,3 @@
+-                            lastBolus: lokeySnapshot.lastBolus)
++                            lastBolus: lokeySnapshot.lastBolus,
++                            todayBasal: loKeyDailyBasal, todayBolus: loKeyDailyBolus,
++                            todayTotal: loKeyDailyTotal)
