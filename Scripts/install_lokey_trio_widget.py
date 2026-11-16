@@ -233,7 +233,6 @@ struct SystemStatusWidgetEntryView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .foregroundColor(.white)
         .environment(\.colorScheme, .dark)
-        .privacySensitive()
     }
 
     @ViewBuilder
