@@ -4,6 +4,8 @@ on:
     paths:
       - 'Scripts/install_lokey_shadow_files_export.py'
       - 'Scripts/tests/test_lokey_shadow_files_export.py'
+      - 'Scripts/install_lokey_reports_analytics.py'
+      - 'Scripts/tests/test_lokey_reports_analytics.py'
       - '.github/workflows/build_loop.yml'
       - '.github/workflows/build_loop_auto.yml'
       - '.github/workflows/lokey_dashboard_checks.yml'
@@ -78,6 +80,24 @@ jobs:
           )
           PY
           swiftc -frontend -parse /tmp/LoKeyShadowExport.swift
+      - name: Validate LoKey clinical reports and pod ledger (no app build)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest Scripts/tests/test_lokey_reports_analytics.py -v
+          python3 - <<'PY'
+          import importlib.util
+          from pathlib import Path
+          path = Path("Scripts/install_lokey_reports_analytics.py")
+          spec = importlib.util.spec_from_file_location("lokey_reports", path)
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          Path("/tmp/LoKeyReportsAnalytics.swift").write_text(
+              "import SwiftUI\nimport HealthKit\nimport LoopKit\n" + module.SWIFT_SOURCE)
+          PY
+          swiftc -frontend -parse /tmp/LoKeyReportsAnalytics.swift
+          grep -Fq 'python3 Scripts/install_lokey_reports_analytics.py' .github/workflows/build_loop.yml
+          grep -Fq 'python3 Scripts/install_lokey_reports_analytics.py' .github/workflows/build_loop_auto.yml
       - name: Confirm all build routes install the same export fix
         run: |
           set -euo pipefail

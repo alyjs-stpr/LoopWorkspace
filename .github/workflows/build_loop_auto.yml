@@ -414,6 +414,10 @@ jobs:
           # Final UI-only repair: preserve the large CGM card during Theme Park
           # mode and expose Workout separately in the Watch target chooser.
           python3 Scripts/install_lokey_ui_repair.py
+          # Read-only reference archive plus clinical history and pod ledger.
+          python3 Scripts/install_lokey_loop_data_archive.py
+          python3 Scripts/install_lokey_reports_analytics.py
+          python3 -m unittest Scripts/tests/test_lokey_reports_analytics.py
           grep -Fq 'loKeyPrimaryHeader' "Loop/Loop/View Controllers/StatusTableViewController.swift"
           grep -Fq 'overrideSelectionControllerDidEndCurrentOverride' "Loop/WatchApp Extension/Controllers/ActionHUDController.swift"
           # Display-only dark glucose graph/IOB widget; no dosing or Bluetooth changes.
@@ -423,6 +427,8 @@ jobs:
           python3 -m unittest discover -s Scripts/tests -p 'test_lokey*widget*.py'
           # Fast syntax gate after all UI patches, before expensive signed archive.
           swiftc -frontend -parse "Loop/Loop/View Controllers/StatusTableViewController.swift"
+          swiftc -frontend -parse "Loop/Loop/Views/SettingsView.swift"
+          swiftc -frontend -parse "Loop/Loop/View Models/SettingsViewModel.swift"
           swiftc -frontend -parse "Loop/Loop Widget Extension/Widgets/SystemStatusWidget.swift"
           echo "LoKey final dashboard polish applied."
           echo "LoKey T1D rounded chart cards and shared Now markers applied."
