@@ -43,6 +43,25 @@ jobs:
           )
           PY
           swiftc -frontend -parse /tmp/LoKeyWidgetSnapshotBridge.swift
+      - name: Validate widget Canvas renderer before macOS archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 Scripts/tests/test_lokey_trio_widget.py
+          python3 - <<'PY'
+          import importlib.util
+          from pathlib import Path
+          path = Path("Scripts/install_lokey_trio_widget.py")
+          spec = importlib.util.spec_from_file_location("lokey_widget", path)
+          assert spec and spec.loader
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          assert "Canvas { context, size in" in module.WIDGET
+          assert "Chart(entry.glucoseHistory)" not in module.WIDGET
+          assert "import Charts" not in module.WIDGET
+          Path("/tmp/LoKeyWidgetCanvas.swift").write_text(module.WIDGET)
+          PY
+          swiftc -frontend -parse /tmp/LoKeyWidgetCanvas.swift
       - name: Parse generated Swift source (syntax only)
         shell: bash
         run: |
