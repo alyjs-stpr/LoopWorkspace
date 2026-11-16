@@ -34,6 +34,10 @@ class LoKeyReportsInstallerTests(unittest.TestCase):
         self.assertIn("LoKeyPodLedger.reconcile", swift)
         self.assertIn("let measured: [(value: Double, seconds: Double)]", swift)
         self.assertNotIn("LabeledContent(", swift)
+        self.assertIn("plannedFillUnits: acceptedFill", swift)
+        self.assertIn("fillUnits: nil, changeReason", swift)
+        self.assertIn("Confirm Actual Fill Amount", swift)
+        self.assertIn("Actual fill not yet confirmed", swift)
 
 
     def test_installer_edits_only_expected_sources_and_fails_closed(self):
