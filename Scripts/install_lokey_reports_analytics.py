@@ -472,6 +472,7 @@ private struct LoKeyClinicalReportView: View {
     @State private var exportURL: URL?
     @State private var showShare = false
     @State private var errorMessage: String?
+    @AppStorage("LoKeyClinicalReportPatientNameV1") private var patientName = ""
 
     var body: some View {
         Form {
@@ -482,6 +483,8 @@ private struct LoKeyClinicalReportView: View {
                     Text("30 days").tag(30)
                     Text("90 days").tag(90)
                 }.pickerStyle(.menu)
+                TextField("Patient name (optional)", text: $patientName)
+                    .textContentType(.name)
                 Text("Clinical-style PDF with AGP percentiles, glucose distribution, daily delivered insulin, automated vs user-initiated boluses, recorded pod changes, and current therapy settings.")
                     .font(.footnote).foregroundColor(.secondary)
                 Button(preparing ? "Preparing report…" : "Generate PDF") { generate() }
@@ -511,6 +514,7 @@ private struct LoKeyClinicalReportView: View {
         let end = Date()
         let start = Calendar.current.date(byAdding: .day, value: -(days - 1),
                     to: Calendar.current.startOfDay(for: end))!
+        let reportName = String(patientName.prefix(80))
         glucoseLoader(start, end) { glucoseResult in
             doseLoader(start, end) { doseResult in
                 switch (glucoseResult, doseResult) {
@@ -520,7 +524,8 @@ private struct LoKeyClinicalReportView: View {
                     DispatchQueue.global(qos: .utility).async {
                         do {
                             let url = try LoKeyClinicalPDF.make(glucose: glucose, doses: doses,
-                                pods: pods, start: start, end: end, settings: snapshot)
+                                pods: pods, start: start, end: end, settings: snapshot,
+                                patientName: reportName)
                             DispatchQueue.main.async {
                                 self.exportURL = url
                                 self.preparing = false
@@ -641,10 +646,12 @@ private enum LoKeyClinicalPDF {
 
     static func make(glucose: [StoredGlucoseSample], doses: [DoseEntry],
                      pods: [LoKeyPodRecord], start: Date, end: Date,
-                     settings: TherapySettings) throws -> URL {
+                     settings: TherapySettings, patientName: String) throws -> URL {
         let fmt = DateFormatter()
         fmt.dateStyle = .medium
-        let range = fmt.string(from: start) + " – " + fmt.string(from: end)
+        let baseRange = fmt.string(from: start) + " – " + fmt.string(from: end)
+        let normalizedName = patientName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let range = normalizedName.isEmpty ? baseRange : "Patient: " + normalizedName + "  |  " + baseRange
         let raw = glucose.compactMap { sample -> (Date, Double)? in
             let value = sample.quantity.doubleValue(for: .milligramsPerDeciliter)
             guard sample.startDate >= start && sample.startDate <= end,
@@ -662,6 +669,14 @@ private enum LoKeyClinicalPDF {
             Double(numbers.filter { $0 < 70 }.count) / Double(numbers.count)
         let high = numbers.isEmpty ? 0 :
             Double(numbers.filter { $0 > 180 }.count) / Double(numbers.count)
+        let veryLow = numbers.isEmpty ? 0 :
+            Double(numbers.filter { $0 < 54 }.count) / Double(numbers.count)
+        let lowOnly = numbers.isEmpty ? 0 :
+            Double(numbers.filter { $0 >= 54 && $0 < 70 }.count) / Double(numbers.count)
+        let highOnly = numbers.isEmpty ? 0 :
+            Double(numbers.filter { $0 > 180 && $0 <= 250 }.count) / Double(numbers.count)
+        let veryHigh = numbers.isEmpty ? 0 :
+            Double(numbers.filter { $0 > 250 }.count) / Double(numbers.count)
         let totals = LoKeyDoseTotals.sum(doses, from: start, to: end)
         let renderer = UIGraphicsPDFRenderer(bounds: CGRect(x: 0, y: 0, width: W, height: H))
         let settingsData = try JSONEncoder().encode(settings)
@@ -700,9 +715,12 @@ private enum LoKeyClinicalPDF {
             agp(raw, rect: CGRect(x: 60, y: 307, width: 490, height: 142))
             draw("Hourly median (purple) and interquartile band. Gaps mean inadequate samples.",
                  x: 60, y: 473, w: 500, size: 9, color: gray)
-            draw(String(format: "Below 70: %.1f%%     In 70–180: %.1f%%     Above 180: %.1f%%",
-                 low*100, tir*100, high*100),
-                 x: 38, y: 506, w: 520, size: 12, bold: true)
+            draw(String(format: "Very low <54: %.1f%%    Low 54–69: %.1f%%    Range 70–180: %.1f%%",
+                 veryLow*100, lowOnly*100, tir*100),
+                 x: 38, y: 502, w: 530, size: 10, bold: true)
+            draw(String(format: "High 181–250: %.1f%%    Very high >250: %.1f%%",
+                 highOnly*100, veryHigh*100),
+                 x: 38, y: 520, w: 530, size: 10)
             separator(543)
             draw("Recorded Insulin", x: 38, y: 562, w: 510, size: 13, bold: true)
             if totals.count == 0 {
@@ -750,7 +768,7 @@ private enum LoKeyClinicalPDF {
                 }
             }
             if count > shown {
-                draw("Additional days summarized in period totals; detailed export may be needed.",
+                draw("Daily history continues on the following page(s).",
                      x: 39, y: 555, w: 525, size: 9, color: gray)
             }
             separator(568)
@@ -778,9 +796,41 @@ private enum LoKeyClinicalPDF {
                 }
             }
 
+            var page = 3
+            var nextOffset = shown
+            while nextOffset < count {
+                ctx.beginPage()
+                header("Daily Insulin (continued)", range: range, page: page)
+                draw("Date", x: 39, y: 144, w: 122, size: 10, bold: true)
+                draw("Basal", x: 165, y: 144, w: 65, size: 10, bold: true)
+                draw("Auto", x: 243, y: 144, w: 65, size: 10, bold: true)
+                draw("You", x: 320, y: 144, w: 65, size: 10, bold: true)
+                draw("Unknown", x: 394, y: 144, w: 70, size: 10, bold: true)
+                draw("Total", x: 493, y: 144, w: 70, size: 10, bold: true)
+                separator(164)
+                let lastOffset = min(nextOffset + 23, count)
+                for offset in nextOffset..<lastOffset {
+                    guard let day = Calendar.current.date(byAdding: .day, value: offset, to: first),
+                          let next = Calendar.current.date(byAdding: .day, value: 1, to: day) else { continue }
+                    let daily = LoKeyDoseTotals.sum(doses, from: day, to: min(next, end))
+                    let y = CGFloat(174 + (offset - nextOffset)*22)
+                    draw(fmt.string(from: day), x: 39, y: y, w: 122, size: 9)
+                    if daily.count == 0 {
+                        draw("No data", x: 164, y: y, w: 200, size: 9, color: gray)
+                    } else {
+                        draw(String(format: "%.1f", daily.basal), x: 165, y: y, w: 65, size: 9)
+                        draw(String(format: "%.1f", daily.automated), x: 243, y: y, w: 65, size: 9)
+                        draw(String(format: "%.1f", daily.initiated), x: 320, y: y, w: 65, size: 9)
+                        draw(String(format: "%.1f", daily.unclassified), x: 394, y: y, w: 65, size: 9)
+                        draw(String(format: "%.1f", daily.delivered), x: 493, y: y, w: 67, size: 9, bold: true)
+                    }
+                }
+                nextOffset = lastOffset
+                page += 1
+            }
+
             let settingsLines = pretty.components(separatedBy: "\n")
             var position = 0
-            var page = 3
             while position < settingsLines.count {
                 ctx.beginPage()
                 header("Current Therapy Settings (JSON detail)", range: range, page: page)
