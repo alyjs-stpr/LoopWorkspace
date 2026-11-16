@@ -83,7 +83,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +    }
 +
 +    private func loKeyChartRow(at row: Int) -> ChartRow {
-+        if loKeyPage == .insulin { return row == 0 ? .iob : .dose }
++        if loKeyPage == .insulin { return row == 0 ? .iob : (row == 1 ? .dose : .cob) }
 +        return .glucose
 +    }
 +
@@ -260,7 +260,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +        loKeyInstallPages()
 @@ -1555,1 +1555,1 @@
 -            return ChartRow.allCases.count
-+            return loKeyPage == .dashboard ? 1 : (loKeyPage == .insulin ? 2 : 0)
++            return loKeyPage == .dashboard ? 1 : (loKeyPage == .insulin ? 3 : 0)
 @@ -1376,5 +1376,33 @@
 -        case .metrics:
 -            let cell = tableView.dequeueReusableCell(withIdentifier: LoKeyMetricsCell.reuseID, for: indexPath) as! LoKeyMetricsCell
