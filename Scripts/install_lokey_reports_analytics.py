@@ -333,6 +333,42 @@ private struct LoKeyPodUsageView: View {
                         .foregroundColor(.secondary)
                 }
             }
+            Section(header: Text("Pod Usage Averages")) {
+                let completed = pods.filter { $0.endedAt != nil }
+                let completedHours = completed.compactMap(\.wearHours)
+                if completedHours.isEmpty {
+                    Text("Averages will appear after pod removals have been recorded.")
+                        .foregroundColor(.secondary)
+                } else {
+                    let averageHours = completedHours.reduce(0, +) / Double(completedHours.count)
+                    LabeledContent("Average pod wear time", value: String(format: "%.1f h (%.2f days)",
+                        averageHours, averageHours / 24))
+                    let confirmed = completed.compactMap { pod -> Double? in totalForPod(pod) }
+                    if !confirmed.isEmpty {
+                        LabeledContent("Average pump-reported insulin per pod",
+                            value: String(format: "%.1f U", confirmed.reduce(0, +) / Double(confirmed.count)))
+                    } else {
+                        Text("Insulin-per-pod average unavailable until delivery history is recorded.")
+                            .font(.caption).foregroundColor(.secondary)
+                    }
+                    let estimatedUnused = completed.compactMap { pod -> Double? in
+                        guard let fill = pod.fillUnits, let used = totalForPod(pod) else { return nil }
+                        return max(0, fill - setupEstimate - used)
+                    }
+                    if !estimatedUnused.isEmpty {
+                        LabeledContent("Average estimated unused insulin",
+                            value: String(format: "%.1f U", estimatedUnused.reduce(0, +) / Double(estimatedUnused.count)))
+                    }
+                    let leaking = completed.filter { $0.changeReason == "Suspected leak" }
+                    let leakHours = leaking.compactMap(\.wearHours)
+                    if !leakHours.isEmpty {
+                        LabeledContent("Average wear until suspected leak",
+                            value: String(format: "%.1f h", leakHours.reduce(0, +) / Double(leakHours.count)))
+                    }
+                    Text("Averages use only recorded completed pods. Unknown fill volumes and missing delivery data are excluded from their respective insulin averages.")
+                        .font(.caption).foregroundColor(.secondary)
+                }
+            }
             Section(header: Text("Pod Usage History")) {
                 ForEach(pods.sorted(by: { $0.activatedAt > $1.activatedAt })) { pod in
                     VStack(alignment: .leading, spacing: 5) {
@@ -648,8 +684,13 @@ private enum LoKeyClinicalPDF {
                      x: 38, y: 171, w: 260, size: 12, bold: true)
                 draw(String(format: "Time 70–180  %.1f%%", tir*100),
                      x: 305, y: 171, w: 240, size: 12, bold: true)
-                draw(String(format: "GMI  %.1f%%", 3.31 + 0.02392 * mean),
-                     x: 38, y: 199, w: 260, size: 11)
+                if coverage >= 0.70 && end.timeIntervalSince(start) >= 12 * 86400 {
+                    draw(String(format: "GMI  %.1f%%", 3.31 + 0.02392 * mean),
+                         x: 38, y: 199, w: 260, size: 11)
+                } else {
+                    draw("GMI omitted (limited period or CGM coverage)",
+                         x: 38, y: 199, w: 265, size: 9, color: gray)
+                }
                 draw(String(format: "CV  %.1f%%", mean > 0 ? deviation / mean * 100 : 0),
                      x: 305, y: 199, w: 240, size: 11)
                 draw(String(format: "CGM data coverage (approx.)  %.1f%%", coverage*100),
@@ -675,9 +716,10 @@ private enum LoKeyClinicalPDF {
                      totals.basal, totals.automated, totals.initiated, totals.unclassified),
                      x: 38, y: 620, w: 540, size: 10)
             }
-            draw("Statistics use recorded samples, not Dexcom's proprietary interpolation. "
-                 + "Pump-reported delivery may not equal absorbed insulin during a leak.",
-                 x: 38, y: 678, w: 530, h: 46, size: 9, color: gray)
+            draw("Statistics use available CGM samples, not Dexcom's proprietary interpolation. "
+                 + "Coverage is approximate. Pump-reported delivery may not equal insulin "
+                 + "absorbed during a leaking pod.",
+                 x: 38, y: 677, w: 530, h: 54, size: 9, color: gray)
 
             ctx.beginPage()
             header("Daily Insulin & Pod Usage", range: range, page: 2)
@@ -719,6 +761,13 @@ private enum LoKeyClinicalPDF {
                 draw("No pod change records yet. Tracking begins after the feature is installed.",
                      x: 39, y: 605, w: 520, size: 9, color: gray)
             } else {
+                let completed = relevant.filter { $0.endedAt != nil }
+                let hours = completed.compactMap(\.wearHours)
+                if !hours.isEmpty {
+                    draw(String(format: "Completed pods: %d   Average wear: %.1f hours",
+                        hours.count, hours.reduce(0,+) / Double(hours.count)),
+                        x: 39, y: 591, w: 530, size: 9, bold: true)
+                }
                 for (index, pod) in relevant.prefix(4).enumerated() {
                     let y = CGFloat(604 + index*27)
                     let duration = pod.wearHours.map { String(format: "%.1f h", $0) } ?? "active"
