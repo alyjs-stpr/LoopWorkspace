@@ -366,6 +366,9 @@ jobs:
           # pod details, compact safety HUD and 4-button toolbar.
           git -C Loop apply --unidiff-zero --check ../customizations/LoKeyApprovedScreensFinalUI.patch
           git -C Loop apply --unidiff-zero ../customizations/LoKeyApprovedScreensFinalUI.patch
+          # Display only: split recorded insulin since local midnight into basal and bolus.
+          git -C Loop apply --unidiff-zero --check ../customizations/LoKeyDailyInsulinBreakdown.patch
+          git -C Loop apply --unidiff-zero ../customizations/LoKeyDailyInsulinBreakdown.patch
           # Expose native Omnipod pod replacement from Pod Info without sending pump commands.
           git -C Loop apply --check ../customizations/LoKeyPodChangeShortcut.patch
           git -C Loop apply ../customizations/LoKeyPodChangeShortcut.patch
