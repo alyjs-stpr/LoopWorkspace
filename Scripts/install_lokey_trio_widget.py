@@ -107,10 +107,66 @@ WIDGET = r'''//
 //  Display-only customization. No widget shortcuts or insulin commands.
 //
 
-import Charts
 import LoopUI
 import SwiftUI
 import WidgetKit
+
+// Use a bounded Canvas instead of Swift Charts: the previous widget crashed
+// in SwiftUICore's GeometryReaderLayout.placeSubviews on iOS 27.2.
+// Render observed BG samples only. No estimates and no insulin commands.
+@available(iOS 16.1, *)
+private struct LoKeyGlucoseCanvas: View {
+    let history: [LoKeyWidgetGlucosePoint]
+    let now: Date
+    let color: Color
+
+    var body: some View {
+        Canvas { context, size in
+            guard size.width.isFinite, size.height.isFinite,
+                  size.width > 1, size.height > 1 else { return }
+
+            let end = now.timeIntervalSince1970
+            let start = end - 3 * 60 * 60
+            let points = history.filter { point in
+                let time = point.date.timeIntervalSince1970
+                return time.isFinite && point.glucose.isFinite && point.glucose > 0 &&
+                       time >= start && time <= end
+            }.sorted { $0.date < $1.date }
+            guard points.count >= 2 else { return }
+
+            let low = points.map(\.glucose).min() ?? 60
+            let high = points.map(\.glucose).max() ?? 200
+            let minimum = max(40.0, low - 25)
+            let maximum = max(minimum + 25, high + 25)
+            let glucoseSpan = maximum - minimum
+
+            // Explicitly bounded coordinates; ignore non-finite samples.
+            var path = Path()
+            var previousSegment: Int?
+            for point in points {
+                let time = point.date.timeIntervalSince1970
+                let x = CGFloat((time - start) / (end - start)) * size.width
+                let y = CGFloat((maximum - point.glucose) / glucoseSpan) * size.height
+                guard x.isFinite, y.isFinite else { continue }
+                let position = CGPoint(x: x, y: y)
+                if previousSegment == point.segment {
+                    path.addLine(to: position)
+                } else {
+                    path.move(to: position)
+                }
+                previousSegment = point.segment
+            }
+            context.stroke(
+                path,
+                with: .color(color),
+                style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round)
+            )
+        }
+        .frame(height: 57)
+        .clipped()
+        .accessibilityLabel("Three-hour observed glucose history")
+    }
+}
 
 @available(iOS 16.1, *)
 struct SystemStatusWidgetEntryView: View {
@@ -121,13 +177,6 @@ struct SystemStatusWidgetEntryView: View {
     private let night = Color(red: 0.055, green: 0.06, blue: 0.12)
     private let purple = Color(red: 0.68, green: 0.42, blue: 0.99)
     private let secondary = Color(red: 0.66, green: 0.68, blue: 0.77)
-
-    private var graphRange: ClosedRange<Double> {
-        let values = entry.glucoseHistory.map(\.glucose)
-        guard let low = values.min(), let high = values.max() else { return 60...200 }
-        let minimum = max(40, low - 25)
-        return minimum...max(minimum + 25, high + 25)
-    }
 
     private var glucoseIsUnavailable: Bool {
         entry.currentGlucose == nil || entry.glucoseIsStale || entry.glucoseStatusIsStale
@@ -165,22 +214,11 @@ struct SystemStatusWidgetEntryView: View {
             }
             if widgetFamily == .systemMedium {
                 if entry.glucoseHistory.count > 1 {
-                    Chart(entry.glucoseHistory) { point in
-                        LineMark(
-                            x: .value("Time", point.date),
-                            y: .value("Glucose", point.glucose),
-                            series: .value("Connected data", point.segment)
-                        )
-                        .foregroundStyle(purple)
-                        .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
-                        .interpolationMethod(.linear)
-                    }
-                    .chartLegend(.hidden)
-                    .chartYAxis(.hidden)
-                    .chartXAxis(.hidden)
-                    .chartYScale(domain: graphRange)
-                    .chartXScale(domain: entry.date.addingTimeInterval(-3 * 60 * 60)...entry.date)
-                    .frame(height: 57)
+                    LoKeyGlucoseCanvas(
+                        history: entry.glucoseHistory,
+                        now: entry.date,
+                        color: purple
+                    )
                     .opacity(glucoseIsUnavailable ? 0.5 : 1)
                 } else {
                     Text("No recent glucose history")
@@ -230,7 +268,7 @@ struct SystemStatusWidgetEntryView: View {
             }
         }
         .padding(10)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
         .foregroundColor(.white)
         .environment(\.colorScheme, .dark)
     }
