@@ -125,7 +125,8 @@ struct LoKeyPodRecord: Codable, Identifiable {
     var activatedAt: Date
     var endedAt: Date?
     var endInferred: Bool
-    var fillUnits: Double?
+    var plannedFillUnits: Double?    // user plan; never claim this was measured
+    var fillUnits: Double?           // user-confirmed actual loaded amount
     var changeReason: String
 
     var wearHours: Double? {
@@ -164,7 +165,8 @@ enum LoKeyPodLedger {
         let planned = UserDefaults.standard.object(forKey: pendingFillKey) as? Double
         let acceptedFill = planned.flatMap { (85...200).contains($0) ? $0 : nil }
         records.append(LoKeyPodRecord(id: identifier, activatedAt: start,
-            endedAt: nil, endInferred: false, fillUnits: acceptedFill, changeReason: "Unrecorded"))
+            endedAt: nil, endInferred: false, plannedFillUnits: acceptedFill,
+            fillUnits: nil, changeReason: "Unrecorded"))
         if acceptedFill != nil {
             UserDefaults.standard.removeObject(forKey: pendingFillKey)
         }
@@ -351,15 +353,18 @@ private struct LoKeyPodUsageView: View {
                         Spacer()
                         Text(current.activatedAt, style: .date)
                     }
+                    if let plan = current.plannedFillUnits {
+                        LoKeyMetricLine("Planned fill", value: String(format: "%.0f U", plan))
+                    }
                     if let fill = current.fillUnits {
-                        LoKeyMetricLine("Recorded fill", value: String(format: "%.0f U", fill))
+                        LoKeyMetricLine("Actual fill (you confirmed)", value: String(format: "%.0f U", fill))
                     } else {
-                        Text("No fill amount recorded yet").foregroundColor(.secondary)
+                        Text("Actual fill not yet confirmed").foregroundColor(.secondary)
                     }
                     Stepper(value: $fillUnits, in: 85...200, step: 1) {
-                        Text("Insulin put in pod: \(Int(fillUnits)) U")
+                        Text("Actual insulin loaded: \(Int(fillUnits)) U")
                     }
-                    Button("Save Fill Amount") { saveFill(id: current.id) }
+                    Button("Confirm Actual Fill Amount") { saveFill(id: current.id) }
                     if let delivered = totalForPod(current) {
                         LoKeyMetricLine("Pump-reported delivery", value: String(format: "%.1f U", delivered))
                         if let filled = current.fillUnits {
@@ -443,7 +448,10 @@ private struct LoKeyPodUsageView: View {
                             Text("Currently active / end not recorded").font(.subheadline)
                         }
                         if let fill = pod.fillUnits {
-                            Text(String(format: "Filled %.0f U", fill)).font(.subheadline)
+                            Text(String(format: "Confirmed fill %.0f U", fill)).font(.subheadline)
+                        } else if let planned = pod.plannedFillUnits {
+                            Text(String(format: "Planned %.0f U; actual fill unconfirmed", planned))
+                                .font(.subheadline).foregroundColor(.secondary)
                         } else {
                             Text("Fill amount unknown").font(.subheadline).foregroundColor(.secondary)
                         }
@@ -515,8 +523,9 @@ private struct LoKeyPodUsageView: View {
         snapshot = viewModel.loKeyCurrentPodSnapshot?() ?? [:]
         let started = snapshot["podActivatedAt"] as? Date
         pods = LoKeyPodLedger.reconcile(podActivatedAt: started)
-        if let current = pods.first(where: { $0.endedAt == nil }), let fill = current.fillUnits {
-            fillUnits = fill
+        if let current = pods.first(where: { $0.endedAt == nil }),
+           let candidate = current.fillUnits ?? current.plannedFillUnits {
+            fillUnits = candidate
         }
         doses = nil
         doseError = nil
@@ -872,7 +881,9 @@ private enum LoKeyClinicalPDF {
                 for (index, pod) in relevant.prefix(4).enumerated() {
                     let y = CGFloat(604 + index*27)
                     let duration = pod.wearHours.map { String(format: "%.1f h", $0) } ?? "active"
-                    let filled = pod.fillUnits.map { String(format: "%.0f U", $0) } ?? "unknown"
+                    let filled = pod.fillUnits.map { String(format: "%.0f U confirmed", $0) }
+                        ?? pod.plannedFillUnits.map { String(format: "%.0f U planned only", $0) }
+                        ?? "unknown"
                     draw(fmt.string(from: pod.activatedAt) + "  |  " + duration +
                         "  |  fill " + filled + "  |  " + pod.changeReason,
                         x: 40, y: y, w: 530, size: 9)
