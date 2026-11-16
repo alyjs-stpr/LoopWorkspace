@@ -34,8 +34,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +                value.font = .monospacedDigitSystemFont(ofSize: 23, weight: .bold)
 +                value.adjustsFontSizeToFitWidth = true
 +                value.minimumScaleFactor = 0.6
-+                value.accessibilityLabel = heading
-+                let group = UIStackView(arrangedSubviews: [caption, value])
++    +                let group = UIStackView(arrangedSubviews: [caption, value])
 +                group.axis = .vertical
 +                group.spacing = 5
 +                group.backgroundColor = .tertiarySystemGroupedBackground
@@ -102,7 +101,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +                    var basalUnits = 0.0
 +                    var bolusUnits = 0.0
 +                    var invalidValue = false
-+                    for dose in doses where dose.endDate > loKeyDayStart && dose.startDate <= now {
++                    for dose in doses where dose.endDate >= loKeyDayStart && dose.startDate <= now {
 +                        let units = dose.trimmed(from: loKeyDayStart, to: now).unitsInDeliverableIncrements
 +                        guard units.isFinite && units >= 0 else {
 +                            invalidValue = true
