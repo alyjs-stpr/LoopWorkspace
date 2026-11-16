@@ -423,6 +423,7 @@ jobs:
           python3 -m unittest discover -s Scripts/tests -p 'test_lokey*widget*.py'
           # Fast syntax gate after all UI patches, before expensive signed archive.
           swiftc -frontend -parse "Loop/Loop/View Controllers/StatusTableViewController.swift"
+          swiftc -frontend -parse "Loop/Loop Widget Extension/Widgets/SystemStatusWidget.swift"
           echo "LoKey final dashboard polish applied."
           echo "LoKey T1D rounded chart cards and shared Now markers applied."
 
