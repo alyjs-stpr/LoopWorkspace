@@ -324,3 +324,5 @@ def install() -> None:
 
 if __name__ == "__main__":
     install()
+
+# One-time signed Canvas widget build trigger; no runtime changes.
