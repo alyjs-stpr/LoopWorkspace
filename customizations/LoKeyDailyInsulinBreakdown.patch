@@ -34,7 +34,7 @@ diff --git a/Loop/View Controllers/StatusTableViewController.swift b/Loop/View C
 +                value.font = .monospacedDigitSystemFont(ofSize: 23, weight: .bold)
 +                value.adjustsFontSizeToFitWidth = true
 +                value.minimumScaleFactor = 0.6
-+    +                let group = UIStackView(arrangedSubviews: [caption, value])
++                let group = UIStackView(arrangedSubviews: [caption, value])
 +                group.axis = .vertical
 +                group.spacing = 5
 +                group.backgroundColor = .tertiarySystemGroupedBackground
