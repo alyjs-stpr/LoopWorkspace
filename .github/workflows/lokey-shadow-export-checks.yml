@@ -23,6 +23,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Verify targeted, fail-closed Shadow export installer
         run: python3 -m unittest discover -s Scripts/tests -p test_lokey_shadow_files_export.py -v
+      - name: Test LoKey widget snapshot bridge and read-only invariants
+        run: python3 -m unittest discover -s Scripts/tests -p 'test_lokey*widget*.py' -v
       - name: Parse generated Swift source (syntax only)
         shell: bash
         run: |
