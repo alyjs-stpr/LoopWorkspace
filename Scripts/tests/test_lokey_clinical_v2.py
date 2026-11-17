@@ -41,6 +41,8 @@ class ClinicalV2Tests(unittest.TestCase):
         self.assertIn("BASAL RATE", src)
         self.assertIn("AMBULATORY GLUCOSE PROFILE", src)
         self.assertIn("TIME IN GLUCOSE RANGES", src)
+        self.assertIn("CGM time covered:", src)
+        self.assertIn("PARTIAL GLUCOSE DAY", src)
         self.assertIn("for day in days", src)
         self.assertIn("Automated boluses:", src)
         self.assertIn("Total Daily Basal:", src)
