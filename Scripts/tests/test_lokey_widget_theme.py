@@ -36,6 +36,9 @@ final class StatusTableViewController {
         group.backgroundColor = .tertiarySystemGroupedBackground
         amount.textColor = LoKeyWidgetPalette.violet
     }
+    private final class LoKeyPodCard: UITableViewCell {
+        let title = "Pod"
+    }
     override func viewDidLoad() {
     }
 }
