@@ -161,8 +161,12 @@ def settings_transform(source: str) -> str:
                 '    let viewModel: SettingsViewModel\n'
                 '    @AppStorage("LoKeyWidgetMatchingThemeV1") private var widgetThemeEnabled = true',
                 "persistent theme preference")
-    root = once(root, '            Section(header: Text("Adaptive Shadow")) {',
-        '''            Section(header: Text("Appearance")) {
+    # This menu is composed by multiple patches; the first subsection may be
+    # renamed or moved independently of the dark-theme feature. Insert only
+    # inside LoKeySettingsView's own Form, not before any particular section.
+    root = once(root, '        Form {',
+        '''        Form {
+            Section(header: Text("Appearance")) {
                 Toggle("Dark Mode", isOn: $widgetThemeEnabled)
                     .onChange(of: widgetThemeEnabled) { enabled in
                         // Only changes presentation style. Never writes Loop settings.
@@ -174,9 +178,8 @@ def settings_transform(source: str) -> str:
                     }
                 Text("Midnight navy surfaces, violet glucose and green insulin — like the Home Screen widget. Turn this off to follow the iPhone appearance setting.")
                     .font(.footnote).foregroundColor(.secondary)
-            }
-            Section(header: Text("Adaptive Shadow")) {''',
-        "appearance section")
+            }''',
+        "LoKey Settings form appearance section")
     root = once(root, '        .navigationTitle("LoKey Settings")',
         '        .navigationTitle("LoKey Settings")\n'
         '        .tint(Color(red: 0.68, green: 0.42, blue: 0.99))',
