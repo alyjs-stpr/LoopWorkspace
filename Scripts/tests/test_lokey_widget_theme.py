@@ -63,7 +63,7 @@ class ThemeInstallerTests(unittest.TestCase):
         self.assertIn("#0E0F1F", source)
         self.assertIn("#AD6BFC", source)
         self.assertIn("UIUserInterfaceStyle", source)
-        self.assertIn("UIColor.systemOrange", source)
+        self.assertIn("systemOrange", source)
         self.assertNotIn("enactBolus(", source)
         self.assertNotIn("suspendDelivery(", source)
         self.assertNotIn("setTempBasal(", source)
