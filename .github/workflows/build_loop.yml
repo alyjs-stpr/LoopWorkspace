@@ -396,6 +396,10 @@ jobs:
           # Local, read-only insulin history, pod fill ledger and Glooko-style clinical PDF.
           # Apply only after the existing Reports, Shadow and LoKey Settings patches.
           python3 Scripts/install_lokey_reports_analytics.py
+          # Opt-in interior night theme matching the bounded Home Screen widget.
+          # Apply LAST, after the native page, clinical report and archive installers.
+          python3 Scripts/install_lokey_widget_theme.py
+          python3 -m unittest Scripts/tests/test_lokey_widget_theme.py
           python3 -m unittest Scripts/tests/test_lokey_reports_analytics.py
           grep -Fq 'loKeyPrimaryHeader' "Loop/Loop/View Controllers/StatusTableViewController.swift"
           grep -Fq 'overrideSelectionControllerDidEndCurrentOverride' "Loop/WatchApp Extension/Controllers/ActionHUDController.swift"
