@@ -151,6 +151,8 @@ def settings_transform(source: str) -> str:
     if following < root_start:
         raise RuntimeError("Could not isolate LoKey Settings")
     root = source[root_start:following]
+    if '@AppStorage("LoKeyWidgetMatchingThemeV1")' in root:
+        raise RuntimeError("LoKey Settings theme already installed")
     root = once(root, "    let viewModel: SettingsViewModel",
                 '    let viewModel: SettingsViewModel\n'
                 '    @AppStorage("LoKeyWidgetMatchingThemeV1") private var widgetThemeEnabled = true',
