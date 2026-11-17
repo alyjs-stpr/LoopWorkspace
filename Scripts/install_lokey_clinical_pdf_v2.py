@@ -449,6 +449,11 @@ private enum LoKeyClinicalPDFV2 {
                 metric("Time In Range",dayStats.count>0 ? String(format:"%.0f%%",dayStats.tir*100):"No CGM",x:171,y:122,w:126)
                 metric("Total Basal*",totals.count>0 ? String(format:"%.1f U",totals.basal+totals.automated):"No data",x:304,y:122,w:126)
                 metric("Other Boluses",totals.count>0 ? String(format:"%.1f U",totals.initiated+totals.unclassified):"No data",x:437,y:122,w:137)
+                let dailyCoverage = String(format:"%.0f%%",dayStats.coverage*100)
+                text("CGM time covered: " + dailyCoverage +
+                     (dayStats.coverage < 0.70 ? "  -  PARTIAL GLUCOSE DAY" : ""),
+                     x:39,y:184,w:520,size:8,
+                     color: dayStats.coverage < 0.70 ? red : gray)
                 text("GLUCOSE  (mg/dL)  •  24-HOUR TRACE",x:38,y:201,w:518,size:11,bold:true)
                 dayTraces(oneDay,start:day,end:next,rect:CGRect(x:65,y:231,width:485,height:154))
                 drawDailyTracks(doses:data.doses,carbs:data.carbs,day:day,end:next)
