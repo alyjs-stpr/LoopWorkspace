@@ -170,7 +170,7 @@ private enum LoKeyClinicV2History {
                 }
             }
 
-            // Insulin samples written by LoopKit preserve original basal/bolus
+            // Insulin samples written by the LoKey Loop app preserve original basal/bolus
             // and auto-bolus metadata. Other pump brands are separate and never
             // presented as native LoKey insulin or inferred as automated.
             var mergedDoses: [String: DoseEntry] = [:]
@@ -182,7 +182,14 @@ private enum LoKeyClinicV2History {
                     ":" + String(describing: dose.type)
             }
             for sample in hkInsulin {
-                guard sample.metadata?["HasLoopKitOrigin"] as? Bool == true,
+                // Both Twiist and LoKey write HasLoopKitOrigin. Only include
+                // the ACTUAL LoKey writer in LoKey totals; this is essential
+                // when old Twiist and Loop usage overlap in October.
+                let source = sample.sourceRevision.source
+                let fromLoKey = source.name == "LoKey T1D" ||
+                    source.bundleIdentifier == "com.4MC7LCXJ5W.loopkit.Loop"
+                guard fromLoKey,
+                      sample.metadata?["HasLoopKitOrigin"] as? Bool == true,
                       let reasonRaw = sample.metadata?[HKMetadataKeyInsulinDeliveryReason] as? Int,
                       let reason = HKInsulinDeliveryReason(rawValue: reasonRaw) else { continue }
                 let quantity = sample.quantity.doubleValue(for: .internationalUnit())
@@ -211,7 +218,9 @@ private enum LoKeyClinicV2History {
                 loggedCarbs[key] = entry
             }
             let outsiders = hkInsulin.filter {
-                $0.metadata?["HasLoopKitOrigin"] as? Bool != true
+                let source = $0.sourceRevision.source
+                return source.name != "LoKey T1D" &&
+                    source.bundleIdentifier != "com.4MC7LCXJ5W.loopkit.Loop"
             }
             var status = warnings
             if healthSensor.isEmpty && nativeGlucose.isEmpty {
