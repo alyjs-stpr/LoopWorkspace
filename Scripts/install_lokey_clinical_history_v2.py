@@ -267,6 +267,14 @@ def install():
         'doseLine("Total basal (basal + Loop auto)", daily.basal + daily.automated)\n'
         '                                    doseLine("Pump basal component", daily.basal)',
         "insulin history combined basal")
+    new_view = replace_one(new_view,
+        'doseLine("Automatic boluses", daily.automated)',
+        'doseLine("Loop automated (included in basal)", daily.automated)',
+        "automated boluses visibly allocated inside basal")
+    new_view = replace_one(new_view,
+        'doseLine("You initiated", daily.initiated)',
+        'doseLine("Your boluses", daily.initiated)',
+        "user bolus explicit name")
 
     status = replace_one(status,
         'todayTile("BASAL", value: todayBasalValue',
@@ -274,7 +282,7 @@ def install():
         "combined basal tile")
     status = replace_one(status,
         'todayTile("BOLUSES", value: todayBolusValue',
-        'todayTile("OTHER BOLUS", value: todayBolusValue',
+        'todayTile("YOUR BOLUSES", value: todayBolusValue',
         "non-automatic bolus tile")
     status = replace_one(status,
         'self.loKeyDailyBasal = String(format: "%.2f U", basalUnits)',
@@ -282,11 +290,11 @@ def install():
         "basal plus automation")
     status = replace_one(status,
         'self.loKeyDailyBolus = String(format: "%.2f U", bolusUnits)',
-        'self.loKeyDailyBolus = String(format: "%.2f U", initiatedBolusUnits + unclassifiedBolusUnits)',
-        "other bolus without double-count")
+        'self.loKeyDailyBolus = String(format: "%.2f U", initiatedBolusUnits)',
+        "user-only bolus tile without unknown-origin doses")
     status = replace_one(status,
         'note.text = "Pump-delivered entries shown above; unverified manual logs excluded from totals. In-progress delivery may be estimated."',
-        'note.text = "*Total Basal = delivered basal + Loop auto-boluses. Other Bolus = user-initiated + origin unknown. No double-counting; unverified manual logs excluded."',
+        'note.text = "*Total Basal = delivered pump basal + automated Loop boluses. Your Boluses = only user-initiated boluses. Origin unknown is separate; all recorded pump insulin is included once in Total Today."',
         "insulin chart explanatory footnote")
 
     # All source changes are validated before any writes.
