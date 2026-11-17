@@ -46,7 +46,10 @@ class ClinicalV2Tests(unittest.TestCase):
         self.assertIn("for day in days", src)
         self.assertIn("Automated boluses:", src)
         self.assertIn("Total Daily Basal:", src)
-        self.assertIn("basal + auto bolus", src)
+        self.assertIn("TOTAL DAILY BASAL = RECORDED BASAL + AUTOMATED BOLUSES", src)
+        self.assertIn('metric("Your Boluses"', src)
+        self.assertIn("Unknown-origin boluses", src)
+        self.assertNotIn('metric("Other Boluses"', src)
 
     def test_report_is_explicit_about_gaps_and_sources(self):
         src = history.HELPERS + pdf.PDF
