@@ -163,7 +163,7 @@ def settings_transform(source: str) -> str:
                 "persistent theme preference")
     root = once(root, '            Section(header: Text("Adaptive Shadow")) {',
         '''            Section(header: Text("Appearance")) {
-                Toggle("Match Widget Dark Theme", isOn: $widgetThemeEnabled)
+                Toggle("Dark Mode", isOn: $widgetThemeEnabled)
                     .onChange(of: widgetThemeEnabled) { enabled in
                         // Only changes presentation style. Never writes Loop settings.
                         for case let scene as UIWindowScene in UIApplication.shared.connectedScenes {
