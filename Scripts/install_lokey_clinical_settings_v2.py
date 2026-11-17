@@ -235,14 +235,14 @@ private extension LoKeyClinicalPDFV2 {
                          range:range,page:&page,y:&y)
         }
 
-        if let latest = ordered.last {
-            let label = "LAST SAVED IN REPORT RANGE: " +
+        if let latest = ordered.last(where: { $0.date >= start }) {
+            let label = "LAST SAVED DURING REPORT: " +
                 dateFormatter.string(from:latest.date)
             printSnapshot(fromSaved(latest,label:label),
                           ctx:ctx,range:range,page:&page,y:&y)
         } else {
             settingsRows(ctx,"Historical therapy settings",
-                         rows:[("Unavailable","No saved settings snapshots for this range")],
+                         rows:[("Unavailable","No new settings snapshots saved during this range")],
                          range:range,page:&page,y:&y)
         }
     }
