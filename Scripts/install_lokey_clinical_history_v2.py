@@ -253,6 +253,11 @@ def install():
     old = 'Text("Clinical-style PDF with AGP percentiles, glucose distribution, daily delivered insulin, automated vs user-initiated boluses, recorded pod changes, and current therapy settings.")'
     new = 'Text("Glooko-familiar clinical PDF with CGM AGP, daily glucose and insulin charts, carb entries, basal plus automated bolus totals, pod history and settings. Apple Health access may be requested for older readings.")'
     new_view = replace_one(new_view, old, new, "daily-graph explanation")
+    new_view = replace_one(new_view,
+        'doseLine("Basal", daily.basal)',
+        'doseLine("Total basal (basal + Loop auto)", daily.basal + daily.automated)\n'
+        '                                    doseLine("Pump basal component", daily.basal)',
+        "insulin history combined basal")
 
     status = replace_one(status,
         'todayTile("BASAL", value: todayBasalValue',
