@@ -337,8 +337,10 @@ private enum LoKeyClinicalPDFV2 {
         let observedDays = dosedDays.filter { $0.count > 0 }
         let basalMean = observedDays.isEmpty ? nil :
             observedDays.reduce(0) { $0 + $1.basal + $1.automated } / Double(observedDays.count)
-        let otherMean = observedDays.isEmpty ? nil :
-            observedDays.reduce(0) { $0 + $1.initiated + $1.unclassified } / Double(observedDays.count)
+        let userMean = observedDays.isEmpty ? nil :
+            observedDays.reduce(0) { $0 + $1.initiated } / Double(observedDays.count)
+        let unknownMean = observedDays.isEmpty ? nil :
+            observedDays.reduce(0) { $0 + $1.unclassified } / Double(observedDays.count)
 
         let pdf = UIGraphicsPDFRenderer(bounds: CGRect(x:0,y:0,width:width,height:height))
         let bytes = pdf.pdfData { ctx in
@@ -365,12 +367,12 @@ private enum LoKeyClinicalPDFV2 {
                  x:65,y:520,w:525,size:9,color:gray)
             rule(550)
             text("INSULIN FROM LOOP", x:38,y:565,w:520,size:12,bold:true)
-            if let basalMean, let otherMean {
+            if let basalMean, let userMean, let unknownMean {
                 metric("Total Basal / Day*",String(format:"%.1f U",basalMean),
                        x:38,y:588,w:164)
-                metric("Other Boluses / Day",String(format:"%.1f U",otherMean),
+                metric("Your Boluses / Day",String(format:"%.1f U",userMean),
                        x:210,y:588,w:164)
-                metric("Total Delivery / Day",String(format:"%.1f U",basalMean+otherMean),
+                metric("Total Delivery / Day",String(format:"%.1f U",basalMean+userMean+unknownMean),
                        x:382,y:588,w:192)
             } else {
                 text("No Loop insulin history for the selected period; cannot calculate daily delivery.",
@@ -378,7 +380,7 @@ private enum LoKeyClinicalPDFV2 {
             }
             text("*Total Basal = pump basal + Loop automated boluses. These components are",
                  x:38,y:667,w:537,size:9,color:gray)
-            text("reported separately on daily pages. User boluses are not counted twice.",
+            text("Your Boluses excludes automated and unknown-origin doses. Unknown is in total delivery.",
                  x:38,y:679,w:537,size:9,color:gray)
             text("Local Loop CGM: " + String(data.nativeGlucoseCount) +
                  "   Health CGM: " + String(data.healthGlucoseCount) +
@@ -403,18 +405,22 @@ private enum LoKeyClinicalPDFV2 {
             let barW = graph.width / CGFloat(max(1,days.count))
             for (i, totals) in dosedDays.enumerated() where totals.count>0 {
                 let dayBasal = totals.basal + totals.automated
-                let other = totals.initiated + totals.unclassified
+                let yours = totals.initiated
+                let unknown = totals.unclassified
                 let x = graph.minX + CGFloat(i)*barW + 1
                 let w = max(1,barW-2)
                 let basalH = graph.height * CGFloat(dayBasal/dailyMax)
-                let otherH = graph.height * CGFloat(other/dailyMax)
+                let yourH = graph.height * CGFloat(yours/dailyMax)
+                let unknownH = graph.height * CGFloat(unknown/dailyMax)
                 fill(CGRect(x:x,y:graph.maxY-basalH,width:w,height:basalH),color:green)
-                fill(CGRect(x:x,y:graph.maxY-basalH-otherH,width:w,height:otherH),
+                fill(CGRect(x:x,y:graph.maxY-basalH-yourH,width:w,height:yourH),
                      color:violet)
+                fill(CGRect(x:x,y:graph.maxY-basalH-yourH-unknownH,width:w,height:unknownH),
+                     color:amber)
             }
             line(CGPoint(x:graph.minX,y:graph.maxY),
                  CGPoint(x:graph.maxX,y:graph.maxY),color:gray)
-            text("Green: Total Basal (pump basal + auto bolus)   Violet: Other boluses",
+            text("Green: Total Basal    Violet: Your boluses    Amber: Unknown-origin boluses",
                  x:74,y:472,w:475,size:9,color:gray)
             text("Days with recorded Loop insulin: \(observedDays.count) of \(days.count)",
                  x:74,y:495,w:475,size:11,bold:true)
@@ -448,7 +454,7 @@ private enum LoKeyClinicalPDFV2 {
                 metric("Avg Glucose",v,x:38,y:122,w:126)
                 metric("Time In Range",dayStats.count>0 ? String(format:"%.0f%%",dayStats.tir*100):"No CGM",x:171,y:122,w:126)
                 metric("Total Basal*",totals.count>0 ? String(format:"%.1f U",totals.basal+totals.automated):"No data",x:304,y:122,w:126)
-                metric("Other Boluses",totals.count>0 ? String(format:"%.1f U",totals.initiated+totals.unclassified):"No data",x:437,y:122,w:137)
+                metric("Your Boluses",totals.count>0 ? String(format:"%.1f U",totals.initiated):"No data",x:437,y:122,w:137)
                 let dailyCoverage = String(format:"%.0f%%",dayStats.coverage*100)
                 text("CGM time covered: " + dailyCoverage +
                      (dayStats.coverage < 0.70 ? "  -  PARTIAL GLUCOSE DAY" : ""),
@@ -463,7 +469,7 @@ private enum LoKeyClinicalPDFV2 {
                          "   +   Automated boluses: " + String(format:"%.2f U",totals.automated) +
                          "   =   Total Daily Basal: " + String(format:"%.2f U",totals.basal+totals.automated),
                          x:38,y:671,w:535,size:10,bold:true)
-                    text("User boluses: " + String(format:"%.2f U",totals.initiated) +
+                    text("Your boluses: " + String(format:"%.2f U",totals.initiated) +
                          "  |  Unknown origin: " + String(format:"%.2f U",totals.unclassified) +
                          "  |  Pump total: " + String(format:"%.2f U",totals.delivered),
                          x:38,y:692,w:535,size:9,color:gray)
