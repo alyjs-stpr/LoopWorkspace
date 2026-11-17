@@ -66,6 +66,8 @@ class ClinicalV2Tests(unittest.TestCase):
 private struct LoKeyInsulinHistoryView: View {
     func demo() {
         doseLine("Basal", daily.basal)
+        doseLine("Automatic boluses", daily.automated)
+        doseLine("You initiated", daily.initiated)
     }
 }
 
@@ -100,7 +102,10 @@ note.text = "Pump-delivered entries shown above; unverified manual logs excluded
                 self.assertIn('Total basal (basal + Loop auto)', content)
                 self.assertIn("TOTAL BASAL*", status.read_text())
                 self.assertIn("basalUnits + automaticBolusUnits",status.read_text())
-                self.assertIn("initiatedBolusUnits + unclassifiedBolusUnits",status.read_text())
+                self.assertIn('self.loKeyDailyBolus = String(format: "%.2f U", initiatedBolusUnits)', status.read_text())
+                self.assertIn("YOUR BOLUSES", status.read_text())
+                self.assertIn("Origin unknown is separate", status.read_text())
+                self.assertIn('doseLine("Loop automated (included in basal)", daily.automated)', content)
                 with self.assertRaises(RuntimeError):
                     pdf.install()
 
