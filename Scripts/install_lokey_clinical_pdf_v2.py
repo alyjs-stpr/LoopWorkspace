@@ -260,8 +260,8 @@ private enum LoKeyClinicalPDFV2 {
         let origin: CGFloat = 65
         let trackW: CGFloat = 485
         text("CARBS", x: 38, y: 407, w: 70, size: 9, bold: true, color: gray)
-        text("BOLUSES", x: 38, y: 481, w: 70, size: 9, bold: true, color: gray)
-        text("BASAL RATE", x: 38, y: 552, w: 90, size: 9, bold: true, color: gray)
+        text("YOUR / UNKNOWN BOLUSES", x: 38, y: 481, w: 220, size: 9, bold: true, color: gray)
+        text("BASAL + LOOP AUTO", x: 38, y: 552, w: 210, size: 9, bold: true, color: gray)
         let trackRows: [CGFloat] = [430, 505, 584]
         for y in trackRows {
             fill(CGRect(x: origin, y: y, width: trackW, height: 41),
@@ -280,7 +280,7 @@ private enum LoKeyClinicalPDFV2 {
             fill(CGRect(x: x-2,y: 469-h,width: 5,height: h), color: cyan, radius: 1)
         }
         let dayDoses = doses.filter { $0.startDate < end && $0.endDate >= day }
-        for dose in dayDoses where dose.type == .bolus && !dose.manuallyEntered {
+        for dose in dayDoses where dose.type == .bolus && !dose.manuallyEntered && dose.automatic != true {
             let amount = dose.unitsInDeliverableIncrements
             let x = hourX(dose.startDate, in: CGRect(x:origin,y:0,width:trackW,height:0))
             let h = CGFloat(min(1,amount/10)) * 33
@@ -302,13 +302,25 @@ private enum LoKeyClinicalPDFV2 {
             fill(CGRect(x:x,y:623-h,width:min(w,origin+trackW-x),height:h),
                  color:green.withAlphaComponent(0.75))
         }
+        // Draw automated boluses inside the basal track, never the
+        // "Your boluses" track. These are still pump bolus events in source data.
+        for dose in dayDoses where dose.type == .bolus &&
+                                  dose.automatic == true && !dose.manuallyEntered {
+            let amount = dose.unitsInDeliverableIncrements
+            guard amount > 0 && amount.isFinite else { continue }
+            let x = hourX(dose.startDate,
+                          in: CGRect(x:origin,y:0,width:trackW,height:0))
+            let h = max(CGFloat(3), CGFloat(min(1,amount/2.0))*33)
+            fill(CGRect(x:x-2,y:623-h,width:4,height:h),
+                 color:green,radius:1)
+        }
         if dayCarbs.isEmpty {
             text("No carb entries available",x: 310,y: 448,w:230,size:9,color:gray)
         }
         if dayDoses.isEmpty {
             text("No Loop insulin records available",x:300,y:523,w:250,size:9,color:gray)
         }
-        text("Cyan: carbs    Green: auto bolus / basal rate    Purple: user bolus    Orange: unknown",
+        text("Cyan: carbs    Green: basal + Loop automated    Purple: your boluses    Orange: unknown",
              x: 65, y: 633, w: 500, size: 9, color: gray)
     }
 
