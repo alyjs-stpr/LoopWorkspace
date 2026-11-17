@@ -292,11 +292,15 @@ private enum LoKeyClinicalPDFV2 {
             guard duration > 0 else { continue }
             let clippedStart = max(day, dose.startDate)
             let clippedEnd = min(end, dose.endDate)
-            let w = max(0.8, hourX(clippedEnd, in: CGRect(x:origin,y:0,width:trackW,height:0)) -
-                              hourX(clippedStart, in: CGRect(x:origin,y:0,width:trackW,height:0)))
-            let x = hourX(clippedStart, in: CGRect(x:origin,y:0,width:trackW,height:0))
-            let h = CGFloat(min(2.5,dose.unitsPerHour)/2.5)*33
-            fill(CGRect(x:x,y:623-h,width:w,height:h), color:green.withAlphaComponent(0.75))
+            guard clippedEnd > clippedStart else { continue }
+            // Midnight belongs at the RIGHT edge of the preceding day.
+            // hourX(midnight) returns 0, so this track must use elapsed time.
+            let dayLength = max(1.0, end.timeIntervalSince(day))
+            let x = origin + trackW * CGFloat(clippedStart.timeIntervalSince(day)/dayLength)
+            let w = max(0.8, trackW * CGFloat(clippedEnd.timeIntervalSince(clippedStart)/dayLength))
+            let h = CGFloat(min(2.5,max(0,dose.unitsPerHour))/2.5)*33
+            fill(CGRect(x:x,y:623-h,width:min(w,origin+trackW-x),height:h),
+                 color:green.withAlphaComponent(0.75))
         }
         if dayCarbs.isEmpty {
             text("No carb entries available",x: 310,y: 448,w:230,size:9,color:gray)
