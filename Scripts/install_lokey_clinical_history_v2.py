@@ -320,6 +320,19 @@ def install():
         'note.text = "*Total Basal = delivered pump basal + automated Loop boluses. Your Boluses = only user-initiated boluses. Origin unknown is separate; all recorded pump insulin is included once in Total Today."',
         "insulin chart explanatory footnote")
 
+    status = replace_one(status,
+        'bolusOriginHeading.text = "BOLUS BREAKDOWN · TODAY"',
+        'bolusOriginHeading.text = "DELIVERY DETAILS · TODAY"',
+        "group components by automated or initiated origin")
+    status = replace_one(status,
+        'bolusOriginRow("Automatic (Loop)", autoBolusValue)',
+        'bolusOriginRow("Loop automated (in Total Basal)", autoBolusValue)',
+        "automated dose label")
+    status = replace_one(status,
+        'bolusOriginRow("You initiated", initiatedBolusValue)',
+        'bolusOriginRow("Your boluses", initiatedBolusValue)',
+        "manual bolus label")
+
     # All source changes are validated before any writes.
     SETTINGS.write_text(new_view, encoding="utf-8")
     STATUS.write_text(status, encoding="utf-8")
