@@ -30,7 +30,6 @@ class SettingsTablesTests(unittest.TestCase):
             "No saved record means settings are unknown",
         ]:
             self.assertIn(label, swift, label)
-        self.assertIn("current.carbRatioSchedule", swift) if False else None
         self.assertIn("t.carbRatioSchedule", swift)
         self.assertIn("t.insulinSensitivitySchedule", swift)
         self.assertIn("t.basalRateSchedule", swift)
