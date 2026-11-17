@@ -262,7 +262,8 @@ private enum LoKeyClinicalPDFV2 {
         text("CARBS", x: 38, y: 407, w: 70, size: 9, bold: true, color: gray)
         text("BOLUSES", x: 38, y: 481, w: 70, size: 9, bold: true, color: gray)
         text("BASAL RATE", x: 38, y: 552, w: 90, size: 9, bold: true, color: gray)
-        for y in [430.0, 505.0, 584.0] {
+        let trackRows: [CGFloat] = [430, 505, 584]
+        for y in trackRows {
             fill(CGRect(x: origin, y: y, width: trackW, height: 41),
                  color: UIColor(white: 0.974, alpha: 1))
             for hour in stride(from: 0, through: 24, by: 3) {
