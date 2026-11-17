@@ -51,6 +51,7 @@ private struct LoKeyClinicV2Data {
     let doses: [DoseEntry]
     let carbs: [StoredCarbEntry]
     let externalInsulin: [HKQuantitySample]
+    let savedTherapySettings: [StoredSettings]
     let notes: [String]
     let nativeGlucoseCount: Int
     let healthGlucoseCount: Int
@@ -73,6 +74,7 @@ private enum LoKeyClinicV2History {
         var hkGlucose: [HKQuantitySample] = []
         var hkInsulin: [HKQuantitySample] = []
         var hkCarbs: [HKQuantitySample] = []
+        var savedTherapySettings: [StoredSettings] = []
         var warnings: [String] = []
 
         if let loader = viewModel.loKeyLoadGlucose {
@@ -102,6 +104,25 @@ private enum LoKeyClinicV2History {
             }
         } else {
             warnings.append("Local insulin history unavailable")
+        }
+
+        // Loop already offers a true SettingsStore history query. The latest
+        // saved settings before the range and changes within it are preserved;
+        // do not substitute today's settings for historical days.
+        if let loader = viewModel.loKeyLoadSettingsHistory {
+            group.enter()
+            loader(start, end) { result in
+                lock.lock()
+                switch result {
+                case .success(let rows): savedTherapySettings = rows
+                case .failure(let error):
+                    warnings.append("Past therapy settings: " + error.localizedDescription)
+                }
+                lock.unlock()
+                group.leave()
+            }
+        } else {
+            warnings.append("Past therapy settings unavailable; current settings still shown")
         }
 
         if HKHealthStore.isHealthDataAvailable(),
@@ -236,7 +257,9 @@ private enum LoKeyClinicV2History {
                 glucose: glucoseByMinute.values.sorted { $0.startDate < $1.startDate },
                 doses: mergedDoses.values.sorted { $0.startDate < $1.startDate },
                 carbs: loggedCarbs.values.sorted { $0.startDate < $1.startDate },
-                externalInsulin: outsiders, notes: status,
+                externalInsulin: outsiders,
+                savedTherapySettings: savedTherapySettings.sorted { $0.date < $1.date },
+                notes: status,
                 nativeGlucoseCount: nativeGlucose.count,
                 healthGlucoseCount: healthSensor.count,
                 nativeDoseCount: nativeDoses.count, healthDoseCount: archivedCount))
