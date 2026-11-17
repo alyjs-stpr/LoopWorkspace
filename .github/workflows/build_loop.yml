@@ -399,6 +399,14 @@ jobs:
           # Opt-in interior night theme matching the bounded Home Screen widget.
           # Apply LAST, after the native page, clinical report and archive installers.
           python3 Scripts/install_lokey_widget_theme.py
+          # Clinical report V2: read archived HealthKit data and draw daily timelines.
+          # Display-only; never changes insulin delivery or pump communication.
+          python3 Scripts/install_lokey_clinical_history_v2.py
+          python3 Scripts/install_lokey_clinical_pdf_v2.py
+          # Print readable ICR, ISF, basal, targets and recorded past settings.
+          python3 Scripts/install_lokey_clinical_settings_v2.py
+          python3 -m unittest Scripts/tests/test_lokey_clinical_v2.py
+          python3 -m unittest Scripts/tests/test_lokey_clinical_settings_v2.py
           python3 -m unittest Scripts/tests/test_lokey_widget_theme.py
           python3 -m unittest Scripts/tests/test_lokey_reports_analytics.py
           grep -Fq 'loKeyPrimaryHeader' "Loop/Loop/View Controllers/StatusTableViewController.swift"

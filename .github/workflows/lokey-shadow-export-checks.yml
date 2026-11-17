@@ -6,6 +6,11 @@ on:
       - 'Scripts/tests/test_lokey_shadow_files_export.py'
       - 'Scripts/install_lokey_reports_analytics.py'
       - 'Scripts/tests/test_lokey_reports_analytics.py'
+      - 'Scripts/install_lokey_clinical_history_v2.py'
+      - 'Scripts/install_lokey_clinical_pdf_v2.py'
+      - 'Scripts/install_lokey_clinical_settings_v2.py'
+      - 'Scripts/tests/test_lokey_clinical_settings_v2.py'
+      - 'Scripts/tests/test_lokey_clinical_v2.py'
       - 'Scripts/install_lokey_widget_theme.py'
       - 'Scripts/tests/test_lokey_widget_theme.py'
       - 'customizations/LoKeyChartColors.patch'
@@ -122,6 +127,50 @@ jobs:
             grep -Fq 'python3 Scripts/install_lokey_widget_theme.py' "$workflow"
           done
           grep -Fq 'UIColor(red: 0.6800, green: 0.4200, blue: 0.9900, alpha: 1)' customizations/LoKeyChartColors.patch
+      - name: Verify daily CGM graphs and historical Health reader without app build
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest Scripts/tests/test_lokey_clinical_v2.py -v
+          python3 -m unittest Scripts/tests/test_lokey_clinical_settings_v2.py -v
+          python3 - <<'PY'
+          import importlib.util
+          from pathlib import Path
+          for name, filename in [
+            ("clinic_history", "Scripts/install_lokey_clinical_history_v2.py"),
+            ("clinic_pdf", "Scripts/install_lokey_clinical_pdf_v2.py"),
+            ("clinic_settings", "Scripts/install_lokey_clinical_settings_v2.py")
+          ]:
+            spec = importlib.util.spec_from_file_location(name, filename)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            if name == "clinic_history":
+              Path("/tmp/LoKeyClinicalHistory.swift").write_text(
+                "import Foundation\nimport HealthKit\nimport UIKit\nimport LoopKit\nimport SwiftUI\n" +
+                module.HELPERS
+              )
+              Path("/tmp/LoKeyClinicalGenerate.swift").write_text(
+                "import SwiftUI\n" + "private struct LoKeyClinicalReportView: View {\n" +
+                module.GENERATE + "\n}"
+              )
+            elif name == "clinic_pdf":
+              Path("/tmp/LoKeyClinicalDailyPDF.swift").write_text(
+                "import Foundation\nimport UIKit\nimport HealthKit\nimport LoopKit\n" + module.PDF
+              )
+            else:
+              Path("/tmp/LoKeyClinicalSettings.swift").write_text(
+                "import Foundation\nimport UIKit\nimport HealthKit\nimport LoopKit\n" + module.HELPER
+              )
+          PY
+          swiftc -frontend -parse /tmp/LoKeyClinicalHistory.swift
+          swiftc -frontend -parse /tmp/LoKeyClinicalGenerate.swift
+          swiftc -frontend -parse /tmp/LoKeyClinicalDailyPDF.swift
+          swiftc -frontend -parse /tmp/LoKeyClinicalSettings.swift
+          for workflow in .github/workflows/build_loop.yml .github/workflows/build_loop_auto.yml; do
+            grep -Fq 'python3 Scripts/install_lokey_clinical_history_v2.py' "$workflow"
+            grep -Fq 'python3 Scripts/install_lokey_clinical_pdf_v2.py' "$workflow"
+            grep -Fq 'python3 Scripts/install_lokey_clinical_settings_v2.py' "$workflow"
+          done
       - name: Confirm all build routes install the same export fix
         run: |
           set -euo pipefail
