@@ -85,7 +85,7 @@ class ThemeInstallerTests(unittest.TestCase):
 
     def test_settings_toggle_is_reversible(self):
         out = theme.settings_transform(SETTINGS_FIXTURE)
-        self.assertIn('Toggle("Match Widget Dark Theme"', out)
+        self.assertIn('Toggle("Dark Mode"', out)
         self.assertIn('enabled ? .dark : .unspecified', out)
         self.assertIn(".tint(Color(red: 0.68, green: 0.42, blue: 0.99))", out)
         with self.assertRaises(RuntimeError):
@@ -101,7 +101,7 @@ class ThemeInstallerTests(unittest.TestCase):
             with mock.patch.object(theme,"STATUS",status),mock.patch.object(theme,"SETTINGS",settings):
                 theme.install()
                 self.assertIn("LoKeyWidgetPalette.card", status.read_text())
-                self.assertIn("Match Widget Dark Theme", settings.read_text())
+                self.assertIn("Dark Mode", settings.read_text())
                 with self.assertRaises(RuntimeError):
                     theme.install()
 
