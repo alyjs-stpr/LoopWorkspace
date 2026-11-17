@@ -380,7 +380,11 @@ private enum LoKeyClinicalPDFV2 {
                  "   Health CGM: " + String(data.healthGlucoseCount) +
                  "   Local Loop doses: " + String(data.nativeDoseCount) +
                  "   Archived LoopKit doses: " + String(data.healthDoseCount),
-                 x:38,y:703,w:537,size:8,color:gray)
+                 x:38,y:701,w:537,size:8,color:gray)
+            let firstGlucose = data.glucose.first.map { formatDate($0.startDate) } ?? "Unavailable"
+            let firstInsulin = data.doses.first.map { formatDate($0.startDate) } ?? "Unavailable"
+            text("First CGM in range: " + firstGlucose + "    First Loop insulin in range: " + firstInsulin,
+                 x:38,y:715,w:537,size:8,color:gray)
 
             page += 1
             ctx.beginPage()
@@ -445,17 +449,18 @@ private enum LoKeyClinicalPDFV2 {
                 dayTraces(oneDay,start:day,end:next,rect:CGRect(x:65,y:231,width:485,height:154))
                 drawDailyTracks(doses:data.doses,carbs:data.carbs,day:day,end:next)
                 rule(662)
-                text("Basal pump delivery: " + String(format:"%.2f U",totals.basal) +
-                     "   +   Automated boluses: " + String(format:"%.2f U",totals.automated) +
-                     "   =   Total Daily Basal: " + String(format:"%.2f U",totals.basal+totals.automated),
-                     x:38,y:671,w:535,size:10,bold:true)
-                text("User boluses: " + String(format:"%.2f U",totals.initiated) +
-                     "  |  Unknown origin: " + String(format:"%.2f U",totals.unclassified) +
-                     "  |  Pump total: " + String(format:"%.2f U",totals.delivered),
-                     x:38,y:692,w:535,size:9,color:gray)
-                if totals.count == 0 {
-                    text("Insulin history unavailable for this date — displayed zeros are NOT evidence of zero delivery.",
-                         x:38,y:716,w:535,size:8,color:red)
+                if totals.count > 0 {
+                    text("Pump basal: " + String(format:"%.2f U",totals.basal) +
+                         "   +   Automated boluses: " + String(format:"%.2f U",totals.automated) +
+                         "   =   Total Daily Basal: " + String(format:"%.2f U",totals.basal+totals.automated),
+                         x:38,y:671,w:535,size:10,bold:true)
+                    text("User boluses: " + String(format:"%.2f U",totals.initiated) +
+                         "  |  Unknown origin: " + String(format:"%.2f U",totals.unclassified) +
+                         "  |  Pump total: " + String(format:"%.2f U",totals.delivered),
+                         x:38,y:692,w:535,size:9,color:gray)
+                } else {
+                    text("NO LOOP INSULIN HISTORY FOR THIS DAY — DO NOT INTERPRET AS ZERO DELIVERY.",
+                         x:38,y:671,w:535,size:9,bold:true,color:red)
                 }
                 let outside = data.externalInsulin.filter { $0.startDate>=day && $0.startDate<next }
                 if !outside.isEmpty {
