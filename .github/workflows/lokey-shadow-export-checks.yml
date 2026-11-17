@@ -6,6 +6,9 @@ on:
       - 'Scripts/tests/test_lokey_shadow_files_export.py'
       - 'Scripts/install_lokey_reports_analytics.py'
       - 'Scripts/tests/test_lokey_reports_analytics.py'
+      - 'Scripts/install_lokey_widget_theme.py'
+      - 'Scripts/tests/test_lokey_widget_theme.py'
+      - 'customizations/LoKeyChartColors.patch'
       - '.github/workflows/build_loop.yml'
       - '.github/workflows/build_loop_auto.yml'
       - '.github/workflows/lokey_dashboard_checks.yml'
@@ -98,6 +101,27 @@ jobs:
           swiftc -frontend -parse /tmp/LoKeyReportsAnalytics.swift
           grep -Fq 'python3 Scripts/install_lokey_reports_analytics.py' .github/workflows/build_loop.yml
           grep -Fq 'python3 Scripts/install_lokey_reports_analytics.py' .github/workflows/build_loop_auto.yml
+      - name: Validate LoKey dark theme source and generated Swift (no app build)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest Scripts/tests/test_lokey_widget_theme.py -v
+          python3 - <<'PY'
+          import importlib.util
+          from pathlib import Path
+          path = Path("Scripts/install_lokey_widget_theme.py")
+          spec = importlib.util.spec_from_file_location("lokey_theme", path)
+          mod = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(mod)
+          Path("/tmp/LoKeyWidgetPalette.swift").write_text(
+              "import Foundation\nimport UIKit\n" + mod.PALETTE
+          )
+          PY
+          swiftc -frontend -parse /tmp/LoKeyWidgetPalette.swift
+          for workflow in .github/workflows/build_loop.yml .github/workflows/build_loop_auto.yml; do
+            grep -Fq 'python3 Scripts/install_lokey_widget_theme.py' "$workflow"
+          done
+          grep -Fq 'UIColor(red: 0.6800, green: 0.4200, blue: 0.9900, alpha: 1)' customizations/LoKeyChartColors.patch
       - name: Confirm all build routes install the same export fix
         run: |
           set -euo pipefail
