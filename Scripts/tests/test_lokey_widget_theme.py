@@ -91,6 +91,23 @@ class ThemeInstallerTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             theme.settings_transform(out)
 
+    def test_appearance_insertion_does_not_depend_on_adaptive_shadow(self):
+        # Regression: the Nov 16 Customize Loop job failed because its
+        # Settings view did not contain the exact Adaptive Shadow section.
+        altered = SETTINGS_FIXTURE.replace('            Section(header: Text("Adaptive Shadow")) {',
+                                           '            Section(header: Text("Reports & Analytics")) {')
+        out = theme.settings_transform(altered)
+        self.assertIn('Toggle("Dark Mode"', out)
+        self.assertIn('Section(header: Text("Appearance"))', out)
+        self.assertIn('Section(header: Text("Reports & Analytics"))', out)
+        self.assertEqual(out.count('Toggle("Dark Mode"'), 1)
+
+    def test_theme_does_not_escape_lokey_settings_view(self):
+        out = theme.settings_transform(SETTINGS_FIXTURE)
+        self.assertEqual(out.count('Section(header: Text("Appearance"))'), 1)
+        after = out.split("private struct LoKeyNextView: View {")[1]
+        self.assertNotIn('Toggle("Dark Mode"', after)
+
     def test_atomic_install_only_changes_expected_source_files(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
