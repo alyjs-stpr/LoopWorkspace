@@ -38,7 +38,7 @@ class ClinicalV2Tests(unittest.TestCase):
         self.assertIn("GLUCOSE  (mg/dL)  •  24-HOUR TRACE", src)
         self.assertIn("CARBS", src)
         self.assertIn("BOLUSES", src)
-        self.assertIn("BASAL RATE", src)
+        self.assertIn("BASAL + LOOP AUTO", src)
         self.assertIn("AMBULATORY GLUCOSE PROFILE", src)
         self.assertIn("TIME IN GLUCOSE RANGES", src)
         self.assertIn("CGM time covered:", src)
