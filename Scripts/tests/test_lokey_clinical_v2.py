@@ -46,6 +46,9 @@ class ClinicalV2Tests(unittest.TestCase):
         self.assertIn("for day in days", src)
         self.assertIn("Automated boluses:", src)
         self.assertIn("Total Daily Basal:", src)
+        self.assertIn("BASAL + LOOP AUTO",src)
+        self.assertIn("YOUR / UNKNOWN BOLUSES",src)
+        self.assertIn("dose.automatic != true",src)
         self.assertIn("TOTAL DAILY BASAL = RECORDED BASAL + AUTOMATED BOLUSES", src)
         self.assertIn('metric("Your Boluses"', src)
         self.assertIn("Unknown-origin boluses", src)
@@ -89,6 +92,9 @@ private enum LoKeyClinicalPDF {
             status.write_text('''
 todayTile("BASAL", value: todayBasalValue
 todayTile("BOLUSES", value: todayBolusValue
+bolusOriginHeading.text = "BOLUS BREAKDOWN · TODAY"
+bolusOriginRow("Automatic (Loop)", autoBolusValue)
+bolusOriginRow("You initiated", initiatedBolusValue)
 self.loKeyDailyBasal = String(format: "%.2f U", basalUnits)
 self.loKeyDailyBolus = String(format: "%.2f U", bolusUnits)
 note.text = "Pump-delivered entries shown above; unverified manual logs excluded from totals. In-progress delivery may be estimated."
@@ -107,6 +113,8 @@ note.text = "Pump-delivered entries shown above; unverified manual logs excluded
                 self.assertIn("basalUnits + automaticBolusUnits",status.read_text())
                 self.assertIn('self.loKeyDailyBolus = String(format: "%.2f U", initiatedBolusUnits)', status.read_text())
                 self.assertIn("YOUR BOLUSES", status.read_text())
+                self.assertIn("Loop automated (in Total Basal)",status.read_text())
+                self.assertIn("DELIVERY DETAILS · TODAY",status.read_text())
                 self.assertIn("Origin unknown is separate", status.read_text())
                 self.assertIn('doseLine("Loop automated (included in basal)", daily.automated)', content)
                 with self.assertRaises(RuntimeError):
