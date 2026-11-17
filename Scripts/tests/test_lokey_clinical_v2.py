@@ -58,6 +58,12 @@ class ClinicalV2Tests(unittest.TestCase):
             settings = root / "SettingsView.swift"
             status = root / "StatusTableViewController.swift"
             settings.write_text('''
+private struct LoKeyInsulinHistoryView: View {
+    func demo() {
+        doseLine("Basal", daily.basal)
+    }
+}
+
 private struct LoKeyClinicalReportView: View {
     var body: some View {
         Text("Clinical-style PDF with AGP percentiles, glucose distribution, daily delivered insulin, automated vs user-initiated boluses, recorded pod changes, and current therapy settings.")
@@ -67,11 +73,6 @@ private struct LoKeyClinicalReportView: View {
     }
 }
 
-private struct LoKeyInsulinHistoryView: View {
-    func demo() {
-        doseLine("Basal", daily.basal)
-    }
-}
 private enum LoKeyClinicalPDF {
 }
 ''')
