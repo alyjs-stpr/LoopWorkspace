@@ -104,9 +104,13 @@ def status_transform(source: str) -> str:
         raise RuntimeError(f"Expected LoKey-only brand accents, found {total}; review before styling")
     source = source.replace(original_violet, "LoKeyWidgetPalette.violet")
     start = source.find("    private final class LoKeyGlucoseCard: UITableViewCell {")
-    end = source.find("    override func viewDidLoad()", start)
-    if start < 0 or end < start:
+    pod_start = source.find("    private final class LoKeyPodCard: UITableViewCell {", start)
+    # The native viewDidLoad occurs earlier than these injected card classes.
+    # Stop exactly at the closing brace of LoKeyPodCard, not a later Loop method.
+    ending = source.find("\n    }\n", pod_start)
+    if start < 0 or pod_start <= start or ending < pod_start:
         raise RuntimeError("LoKey native card scope changed; refusing global style replacement")
+    end = ending + len("\n    }\n")
     cards = source[start:end]
     # Within LoKey custom UI only, never change native safety or treatment views.
     if cards.count("stack.backgroundColor = .secondarySystemGroupedBackground") < 2:
