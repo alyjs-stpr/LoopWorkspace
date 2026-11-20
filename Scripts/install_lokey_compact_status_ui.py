@@ -75,10 +75,19 @@ def transform(source: str) -> str:
     }
 
     private func loKeyRefreshDeviceAlertBar() {
+        // Lifecycle progress can be warning/critical before the device
+        // publishes a separate badge (e.g. sensor near expiry or low pod).
+        let sensorLifecycleAttention = deviceManager.cgmLifecycleProgress.map {
+            $0.progressState == .warning || $0.progressState == .critical
+        } ?? false
+        let pumpLifecycleAttention = deviceManager.pumpLifecycleProgress.map {
+            $0.progressState == .warning || $0.progressState == .critical
+        } ?? false
         let sensorAttention = deviceManager.isGlucoseValueStale ||
-            deviceManager.cgmStatusHighlight != nil || deviceManager.cgmStatusBadge != nil
+            deviceManager.cgmStatusHighlight != nil || deviceManager.cgmStatusBadge != nil ||
+            sensorLifecycleAttention
         let pumpAttention = deviceManager.pumpStatusHighlight != nil ||
-            deviceManager.pumpStatusBadge != nil
+            deviceManager.pumpStatusBadge != nil || pumpLifecycleAttention
         let loopAttention = deviceManager.loopManager.lastLoopCompleted.map {
             Date().timeIntervalSince($0) > 600
         } ?? true
@@ -200,6 +209,7 @@ def transform(source: str) -> str:
             basalTitle.font = .preferredFont(forTextStyle: .caption1)
             let graphic = LoKeyBasalChangeStepView()
             graphic.direction = loKeyBasalDirection
+            graphic.isHidden = loKeyBasalChange == "Unavailable"
             graphic.backgroundColor = .clear
             graphic.translatesAutoresizingMaskIntoConstraints = false
             graphic.widthAnchor.constraint(equalToConstant: 86).isActive = true
