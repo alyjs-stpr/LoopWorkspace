@@ -157,7 +157,7 @@ def transform(source: str) -> str:
             stopContent.leadingAnchor.constraint(greaterThanOrEqualTo: loKeyStopSurface.leadingAnchor, constant: 8),
             stopContent.trailingAnchor.constraint(lessThanOrEqualTo: loKeyStopSurface.trailingAnchor, constant: -8),
             loKeyStopSurface.widthAnchor.constraint(equalToConstant: 112),
-            loKeyStopSurface.heightAnchor.constraint(greaterThanOrEqualToConstant: 46)
+            loKeyStopSurface.heightAnchor.constraint(greaterThanOrEqualToConstant: 38)
         ])
 
         let row = UIStackView(arrangedSubviews: [details, loKeyStopSurface])
@@ -169,8 +169,8 @@ def transform(source: str) -> str:
         row.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(row)
         NSLayoutConstraint.activate([
-            row.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 9),
-            row.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -9),
+            row.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 4),
+            row.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -4),
             row.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 14),
             row.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -14)
         ])
