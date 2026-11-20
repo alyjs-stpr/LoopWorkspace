@@ -434,6 +434,10 @@ jobs:
           # Presentation-only follow-up: Pod Info unread status dot,
           # Loop-overdue-only main alerts, compact basal beneath glucose IOB.
           python3 Scripts/install_lokey_quiet_dashboard.py
+
+          # Active bolus delivery progress: display only, preserve the native
+          # tap-to-cancel handler and the pump's delivered-unit reporter.
+          python3 Scripts/install_lokey_bolus_progress_polish.py
           python3 -m unittest Scripts/tests/test_lokey_clinical_v2.py
           python3 -m unittest Scripts/tests/test_lokey_clinical_settings_v2.py
           python3 -m unittest Scripts/tests/test_lokey_widget_theme.py
@@ -446,6 +450,7 @@ jobs:
           python3 Scripts/install_lokey_widget_snapshot_bridge.py
           python3 -m unittest discover -s Scripts/tests -p 'test_lokey*widget*.py'
           # Fast syntax gate after all UI patches, before expensive signed archive.
+          swiftc -frontend -parse "Loop/Loop/Views/BolusProgressTableViewCell.swift"
           swiftc -frontend -parse "Loop/Loop/View Controllers/StatusTableViewController.swift"
           swiftc -frontend -parse "Loop/Loop/Views/SettingsView.swift"
           swiftc -frontend -parse "Loop/Loop/View Models/SettingsViewModel.swift"
