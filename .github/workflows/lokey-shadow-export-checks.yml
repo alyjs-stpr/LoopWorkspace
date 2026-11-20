@@ -17,6 +17,8 @@ on:
       - 'Scripts/tests/test_lokey_compact_status_ui.py'
       - 'Scripts/install_lokey_quiet_dashboard.py'
       - 'Scripts/install_lokey_bolus_progress_polish.py'
+      - 'Scripts/install_lokey_compact_preset.py'
+      - 'Scripts/tests/test_lokey_compact_preset.py'
       - 'Scripts/tests/test_lokey_bolus_progress_polish.py'
       - 'Scripts/tests/test_lokey_quiet_dashboard.py'
       - 'customizations/LoKeyChartColors.patch'
@@ -39,6 +41,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check bolus-only progress banner presentation (no dosing actions)
         run: python3 -m unittest discover -s Scripts/tests -p test_lokey_bolus_progress_polish.py -v
+      - name: Verify compact active-target row without therapy changes
+        run: python3 -m unittest discover -s Scripts/tests -p test_lokey_compact_preset.py -v
       - name: Verify unread Pod Info indicator and quiet Dashboard source
         run: python3 -m unittest discover -s Scripts/tests -p test_lokey_quiet_dashboard.py -v
       - name: Verify compact LoKey device notices and read-only basal display

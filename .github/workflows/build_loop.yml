@@ -417,6 +417,9 @@ jobs:
           # Active bolus delivery progress: display only, preserve the native
           # tap-to-cancel handler and the pump's delivered-unit reporter.
           python3 Scripts/install_lokey_bolus_progress_polish.py
+          # Compact active/pending glucose target status; read-only UI.
+          python3 -m unittest discover -s Scripts/tests -p test_lokey_compact_preset.py -v
+          python3 Scripts/install_lokey_compact_preset.py
           python3 -m unittest Scripts/tests/test_lokey_clinical_v2.py
           python3 -m unittest Scripts/tests/test_lokey_clinical_settings_v2.py
           python3 -m unittest Scripts/tests/test_lokey_widget_theme.py

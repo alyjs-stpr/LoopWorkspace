@@ -10,6 +10,8 @@ on:
       - 'Scripts/install_lokey_compact_status_ui.py'
       - 'Scripts/install_lokey_quiet_dashboard.py'
       - 'Scripts/install_lokey_bolus_progress_polish.py'
+      - 'Scripts/install_lokey_compact_preset.py'
+      - 'Scripts/tests/test_lokey_compact_preset.py'
       - 'Scripts/tests/test_lokey_bolus_progress_polish.py'
       - 'Scripts/tests/test_lokey_quiet_dashboard.py'
       - 'Scripts/tests/test_lokey_compact_status_ui.py'
@@ -246,6 +248,9 @@ jobs:
           # Bolus-only native progress cell; no bolus/cancel action modified.
           python3 -m unittest discover -s Scripts/tests -p test_lokey_bolus_progress_polish.py -v
           python3 Scripts/install_lokey_bolus_progress_polish.py
+          # Native preset row presentation only; preserve original target actions.
+          python3 -m unittest discover -s Scripts/tests -p test_lokey_compact_preset.py -v
+          python3 Scripts/install_lokey_compact_preset.py
           grep -Fq 'loKeyInstallBolusProgressPresentation()' 'Loop/Loop/Views/BolusProgressTableViewCell.swift'
           grep -Fq 'case .bolusing(let dose):' 'Loop/Loop/View Controllers/StatusTableViewController.swift'
           grep -Fq 'loKeyPodUnreadDot' 'Loop/Loop/View Controllers/StatusTableViewController.swift'
@@ -747,6 +752,9 @@ jobs:
           # Bolus-only native progress cell; no bolus/cancel action modified.
           python3 -m unittest discover -s Scripts/tests -p test_lokey_bolus_progress_polish.py -v
           python3 Scripts/install_lokey_bolus_progress_polish.py
+          # Native preset row presentation only; preserve original target actions.
+          python3 -m unittest discover -s Scripts/tests -p test_lokey_compact_preset.py -v
+          python3 Scripts/install_lokey_compact_preset.py
           grep -Fq 'loKeyInstallBolusProgressPresentation()' 'Loop/Loop/Views/BolusProgressTableViewCell.swift'
           grep -Fq 'case .bolusing(let dose):' 'Loop/Loop/View Controllers/StatusTableViewController.swift'
           grep -Fq 'loKeyPodUnreadDot' 'Loop/Loop/View Controllers/StatusTableViewController.swift'
