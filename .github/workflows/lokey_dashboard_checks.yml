@@ -8,6 +8,8 @@ on:
       - 'Scripts/install_lokey_shadow_files_export.py'
       - 'Scripts/install_lokey_trio_widget.py'
       - 'Scripts/install_lokey_compact_status_ui.py'
+      - 'Scripts/install_lokey_quiet_dashboard.py'
+      - 'Scripts/tests/test_lokey_quiet_dashboard.py'
       - 'Scripts/tests/test_lokey_compact_status_ui.py'
       - 'Scripts/install_lokey_widget_snapshot_bridge.py'
       - 'Scripts/tests/test_lokey_widget_snapshot_bridge.py'
@@ -237,6 +239,10 @@ jobs:
           python3 -m py_compile Scripts/install_lokey_compact_status_ui.py
           python3 -m unittest discover -s Scripts/tests -p test_lokey_compact_status_ui.py -v
           python3 Scripts/install_lokey_compact_status_ui.py
+          python3 -m unittest discover -s Scripts/tests -p test_lokey_quiet_dashboard.py -v
+          python3 Scripts/install_lokey_quiet_dashboard.py
+          grep -Fq 'loKeyPodUnreadDot' 'Loop/Loop/View Controllers/StatusTableViewController.swift'
+          grep -Fq 'let rightMetrics = UIStackView(arrangedSubviews: [insulin, basalCompact])' 'Loop/Loop/View Controllers/StatusTableViewController.swift'
           grep -Fq 'loKeyInstallDeviceAlertBar' 'Loop/Loop/View Controllers/StatusTableViewController.swift'
           grep -Fq 'Relative to scheduled basal' 'Loop/Loop/View Controllers/StatusTableViewController.swift'
           grep -Fq 'loKeyPrimaryHeader' "Loop/Loop/View Controllers/StatusTableViewController.swift"
@@ -729,6 +735,10 @@ jobs:
           # Source-only cosmetic fix; full three-tile HUD stays alive but hidden.
           python3 -m py_compile Scripts/install_lokey_compact_status_ui.py
           python3 Scripts/install_lokey_compact_status_ui.py
+          python3 -m unittest discover -s Scripts/tests -p test_lokey_quiet_dashboard.py -v
+          python3 Scripts/install_lokey_quiet_dashboard.py
+          grep -Fq 'loKeyPodUnreadDot' 'Loop/Loop/View Controllers/StatusTableViewController.swift'
+          grep -Fq 'let rightMetrics = UIStackView(arrangedSubviews: [insulin, basalCompact])' 'Loop/Loop/View Controllers/StatusTableViewController.swift'
           grep -Fq 'loKeyInstallDeviceAlertBar' 'Loop/Loop/View Controllers/StatusTableViewController.swift'
           grep -Fq 'Relative to scheduled basal' 'Loop/Loop/View Controllers/StatusTableViewController.swift'
           grep -Fq 'loKeyPrimaryHeader' "Loop/Loop/View Controllers/StatusTableViewController.swift"
