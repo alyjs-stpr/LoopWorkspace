@@ -235,6 +235,7 @@ jobs:
           python3 Scripts/install_lokey_ui_repair.py
           # Source-only cosmetic fix; full three-tile HUD stays alive but hidden.
           python3 -m py_compile Scripts/install_lokey_compact_status_ui.py
+          python3 -m unittest discover -s Scripts/tests -p test_lokey_compact_status_ui.py -v
           python3 Scripts/install_lokey_compact_status_ui.py
           grep -Fq 'loKeyInstallDeviceAlertBar' 'Loop/Loop/View Controllers/StatusTableViewController.swift'
           grep -Fq 'Relative to scheduled basal' 'Loop/Loop/View Controllers/StatusTableViewController.swift'
