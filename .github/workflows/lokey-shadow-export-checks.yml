@@ -13,6 +13,8 @@ on:
       - 'Scripts/tests/test_lokey_clinical_v2.py'
       - 'Scripts/install_lokey_widget_theme.py'
       - 'Scripts/tests/test_lokey_widget_theme.py'
+      - 'Scripts/install_lokey_compact_status_ui.py'
+      - 'Scripts/tests/test_lokey_compact_status_ui.py'
       - 'customizations/LoKeyChartColors.patch'
       - '.github/workflows/build_loop.yml'
       - '.github/workflows/build_loop_auto.yml'
@@ -31,6 +33,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+      - name: Verify compact LoKey device notices and read-only basal display
+        run: python3 -m unittest discover -s Scripts/tests -p test_lokey_compact_status_ui.py -v
       - name: Verify targeted, fail-closed Shadow export installer
         run: python3 -m unittest discover -s Scripts/tests -p test_lokey_shadow_files_export.py -v
       - name: Test LoKey widget snapshot bridge and read-only invariants
