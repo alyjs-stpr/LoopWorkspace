@@ -405,6 +405,10 @@ jobs:
           python3 Scripts/install_lokey_clinical_pdf_v2.py
           # Print readable ICR, ISF, basal, targets and recorded past settings.
           python3 Scripts/install_lokey_clinical_settings_v2.py
+
+          # UI-only: compact CGM/pump notices, preserve native HUD callbacks,
+          # and show the isolated net basal-change graphic on Dashboard.
+          python3 Scripts/install_lokey_compact_status_ui.py
           python3 -m unittest Scripts/tests/test_lokey_clinical_v2.py
           python3 -m unittest Scripts/tests/test_lokey_clinical_settings_v2.py
           python3 -m unittest Scripts/tests/test_lokey_widget_theme.py
