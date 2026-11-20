@@ -7,6 +7,8 @@ on:
       - 'Scripts/check_missed_meal_heuristic.py'
       - 'Scripts/install_lokey_shadow_files_export.py'
       - 'Scripts/install_lokey_trio_widget.py'
+      - 'Scripts/install_lokey_compact_status_ui.py'
+      - 'Scripts/tests/test_lokey_compact_status_ui.py'
       - 'Scripts/install_lokey_widget_snapshot_bridge.py'
       - 'Scripts/tests/test_lokey_widget_snapshot_bridge.py'
       - 'Scripts/tests/test_lokey_trio_widget.py'
@@ -231,6 +233,11 @@ jobs:
           python3 Scripts/install_lokey_widget_snapshot_bridge.py
           # UI-only repair; fail build if native source anchors changed.
           python3 Scripts/install_lokey_ui_repair.py
+          # Source-only cosmetic fix; full three-tile HUD stays alive but hidden.
+          python3 -m py_compile Scripts/install_lokey_compact_status_ui.py
+          python3 Scripts/install_lokey_compact_status_ui.py
+          grep -Fq 'loKeyInstallDeviceAlertBar' 'Loop/Loop/View Controllers/StatusTableViewController.swift'
+          grep -Fq 'Relative to scheduled basal' 'Loop/Loop/View Controllers/StatusTableViewController.swift'
           grep -Fq 'loKeyPrimaryHeader' "Loop/Loop/View Controllers/StatusTableViewController.swift"
           grep -Fq 'overrideSelectionControllerDidEndCurrentOverride' "Loop/WatchApp Extension/Controllers/ActionHUDController.swift"
           grep -Fq 'rawValue["previousPodActivatedAt"] = previousActivatedAt' "OmnipodKit/OmnipodKit/PumpManagerUI/OmniHUDProvider.swift"
@@ -718,6 +725,11 @@ jobs:
           python3 Scripts/install_lokey_widget_snapshot_bridge.py
           # UI-only repair; fail build if native source anchors changed.
           python3 Scripts/install_lokey_ui_repair.py
+          # Source-only cosmetic fix; full three-tile HUD stays alive but hidden.
+          python3 -m py_compile Scripts/install_lokey_compact_status_ui.py
+          python3 Scripts/install_lokey_compact_status_ui.py
+          grep -Fq 'loKeyInstallDeviceAlertBar' 'Loop/Loop/View Controllers/StatusTableViewController.swift'
+          grep -Fq 'Relative to scheduled basal' 'Loop/Loop/View Controllers/StatusTableViewController.swift'
           grep -Fq 'loKeyPrimaryHeader' "Loop/Loop/View Controllers/StatusTableViewController.swift"
           grep -Fq 'overrideSelectionControllerDidEndCurrentOverride' "Loop/WatchApp Extension/Controllers/ActionHUDController.swift"
           grep -Fq 'rawValue["previousPodActivatedAt"] = previousActivatedAt' "OmnipodKit/OmnipodKit/PumpManagerUI/OmniHUDProvider.swift"
