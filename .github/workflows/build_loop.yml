@@ -409,6 +409,10 @@ jobs:
           # UI-only: compact CGM/pump notices, preserve native HUD callbacks,
           # and show the isolated net basal-change graphic on Dashboard.
           python3 Scripts/install_lokey_compact_status_ui.py
+
+          # Presentation-only follow-up: Pod Info unread status dot,
+          # Loop-overdue-only main alerts, compact basal beneath glucose IOB.
+          python3 Scripts/install_lokey_quiet_dashboard.py
           python3 -m unittest Scripts/tests/test_lokey_clinical_v2.py
           python3 -m unittest Scripts/tests/test_lokey_clinical_settings_v2.py
           python3 -m unittest Scripts/tests/test_lokey_widget_theme.py
