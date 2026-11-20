@@ -56,6 +56,9 @@ class CompactStatusTests(unittest.TestCase):
         self.assertIn("loKeyOpenLoopNotice", result)
         self.assertIn("deviceManager.cgmStatusBadge != nil", result)
         self.assertIn("deviceManager.pumpStatusBadge != nil", result)
+        self.assertIn("deviceManager.cgmLifecycleProgress.map", result)
+        self.assertIn("deviceManager.pumpLifecycleProgress.map", result)
+        self.assertIn("$0.progressState == .warning || $0.progressState == .critical", result)
         self.assertIn("executeHUDTapAction(deviceManager.didTapOnCGMStatus()", result)
 
     def test_basal_indicator_is_separate_from_pod(self):
